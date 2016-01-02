@@ -1,0 +1,189 @@
+// Copyright © 2015 Hansoft AB 
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+Import "../Core/Lib_Malterlib.MTarget"
+
+%Group "{Malterlib}/{Lib_Malterlib_Process}"
+{
+	%Group Process
+	{
+		%Group Include
+		{
+			Compile.Type "C++"
+			{
+				!!DocumentationEnabled true
+			}
+			%File "Include/Mib/Process/^*"
+		}
+		%File "Source/*"
+		%Group Platform
+		{
+			%File "Source/Platform/*"
+			{
+				Compile.Disabled true
+				{
+					!PlatformFamily "@(PlatformFamilyFromFile)"
+				}
+			}
+		}
+		%Group Documentation
+		{
+			%File "Documentation/*"
+		}
+	}
+}
+
+
+Property
+{
+	MalterlibLibrary_Process true
+	{
+		&
+		{
+			MalterlibLibrary_Process ""
+			MalterlibLibrary_All true
+		}
+	}
+	MalterlibSubLibraries "Process;@(MalterlibSubLibraries)"
+	{
+		!!MalterlibLibrary_Process true
+	}
+//	MalterlibSubLibrarySeparate_Lib_Malterlib_Process true
+	MalterlibIncludeRoots "@('Include'->MakeAbsolute());@(MalterlibIncludeRoots)"
+	{
+		!!MalterlibLibrary_Process true
+	}
+}
+
+%Target Dll_Test_Malterlib_Helper_Process
+{
+	Property
+	{
+		MalterlibHelperTest true
+		MalterlibPostCopyProject "Tests"
+		ProductName "Malterlib Test Dll"
+	}
+	Target
+	{
+		BaseName "Test_Malterlib_Helper_Process"
+		Type "DynamicLibrary"
+		Group "Helpers"
+	}
+	Compile
+	{
+		!!CompileDialect C
+		PrefixHeader ""
+	}
+	%File Test/Test_Malterlib_Process_DllMain.cpp
+	%Dependency Lib_Malterlib
+}
+
+
+%Group "{Test}/{Malterlib_Helper_Process}"
+{
+	Property
+	{
+		URLScheme "@(Builtin.Function->GetProperty('Property', 'URLScheme', 'Target:*.Parent.Parent.Parent.Group:Tests.Target:Malterlib_Process.Target:Malterlib_Process'))"
+
+		MalterlibURLScheme "@(URLScheme),Viewer,@(ProductCompany->Sanitize()).@(Target:Target.Name->Sanitize()).Link, "
+		{
+			!!PlatformFamily "OSX"
+		}
+		MalterlibBundleIdentifier "@(ProductCompanyUniqueIdentifier->Sanitize()).@(Target:Target.Name->Sanitize()).@(MalterlibFinalModuleDestination->HashUUID(AlphaNum))"
+		{
+			!!PlatformFamily "OSX"
+		}
+
+		MalterlibBuildSpecifics "@(MalterlibBuildSpecifics)\r\n"\
+								"#define DLaunchableScheme \"@(URLScheme)\"\r\n"
+		{
+		}
+
+		MalterlibEnableBreakpad true
+		{
+			!!PlatformFamily OSX
+		}
+		MalterlibSigning false
+		MalterlibTestOwnMain true
+	}
+	Target
+	{
+		Type "UIExecutable"
+	}
+	%Group "Helper Source"
+	{
+		
+		%File Test/Test_Malterlib_Process_Launchable_Main.cpp
+		%File Test/Test_Malterlib_Process_Launchable_EventHandler.mm
+		{
+			Compile.Disabled true
+			{
+				!PlatformFamily OSX
+			}
+		}
+		%File Test/Test_Malterlib_Process_Launchable_EventHandler.h
+	}
+}
+
+
+Property
+{
+	!!MalterlibEnableInternalTests true
+	
+	MalterlibTests "Malterlib_Helper_Process;@(MalterlibTests)"
+	MalterlibTestExtraGroups_Malterlib_Helper_Process "{Test}/{Malterlib_Helper_Process}"
+	MalterlibTestAutoAdd_Malterlib_Helper_Process false
+
+}
+
+
+%Group "{Test}/{Malterlib_Process}"
+{
+	Property
+	{
+		URLSchemeUnique "@(MalterlibFinalModuleDestination->HashUUID(AlphaNum))"
+		URLScheme "hs@(URLSchemeUnique->FormatString({sm6}))"
+
+		MalterlibBuildSpecifics "@(MalterlibBuildSpecifics)\r\n"\
+								"#define DLaunchableScheme \"@(URLScheme)\"\r\n"
+
+		ProductVersionMajor "1"
+		ProductVersionMinor "2"
+		ProductVersionRevision "345"
+		
+		MalterlibUseLauncher true
+		
+		MalterlibExtraPListContents "@(MalterlibExtraPListContents)"\
+									"	<key>SecTaskAccess</key>\n"\
+									"		<array>\n"\
+									"			<string>allowed</string>\n"\
+									"		</array>\n"
+		{
+			!!PlatformFamily OSX
+		}
+
+	}
+	%Group Tests
+	{
+		%File Test/Test_Malterlib_Process_ProcessLaunch.cpp
+		%File Test/Test_Malterlib_Process_StdIn.cpp
+		%File Test/Test_Malterlib_Process_Info.cpp
+	}
+	%Dependency "Malterlib_Helper_Process=Exe_Test_Malterlib_Helper_Process"
+	{
+		Dependency.Link "false"
+	}
+	%Dependency "Dll_Test_Malterlib_Helper_Process"
+	{
+		Dependency.Link "false"
+	}
+}
+
+Property
+{
+	!!MalterlibEnableInternalTests true
+	
+	MalterlibTests "Malterlib_Process;@(MalterlibTests)"
+	MalterlibTestExtraGroups_Malterlib_Process "{Test}/{Malterlib_Process}"
+}
+
