@@ -289,6 +289,7 @@ namespace NMib
 					
 
 #ifdef DPlatformFamily_OSX
+					NStr::CStr OriginalProgram = Program;
 					Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Directory);
 					if ( NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
 					{
@@ -304,7 +305,7 @@ namespace NMib
 							return fg_MacOSX_LaunchUIExecutable(NewLaunchOptions, mp_ProcessID, _Errors);
 						}
 						else
-							Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable);
+							Program = fg_FindExecutable(OriginalProgram, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable);
 					}
 #else
 					Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable);
