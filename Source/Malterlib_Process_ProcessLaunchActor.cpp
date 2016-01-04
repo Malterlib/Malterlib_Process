@@ -49,7 +49,12 @@ namespace NMib
 		{
 			auto &Internal = *mp_pInternal;
 			if (!Internal.m_pProcessLaunch || Internal.m_bProcessExited)
+			{
+				Internal.m_OnStateChange.f_Clear();
+				Internal.m_OnOutput.f_Clear();
+				Internal.m_PendingProcessStops.f_Clear();
 				return NConcurrency::TCContinuation<void>::fs_Finished();
+			}
 			
 			NConcurrency::TCContinuation<void> Continuation;
 
