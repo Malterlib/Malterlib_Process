@@ -2,24 +2,32 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
+#include <Mib/Core/PlatformSpecific/WindowsFilePath>
+#include <Mib/Core/PlatformSpecific/WindowsFile>
+#include <Mib/Core/PlatformSpecific/WindowsError>
 #include "../Malterlib_Process_Platform.h"
+#include <Windows.h>
+#include "Malterlib_Process_Platform_Windows.h"
+
+#include <TlHelp32.h>
+#include <Psapi.h>
 
 #pragma comment(lib, "Version.lib")
 namespace
 {
-	uint32 fg_GetPEInfo(CStr _File, uint16 &_MajorVersion, uint16 &_MinorVersion)
+	uint32 fg_GetPEInfo(NMib::NStr::CStr const &_File, uint16 &_MajorVersion, uint16 &_MinorVersion)
 	{
-		if (!NFile::CFile::fs_FileExists(_File))
+		if (!NMib::NFile::CFile::fs_FileExists(_File))
 			return 0;
 		uint32 TimeStamp = 0;
-		NFile::CFile File;
-		File.f_Open(_File, EFileOpen_Read | EFileOpen_ShareAll);
+		NMib::NFile::CFile File;
+		File.f_Open(_File, NMib::NFile::EFileOpen_Read | NMib::NFile::EFileOpen_ShareAll);
 		uint32 Chunk[sizeof(uint32) * 256];
 		CMibFilePos ToRead = File.f_GetLength() / 4;
 		CMibFilePos FilePos = 0;
 		while (ToRead)
 		{
-			mint ThisTime = fg_Min(ToRead, 256);
+			mint ThisTime = NMib::fg_Min(ToRead, 256);
 			File.f_Read(Chunk, ThisTime * sizeof(uint32));
 			for (mint i = 0; i < ThisTime; ++i)
 			{
@@ -56,9 +64,43 @@ namespace
 		return TimeStamp;
 	}
 }
+
+uint32 NMib::NProcess::NPlatform::fg_Win32_TranslateProcessPriority(EExecutionPriority _Priority)
+{
+
+	if (_Priority == EExecutionPriority_Default)
+	{
+		return 0;
+	}
+	else if (_Priority == EExecutionPriority_Highest)
+	{
+		return REALTIME_PRIORITY_CLASS;
+	}
+	else if (_Priority >= EExecutionPriority_High)
+	{
+		return HIGH_PRIORITY_CLASS;
+	}
+	else if (_Priority >= EExecutionPriority_AboveNormal)
+	{
+		return ABOVE_NORMAL_PRIORITY_CLASS;
+	}
+	else if (_Priority >= EExecutionPriority_Normal)
+	{
+		return NORMAL_PRIORITY_CLASS;
+	}
+	else if (_Priority >= EExecutionPriority_BelowNormal)
+	{
+		return BELOW_NORMAL_PRIORITY_CLASS;
+	}
+	else
+	{
+		return IDLE_PRIORITY_CLASS;
+	}
+}
+
 void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const &_File, NMib::NProcess::CVersionInfo &_VersionInfo)
 {
-	CWStr File = fg_ConvertToWindowsPathLocal(_File);
+	NMib::NStr::CWStr File = NMib::NFile::NPlatform::fg_ConvertToWindowsPathLocal(_File);
 
 	_VersionInfo.m_Major = 0;
 	_VersionInfo.m_Minor = 0;
@@ -71,7 +113,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		if (Size == 0)
 			break;
 
-		TCVector<uint8> Data;
+		NContainer::TCVector<uint8> Data;
 		Data.f_SetLen(Size);
 		if (!GetFileVersionInfoW(File, 0, Size, Data.f_GetArray()))
 			break;
@@ -101,13 +143,13 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		{
 			for (mint i = 0; i < (QuerySize/sizeof(struct LANGANDCODEPAGE)); ++i)
 			{
-				CWStr SubBlock = CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild")) << pTranslate[i].wLanguage << pTranslate[i].wCodePage;
+				NStr::CWStr SubBlock = NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild")) << pTranslate[i].wLanguage << pTranslate[i].wCodePage;
 
 				ch16 const *pBuffer = nullptr;
 				UINT BufferBytes = 0;
 				if (VerQueryValue(pBlock, SubBlock.f_GetStr(), (LPVOID*)&pBuffer, &BufferBytes))
 				{
-					_VersionInfo.m_Branch = CWStr(pBuffer);
+					_VersionInfo.m_Branch = NStr::CWStr(pBuffer);
 					break;
 				}
 			}
@@ -126,5 +168,323 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		_VersionInfo.m_Revision = PEMinor % 1000;
 	}
 
-	_VersionInfo.m_BuildTime = CTimeConvert::fs_CreateTime(1970) + CTimeSpan((int64)TimeStamp);
+	_VersionInfo.m_BuildTime = NTime::CTimeConvert::fs_CreateTime(1970) + NTime::CTimeSpan((int64)TimeStamp);
 }
+
+
+void NMib::NProcess::NPlatform::fg_Process_SetPriority(uint16 _Priority)
+{
+	SetPriorityClass(GetCurrentProcess(), fg_Win32_TranslateProcessPriority((EExecutionPriority)_Priority));
+}
+
+NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum)
+{
+	NContainer::TCVector<NProcess::CProcessInfo> Ret;
+	
+	CProcessEntry RootProcess;
+	HANDLE hProcessSnap;
+	PROCESSENTRY32 pe32;
+
+	// Take a snapshot of all processes in the system.
+	hProcessSnap = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 );
+	if (hProcessSnap != INVALID_HANDLE_VALUE)
+	{
+		pe32.dwSize = sizeof( PROCESSENTRY32 );
+
+		if (Process32First( hProcessSnap, &pe32 ) )
+		{
+			do
+			{
+				auto & NewProcess = Ret.f_Insert();
+				
+				NewProcess.m_ProcessID = pe32.th32ProcessID;
+				NewProcess.m_ParentProcessID = pe32.th32ParentProcessID;
+				
+				HANDLE pThisProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, pe32.th32ProcessID);
+
+				FILETIME CreateTime;
+				FILETIME ExitTime;
+				FILETIME KernelTime;
+				FILETIME UserTime;
+
+				if (GetProcessTimes(pThisProcess, &CreateTime, &ExitTime, &KernelTime, &UserTime))
+					NewProcess.m_StartTime = uint64(CreateTime.dwHighDateTime) << 32 | uint64(CreateTime.dwLowDateTime);
+
+				if (pThisProcess)
+					CloseHandle(pThisProcess);
+			} 
+			while( Process32Next( hProcessSnap, &pe32 ) );
+		}
+
+		CloseHandle( hProcessSnap );
+	}
+	return Ret;
+}		
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetUserName()
+{
+	uint32 Size = 0;
+	::GetUserNameW(nullptr, &Size);
+	
+	++Size;
+	NMib::NStr::CWStr Return;
+	::GetUserNameW(Return.f_GetStr(Size), &Size);
+	Return.f_TrimSize();
+	return Return;
+}
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerAddress()
+{
+	return NMib::NProcess::NPlatform::fg_Process_GetComputerName();
+}
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerName()
+{
+	uint32 Size = 0;
+	::GetComputerNameW(nullptr, &Size);
+	
+	++Size;
+	NMib::NStr::CWStr Return;
+	::GetComputerNameW(Return.f_GetStr(Size), &Size);
+	Return.f_TrimSize();
+	return Return;
+}
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetHostName()
+{
+	NStr::CWStr Temp;
+	DWORD Size = 0;
+	GetComputerNameExW(ComputerNameDnsFullyQualified, Temp.f_GetStr(1), &Size);
+	GetComputerNameExW(ComputerNameDnsFullyQualified, Temp.f_GetStr(Size), &Size);
+	Temp.f_GetLen();
+	return NStr::NPlatform::fg_StrFromWindows(Temp);
+}
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerDomain()
+{
+	NStr::CWStr Temp;
+	DWORD Size = 0;
+	GetComputerNameExW(ComputerNameDnsDomain, Temp.f_GetStr(1), &Size);
+	GetComputerNameExW(ComputerNameDnsDomain, Temp.f_GetStr(Size), &Size);
+	Temp.f_GetLen();
+
+	return NStr::NPlatform::fg_StrFromWindows(Temp);
+}
+
+mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
+{
+	return GetCurrentProcessId();
+}
+
+bint NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
+{
+	// Not implemented yet
+	return false;
+}
+
+
+
+void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
+{
+	PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
+	NMem::fg_MemClear(MemoryInfo);
+
+	if (GetProcessMemoryInfo(_pProcess, (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
+	{
+		_Stats.m_Statistics("Working set size", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.WorkingSetSize, 1024 * 1024));
+		_Stats.m_Statistics("Paged pool usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.QuotaPagedPoolUsage, 1024));
+		_Stats.m_Statistics("Non paged pool usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.QuotaNonPagedPoolUsage, 1024));
+		_Stats.m_Statistics("Page file usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.PagefileUsage, 1024 * 1024));
+		_Stats.m_Statistics("Private usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.PrivateUsage, 1024 * 1024));
+	}
+}
+
+void NMib::NProcess::NPlatform::fg_Process_GetMemoryOverallStatistics(void *_pProcess, CProcessStatistics &_Stats)
+{
+	PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
+	NMem::fg_MemClear(MemoryInfo);
+
+	if (GetProcessMemoryInfo(_pProcess, (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
+	{
+		_Stats.m_Statistics("Total page faults", CProcessStat(EProcessStatUnit_GeneralNumber, MemoryInfo.PageFaultCount));
+		_Stats.m_Statistics("Peak working set size", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.PeakWorkingSetSize, 1024 * 1024));
+		_Stats.m_Statistics("Peak paged pool usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.QuotaPeakPagedPoolUsage, 1024));
+		_Stats.m_Statistics("Peak non paged pool usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.QuotaPeakNonPagedPoolUsage, 1024));
+		_Stats.m_Statistics("Peak page file usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.PeakPagefileUsage, 1024 * 1024));
+	}
+}
+
+void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
+{
+	FILETIME CreateTime1;
+	FILETIME ExitTime1;
+	FILETIME KernelTime1;
+	FILETIME UserTime1;
+	
+	if (GetProcessTimes(_pProcess, &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
+	{
+		NTime::CTime CreateTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(CreateTime1);
+		NTime::CTimeSpan KernelTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(KernelTime1);
+		NTime::CTimeSpan UserTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(UserTime1);
+		NTime::CTimeSpan RunTime = NTime::CTime::fs_NowUTC() - CreateTime;
+		
+		fp64 KernelSeconds = KernelTime.f_GetSecondsFraction();
+		fp64 UserSeconds = UserTime.f_GetSecondsFraction();
+		fp64 RunSeconds = RunTime.f_GetSecondsFraction();
+		
+		_Stats.m_Statistics("CPU utilization Total", CProcessStat(EProcessStatUnit_Fraction, (KernelSeconds + UserSeconds) / RunSeconds));
+		_Stats.m_Statistics("CPU utilization User", CProcessStat(EProcessStatUnit_Fraction, UserSeconds / RunSeconds));
+		_Stats.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, KernelSeconds / RunSeconds));
+	}
+}
+
+void NMib::NProcess::NPlatform::fg_Process_GetExecutionOverallStatistics(void *_pProcess, CProcessStatistics &_Stats)
+{
+	FILETIME CreateTime1;
+	FILETIME ExitTime1;
+	FILETIME KernelTime1;
+	FILETIME UserTime1;
+
+	if (GetProcessTimes(_pProcess, &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
+	{
+		NTime::CTime CreateTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(CreateTime1);
+		NTime::CTime ExitTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(ExitTime1);
+		NTime::CTimeSpan KernelTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(KernelTime1);
+		NTime::CTimeSpan UserTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(UserTime1);
+		NTime::CTimeSpan RunTime = ExitTime - CreateTime;
+
+		fp64 KernelSeconds = KernelTime.f_GetSecondsFraction();
+		fp64 UserSeconds = UserTime.f_GetSecondsFraction();
+		fp64 RunSeconds = RunTime.f_GetSecondsFraction();
+
+		_Stats.m_Statistics("CPU utilization Total", CProcessStat(EProcessStatUnit_Fraction, (KernelSeconds + UserSeconds) / RunSeconds));
+		_Stats.m_Statistics("CPU utilization User", CProcessStat(EProcessStatUnit_Fraction, UserSeconds / RunSeconds));
+		_Stats.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, KernelSeconds / RunSeconds));
+	}
+}
+
+
+uint64 NMib::NProcess::NPlatform::fg_Process_GetPhysicalMemory()
+{
+	MEMORYSTATUSEX MemoryStatus;
+	MemoryStatus.dwLength = sizeof(MemoryStatus);
+	GlobalMemoryStatusEx(&MemoryStatus);
+	uint64 Max = MemoryStatus.ullTotalPhys;
+	return Max;
+}
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int32 _MajorMax, int32 _MinorMax)
+{
+	return "Win32";
+}
+
+#pragma warning(disable:4996)
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescription()
+{
+	OSVERSIONINFOEXW VersionInfo;
+	NMem::fg_MemClear(VersionInfo);
+	VersionInfo.dwOSVersionInfoSize = sizeof(VersionInfo);
+	if (!GetVersionExW((OSVERSIONINFO *)&VersionInfo))
+		return "";
+
+	if (VersionInfo.dwMajorVersion == 6)
+	{			
+		if (VersionInfo.wProductType == VER_NT_WORKSTATION)
+		{
+			if (VersionInfo.dwMinorVersion == 0)
+				return "Windows Vista";
+			else if (VersionInfo.dwMinorVersion == 1)
+				return "Windows 7";
+			else if (VersionInfo.dwMinorVersion == 2)
+				return "Windows 8";
+			else
+				return "Window 8"; // For anything in the future assume Windows 8 compatibility.
+		}
+		else if (VersionInfo.wProductType == VER_NT_SERVER)
+		{ // OS is Windows Server 2008 R2, Windows Server 2008, Windows Server 2003, or Windows 2000 Server.
+			if (VersionInfo.dwMinorVersion == 1)
+				return "Windows Server 2008 R2";
+			else if (VersionInfo.dwMinorVersion >= 2)
+				return "Windows Server 2012";
+			else
+				return "Windows Server 2008";
+		}
+		else if (VersionInfo.wProductType == VER_NT_DOMAIN_CONTROLLER)
+		{ // OS is Windows Server 2008 R2, Windows Server 2008, Windows Server 2003, or Windows 2000 Server.
+			return "Windows Vista";
+		}
+		else
+			return  "Windows Unknown";
+	}
+	if (VersionInfo.dwMajorVersion == 5)
+	{
+		if (VersionInfo.dwMinorVersion == 0)
+			return "Windows 2000";
+		else if (VersionInfo.dwMinorVersion == 1)
+			return "Windows XP";
+		else if (VersionInfo.dwMinorVersion == 2)
+		{
+			SYSTEM_INFO SystemInfo;
+			NMem::fg_MemClear(SystemInfo);
+			GetNativeSystemInfo(&SystemInfo);
+
+			if (GetSystemMetrics(SM_SERVERR2) != 0)
+				return "Windows Server 2003 R2";
+			else if (VersionInfo.wSuiteMask & VER_SUITE_WH_SERVER)
+				return "Windows Home Server";
+			else if (GetSystemMetrics(SM_SERVERR2) == 0)
+				return "Windows Server 2003";
+			else if ((VersionInfo.wProductType == VER_NT_WORKSTATION) && (SystemInfo.wProcessorArchitecture==PROCESSOR_ARCHITECTURE_AMD64))
+				return "Windows XP Professional x64 Edition";
+			else
+				return  "Windows Unknown";
+		}
+		else
+			return  "Windows Unknown";
+
+	}
+	else
+	{
+		return "Windows";
+	}
+
+	DMibSafeCheck(false, "This is not implemented on Windows yet");
+	return "Windows";
+}
+
+void NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
+{
+	DMibError("fg_Process_Pause not implemented");
+}
+
+void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID)
+{
+	DMibError("fg_Process_Resume not implemented");
+}
+
+void NMib::NProcess::NPlatform::fg_Process_Terminate(mint _ProcessID)
+{
+	HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, false, _ProcessID);
+	if (!hProcess)
+		DMibError(fg_Format("When terminating process Windows returned an error from OpenProcess: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
+
+	NMib::g_OnScopeExit > [&]
+		{
+			CloseHandle(hProcess);
+		}
+	;
+
+	if (!TerminateProcess(hProcess, 255))
+		DMibError(fg_Format("When terminating process Windows returned an error from TerminateProcess: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
+}
+
+void NMib::NProcess::NPlatform::fg_Process_Stop(mint _ProcessID)
+{
+	if (!GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, _ProcessID))
+	{
+		DMibError(fg_Format("Windows returned an error from GenerateConsoleCtrlEvent: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
+		DMibTrace("GenerateConsoleCtrlEvent: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+	}
+}
+

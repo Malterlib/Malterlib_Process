@@ -397,3 +397,28 @@ void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID)
 //				DTrace("task_resume failed!!!\n", 0);
 //			kill(_ProcessID, SIGCONT);
 }
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int32 _MajorMax, int32 _MinorMax)
+{
+	int Major, Minor, Fix;
+	NMib::NSys::EOperatingSystemArch Arch;
+	NMib::NSys::fg_System_GetOperatingSystemVersion(Major, Minor, Fix, Arch);
+			
+	if (Major > _MajorMax || (Major == _MajorMax && Minor > _MinorMax))
+	{
+		Major = _MajorMax;
+		Minor = _MinorMax;
+	}
+
+	return (NStr::CStr::CFormat("OSX{}.{}") << Major << Minor).f_GetStr();
+}
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescription()
+{
+	int Major, Minor, Fix;
+	NMib::NSys::EOperatingSystemArch Arch;
+	NMib::NSys::fg_System_GetOperatingSystemVersion(Major, Minor, Fix, Arch);
+
+	return (NStr::CStr::CFormat("Mac OSX {}.{}") << Major << Minor).f_GetStr();
+}
+
