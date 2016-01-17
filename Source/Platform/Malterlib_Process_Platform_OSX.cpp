@@ -401,7 +401,7 @@ void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID)
 NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int32 _MajorMax, int32 _MinorMax)
 {
 	int Major, Minor, Fix;
-	NMib::NSys::EOperatingSystemArch Arch;
+	NMib::EOperatingSystemArch Arch;
 	NMib::NSys::fg_System_GetOperatingSystemVersion(Major, Minor, Fix, Arch);
 			
 	if (Major > _MajorMax || (Major == _MajorMax && Minor > _MinorMax))
@@ -416,7 +416,7 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int
 NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescription()
 {
 	int Major, Minor, Fix;
-	NMib::NSys::EOperatingSystemArch Arch;
+	NMib::EOperatingSystemArch Arch;
 	NMib::NSys::fg_System_GetOperatingSystemVersion(Major, Minor, Fix, Arch);
 
 	return (NStr::CStr::CFormat("Mac OSX {}.{}") << Major << Minor).f_GetStr();
