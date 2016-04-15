@@ -92,6 +92,7 @@ namespace
 		int32 m_ProcessID;
 		int32 m_ParentProcessID;
 		uint64 m_StartTime;
+		NMib::NStr::CStr m_Name;
 	};
 	NMib::NContainer::TCVector<CProcInfo> fg_Linux_Process_GetAllRunning()
 	{
@@ -166,7 +167,8 @@ namespace
 						auto &New = Return.f_Insert();
 						New.m_ProcessID = pid;
 						New.m_ParentProcessID = ppid;
-						New.m_StartTime = starttime;						
+						New.m_StartTime = starttime;
+						New.m_Name = NMib::fg_Move(comm);
 					}						
 					
 				}
@@ -318,14 +320,66 @@ NMib::NContainer::TCVector<NMib::NProcess::NPlatform::CPOSIXProcessInfo> NMib::N
 NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum)
 {
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
+
+	NContainer::TCMap<mint, NProcess::CProcessInfo *> OldInfo;
+	
+	if (_pOldEnum)
+	{
+		for (auto iOld = _pOldEnum->f_GetIterator(); iOld; ++iOld)
+		{
+			OldInfo[iOld->m_ProcessID] = &*iOld;
+		}
+	}
+	
 	auto Processes = fg_Linux_Process_GetAllRunning();
 	for (auto iProcess = Processes.f_GetIterator(); iProcess; ++iProcess)
 	{
 		auto &Process = *iProcess;
+		if (auto pOld = OldInfo.f_FindEqual(Process.m_ProcessID))
+		{
+			if ((*pOld)->m_StartTime == Process.m_StartTime)
+			{
+				Ret.f_Insert(fg_Move(*pOld));
+				continue;
+			}
+		}
+		
 		auto &New = Ret.f_Insert();
 		New.m_ProcessID = Process.m_ProcessID;
-		New.m_ParentProcessID = Process.m_ParentProcessID;
 		New.m_StartTime = Process.m_StartTime;
+		
+		if (_ToGet & NProcess::EProcessInfoFlag_ParentProcessID)
+			New.m_ParentProcessID = Process.m_ParentProcessID;
+		if (_ToGet & NProcess::EProcessInfoFlag_FileName)
+			New.m_FileName = fg_Move(Process.m_Name);
+		if (_ToGet & NProcess::EProcessInfoFlag_FullPath)
+		{
+			try
+			{
+				New.m_FullPath = NFile::CFile::fs_ResolveSymbolicLink(NStr::fg_Format("/proc/{}/exe", Process.m_ProcessID));
+			}
+			catch (NFile::CExceptionFile const &)
+			{
+			}
+		}
+		if (_ToGet & NProcess::EProcessInfoFlag_Args)
+		{
+			try
+			{
+				auto FileData = NMib::NPlatform::fg_ReadProcFS(NMib::NStr::CFStr256::CFormat("/proc/{}/cmdline") << Process.m_ProcessID);
+				ch8 const *pParse = FileData.f_GetArray();
+				ch8 const *pEnd = pParse + FileData.f_GetLen();
+				while (pParse < pEnd)
+				{
+					mint nChars = NStr::fg_StrLen(pParse, pEnd - pParse);
+					New.m_Args.f_Insert(NStr::CStr(pParse, nChars));
+					pParse += nChars + 1;
+				}
+			}
+			catch (NFile::CExceptionFile const &)
+			{
+			}
+		}
 	}
 	return Ret;
 }		
