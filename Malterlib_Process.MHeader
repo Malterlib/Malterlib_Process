@@ -31,8 +31,11 @@ Import "../Core/Lib_Malterlib.MTarget"
 			%File "Documentation/*"
 		}
 	}
+	%Dependency Lib_Malterlib_Concurrency
+	{
+		Dependency.Indirect true
+	}	
 }
-
 
 Property
 {
@@ -177,7 +180,6 @@ Property
 	{
 		Dependency.Link "false"
 	}
-	%Dependency "Lib_Malterlib_Concurrency"
 }
 
 Property
