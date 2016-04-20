@@ -177,6 +177,7 @@ Property
 	{
 		Dependency.Link "false"
 	}
+	%Dependency "Lib_Malterlib_Concurrency"
 }
 
 Property
