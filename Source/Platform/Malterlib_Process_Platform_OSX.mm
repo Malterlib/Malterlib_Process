@@ -42,12 +42,21 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 
 	CAutoReleasePool ARPool;
 	
-	NSURL *pURL = [NSURL fileURLWithPath: NMib::NPlatform::fg_MaxOSX_GetString(CanonicalFile)];
+	NSString *pFileName = NMib::NPlatform::fg_MaxOSX_GetString(CanonicalFile);
+	NSURL *pURL = [NSURL fileURLWithPath: pFileName];
+	
 	if (pURL)
 	{
 		NSDictionary *pPList = (NSDictionary *)CFBundleCopyInfoDictionaryForURL((CFURLRef)pURL);
 		
-		if (pPList)
+		if (!pPList)
+			return;
+		auto Cleanup1 = g_OnScopeExit > [&]
+			{
+				CFRelease(pPList);
+			}
+		;
+		
 		{
 			NStr::CStr BundleVersion = fg_GetDictionaryValue(pPList, "CFBundleShortVersionString", NStr::CStr::fs_ToStr(_VersionInfo.m_Major));
 			
