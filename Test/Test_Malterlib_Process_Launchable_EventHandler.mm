@@ -15,9 +15,8 @@
 	{
 		NSString *URLString = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
 
-		char const* pUTF8String = [URLString UTF8String];
-
-		NMib::NStr::CStr URL(pUTF8String);
+		NSData *pData = [URLString dataUsingEncoding: NSUTF8StringEncoding];
+		NMib::NStr::CStr URL{(ch8 const *)pData.bytes, pData.length};
 
 		m_pfOnOpenURL(URL);
 
