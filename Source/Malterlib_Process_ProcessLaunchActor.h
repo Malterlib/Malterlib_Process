@@ -25,7 +25,8 @@ namespace NMib
 				)
 			;
 
-			void f_SendStdIn(NMib::NStr::CStr const &_Data) const;
+			NConcurrency::TCContinuation<void> f_SendStdIn(NMib::NStr::CStr const &_Data) const;
+			NConcurrency::TCContinuation<void> f_SendStdInBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data) const;
 			NConcurrency::TCContinuation<uint32> f_StopProcess() const; // Soft termination
 			
 			NConcurrency::TCContinuation<fp64> f_GetRunningTime() const;

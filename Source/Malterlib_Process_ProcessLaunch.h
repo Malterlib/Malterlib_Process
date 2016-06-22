@@ -373,6 +373,7 @@ namespace NMib
 			bint f_IsOpen() const;
 			bint f_IsRunning() const;
 			void f_SendStdIn(NMib::NStr::CStr const &_Data) const;
+			void f_SendStdInBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data) const;
 			fp64 f_GetRunningTime() const;
 			mint f_GetProcessID() const;
 			void f_StopProcess() const; // Soft termination
