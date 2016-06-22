@@ -1343,6 +1343,14 @@ namespace NMib
 				write(mp_hStdinWrite, _Text.f_GetStr(), _Text.f_GetLen());
 			}
 			
+			void CPOSIXLaunchContext::f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
+			{
+				if (!mp_hStdinWrite)
+					return;
+				
+				write(mp_hStdinWrite, _Data.f_GetArray(), _Data.f_GetLen());
+			}
+			
 			fp64 CPOSIXLaunchContext::f_GetRunningTime()
 			{
 				DMibLock(m_ExitTimeLock);
@@ -1582,6 +1590,12 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib:
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_SendText(_Data);
+}
+
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
+{
+	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
+	pLaunch->f_SendBinary(_Data);
 }
 
 fp64 NMib::NProcess::NPlatform::fg_ProcessLaunch_GetRunningTime(void *_pLaunch)

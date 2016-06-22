@@ -12,7 +12,7 @@ namespace NMib
 		
 		struct CProcessLaunchActor::CInternal
 		{
-			NPtr::TCUniquePointer<CProcessLaunch> m_pProcessLaunch;
+			NPtr::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
 			NConcurrency::TCActorCallbackManager<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_OnStateChange;
 			NConcurrency::TCActorCallbackManager<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_OnOutput;
 			
@@ -24,6 +24,8 @@ namespace NMib
 			};
 			
 			NContainer::TCLinkedList<CPendingStop> m_PendingProcessStops;
+
+			NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> m_BlockingActor;
 			
 			EProcessLaunchCloseFlag m_DestructFlags;
 			
@@ -35,6 +37,8 @@ namespace NMib
 				, m_OnOutput(_pActor, false)
 			{
 			}
+
+			NConcurrency::TCContinuation<void> f_RunBlocking(NFunction::TCFunction<void (NPtr::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> const &_fSend);
 		};
 		
 		CProcessLaunchActor::CProcessLaunchActor()
@@ -229,11 +233,60 @@ namespace NMib
 			return Continuation;
 		}
 		
-		void CProcessLaunchActor::f_SendStdIn(NMib::NStr::CStr const &_Data) const
+		NConcurrency::TCContinuation<void> CProcessLaunchActor::CInternal::f_RunBlocking
+			(
+				NFunction::TCFunction<void (NPtr::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> const &_fSend
+			)
+		{
+			if (!m_pProcessLaunch)
+				return fg_Explicit();
+			
+			if (!m_BlockingActor)
+				m_BlockingActor = NConcurrency::fg_ConstructActor<NConcurrency::CSeparateThreadActor>(fg_Construct("Blocking process launch"));
+			
+			NConcurrency::TCContinuation<void> Continuation;
+			// Dispatch on separate thread actor as this can block
+			fg_Dispatch
+				(
+					m_BlockingActor
+					, [_fSend, pProcessLaunch = m_pProcessLaunch]()
+					{
+						_fSend(pProcessLaunch);
+					}
+				)
+				> [Continuation](NConcurrency::TCAsyncResult<void> &&_Result)
+				{
+					Continuation.f_SetResult(fg_Move(_Result));
+				}
+			;
+			
+			return Continuation;
+		}
+
+		NConcurrency::TCContinuation<void> CProcessLaunchActor::f_SendStdInBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data) const
 		{
 			auto &Internal = *mp_pInternal;
-			if (Internal.m_pProcessLaunch)
-				Internal.m_pProcessLaunch->f_SendStdIn(_Data);
+			return Internal.f_RunBlocking
+				(
+					[_Data](NPtr::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)
+					{
+						_pProcessLaunch->f_SendStdInBinary(_Data);
+					}
+				)
+			;
+		}
+		
+		NConcurrency::TCContinuation<void> CProcessLaunchActor::f_SendStdIn(NMib::NStr::CStr const &_Data) const
+		{
+			auto &Internal = *mp_pInternal;
+			return Internal.f_RunBlocking
+				(
+					[_Data](NPtr::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)
+					{
+						_pProcessLaunch->f_SendStdIn(_Data);
+					}
+				)
+			;
 		}
 		
 		NConcurrency::TCContinuation<uint32> CProcessLaunchActor::f_StopProcess() const
