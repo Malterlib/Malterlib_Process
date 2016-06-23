@@ -331,6 +331,8 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 		}
 	}
 	
+	NException::CDisableExceptionTraceScope DisableTrace;
+	
 	auto Processes = fg_Linux_Process_GetAllRunning();
 	for (auto iProcess = Processes.f_GetIterator(); iProcess; ++iProcess)
 	{
