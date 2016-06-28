@@ -29,7 +29,7 @@ namespace NMib
 				DMibListLinkDS_Link(CProcessLaunchLink, m_Link);
 			};
 			
-			NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type);
+			NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths = {});
 			
 			class CPOSIXLaunchContext : public NThread::CThread, public NPtr::TCSharedPointerIntrusiveBase<>, public CProcessLaunchLink
 			{

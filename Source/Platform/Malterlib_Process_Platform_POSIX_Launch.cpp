@@ -65,7 +65,7 @@ namespace NMib
 			
 			TCSubSystem<CSubSystem_Process_Platform_POSIX_Launch, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_Launch = {DAggregateInit};
 
-			NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type)
+			NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths)
 			{
 				// First look in current dir
 				NStr::CStr FullPath = NFile::NPlatform::fg_ConvertToPOSIXPath(_Path, true);
@@ -88,6 +88,13 @@ namespace NMib
 						if (NMib::NFile::CFile::fs_FileExists(ExecutablePath, _Type))
 							return ExecutablePath;
 					}
+				}
+				
+				for (auto &Path : _ExtraPaths)
+				{
+					NStr::CStr ExecutablePath = NMib::NFile::CFile::fs_AppendPath(Path, _Path);
+					if (NMib::NFile::CFile::fs_FileExists(ExecutablePath, _Type))
+						return ExecutablePath;
 				}
 				return _Path;
 			}
