@@ -32,7 +32,7 @@ namespace NMib
 			class TCTypeToID
 			{
 			public:
-				static const uint32 mc_Value = TCTypeToIDImp<t_CType>::mc_Value;
+				static constexpr uint32 mc_Value = TCTypeToIDImp<t_CType>::mc_Value;
 			};
 			
 			template <typename t_CType>
@@ -42,19 +42,19 @@ namespace NMib
 			class TCIDToType
 			{
 			public:
-				static const bool mc_Defined = false;
+				static constexpr bool mc_Defined = false;
 			};
 
 			template <uint32 t_TypeID, bool t_bDefined = TCIDToType<t_TypeID>::mc_Defined>
 			struct TCEvalNumTypeID
 			{
-				static const uint32 mc_Value = TCEvalNumTypeID<t_TypeID + 1>::mc_Value;
+				static constexpr uint32 mc_Value = TCEvalNumTypeID<t_TypeID + 1>::mc_Value;
 			};
 
 			template <uint32 t_TypeID>
 			struct TCEvalNumTypeID<t_TypeID, false>
 			{
-				static const uint32 mc_Value = t_TypeID;
+				static constexpr uint32 mc_Value = t_TypeID;
 			};
 
 
@@ -69,14 +69,14 @@ namespace NMib
 			class TCTypeToIDImp<d_Type>\
 			{\
 			public:\
-				static const uint32 mc_Value = d_TypeID;\
+				static constexpr uint32 mc_Value = d_TypeID;\
 			};\
 			template <>\
 			class TCIDToType<d_TypeID>\
 			{\
 			public:\
 				typedef d_Type CType;\
-				static const bool mc_Defined = true;\
+				static constexpr bool mc_Defined = true;\
 				static_assert(TCIDToType<d_TypeID == 0 ? 0 : d_TypeID-1>::mc_Defined, "Gap detected in type IDs");\
 			};
 					

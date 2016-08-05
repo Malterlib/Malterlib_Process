@@ -2343,12 +2343,12 @@ namespace NMib
 					}
 				}
 				
-				void f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
+				void CConsoleRedirector::f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
 				{
 					if (!mp_hStdinWrite)
-						return FALSE;
+						return;
 					DWORD dwWritten;
-					return ::WriteFile(mp_hStdinWrite, _Data.f_GetArray(), _Data.f_GetLen(), &dwWritten, nullptr);
+					::WriteFile(mp_hStdinWrite, _Data.f_GetArray(), _Data.f_GetLen(), &dwWritten, nullptr);
 				}
 
 				NMib::NProcess::EProcessElevation fg_Process_GetElevation(void *_pProcess)
