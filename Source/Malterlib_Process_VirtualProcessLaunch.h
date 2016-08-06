@@ -17,12 +17,12 @@ namespace NMib
 		public:
 			virtual ~CVirtualProcessLaunch();
 
-			virtual EProcessLaunchCloseFlag f_GetCloseFlags() const pure;
-			virtual void f_Close(EProcessLaunchCloseFlag _CloseFlags) pure;
-			virtual bint f_IsOpen() const pure;
-			virtual bint f_IsRunning() const pure;
-			virtual void f_SendStdIn(NMib::NStr::CStr const &_Data) const pure;
-			virtual fp64 f_GetRunningTime() const pure;
+			virtual EProcessLaunchCloseFlag f_GetCloseFlags() const = 0;
+			virtual void f_Close(EProcessLaunchCloseFlag _CloseFlags) = 0;
+			virtual bint f_IsOpen() const = 0;
+			virtual bint f_IsRunning() const = 0;
+			virtual void f_SendStdIn(NMib::NStr::CStr const &_Data) const = 0;
+			virtual fp64 f_GetRunningTime() const = 0;
 			
 			virtual CProcessStatistics f_GetExecutionStatistics() const
 			{
