@@ -105,40 +105,41 @@ namespace NMib
 				}
 			}
 
-			namespace
+			NStr::CStr fg_GetSandboxDir(NStr::CStr &_Errors)
 			{
-				NMib::NProcess::EProcessElevation fg_Process_GetElevation(void *_pProcess);
-				NStr::CStr fg_Win32_GetSandboxDir(NStr::CStr &_Errors)
+				NStr::CStr Folder = NSys::fg_Process_GetEnvironmentVariable(NStr::CStr("MalterlibSandboxDeviceFolder"));
+
+				if (Folder.f_IsEmpty() || !NFile::CFile::fs_FileExists(Folder, NFile::EFileAttrib_Directory))
 				{
-					NStr::CStr Folder = NSys::fg_Process_GetEnvironmentVariable(NStr::CStr("MalterlibSandboxDeviceFolder"));
 
-					if (Folder.f_IsEmpty() || !NFile::CFile::fs_FileExists(Folder, NFile::EFileAttrib_Directory))
+					NStr::CStr SandboxFullPath = NFile::CFile::fs_GetPath(NFile::CFile::fs_GetModulePath(&fg_GetSandboxDir)) + "/MalterlibSandbox_x64.exe";
+
+					if (!NFile::CFile::fs_FileExists(SandboxFullPath))
 					{
-
-						NStr::CStr SandboxFullPath = NFile::CFile::fs_GetPath(NFile::CFile::fs_GetModulePath(&fg_Win32_GetSandboxDir)) + "/MalterlibSandbox_x64.exe";
-
-						if (!NFile::CFile::fs_FileExists(SandboxFullPath))
+						NMib::NPlatform::CWin32_Registry Registry(NMib::NPlatform::CWin32_Registry::ERegRoot_Win64_CurrentUser);
+						if (Registry.f_ValueExists("Software\\Malterlib", "SandboxPath"))
+							SandboxFullPath = Registry.f_Read_Str("Software\\Malterlib", "SandboxPath") + "/MalterlibSandbox_x64.exe";
+						if (SandboxFullPath.f_IsEmpty() || !NFile::CFile::fs_FileExists(SandboxFullPath))
 						{
-							NMib::NPlatform::CWin32_Registry Registry(NMib::NPlatform::CWin32_Registry::ERegRoot_Win64_CurrentUser);
+							NMib::NPlatform::CWin32_Registry Registry(NMib::NPlatform::CWin32_Registry::ERegRoot_Win64_LocalMachine);
 							if (Registry.f_ValueExists("Software\\Malterlib", "SandboxPath"))
 								SandboxFullPath = Registry.f_Read_Str("Software\\Malterlib", "SandboxPath") + "/MalterlibSandbox_x64.exe";
 							if (SandboxFullPath.f_IsEmpty() || !NFile::CFile::fs_FileExists(SandboxFullPath))
 							{
-								NMib::NPlatform::CWin32_Registry Registry(NMib::NPlatform::CWin32_Registry::ERegRoot_Win64_LocalMachine);
-								if (Registry.f_ValueExists("Software\\Malterlib", "SandboxPath"))
-									SandboxFullPath = Registry.f_Read_Str("Software\\Malterlib", "SandboxPath") + "/MalterlibSandbox_x64.exe";
-								if (SandboxFullPath.f_IsEmpty() || !NFile::CFile::fs_FileExists(SandboxFullPath))
-								{
-									_Errors += "Sandbox directory not found" DMibNewLine;
-									return NStr::CStr();
-								}
+								_Errors += "Sandbox directory not found" DMibNewLine;
+								return NStr::CStr();
 							}
 						}
-						return NFile::CFile::fs_GetPath(SandboxFullPath);
 					}
-
-					return Folder;
+					return NFile::CFile::fs_GetPath(SandboxFullPath);
 				}
+
+				return Folder;
+			}
+
+			namespace
+			{
+				NMib::NProcess::EProcessElevation fg_Process_GetElevation(void *_pProcess);
 
 				NAtomic::TCAtomicAggregate<uint32> g_PipeSerialNumber = {0};
 
@@ -1001,7 +1002,7 @@ namespace NMib
 									else if (BinaryType == SCS_32BIT_BINARY)
 										SandboxDll = "MalterlibSandbox_x86.dll";
 
-									NStr::CStr Path = fg_Win32_GetSandboxDir(_Errors);
+									NStr::CStr Path = fg_GetSandboxDir(_Errors);
 
 									if (Path.f_IsEmpty())
 										return false;
