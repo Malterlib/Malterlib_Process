@@ -13,8 +13,8 @@ namespace NMib
 		struct CProcessLaunchActor::CInternal
 		{
 			NPtr::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
-			NConcurrency::TCActorCallbackManager<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_OnStateChange;
-			NConcurrency::TCActorCallbackManager<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_OnOutput;
+			NConcurrency::TCActorSubscriptionManager<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_OnStateChange;
+			NConcurrency::TCActorSubscriptionManager<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_OnOutput;
 			
 			struct CPendingStop
 			{
@@ -91,7 +91,7 @@ namespace NMib
 			return Continuation;
 		}
 		
-		NConcurrency::TCContinuation<NConcurrency::CActorCallback> CProcessLaunchActor::f_Launch
+		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CProcessLaunchActor::f_Launch
 			(
 				CProcessLaunchParams const &_Params
 				, EProcessLaunchCloseFlag _DestructFlags
@@ -218,7 +218,7 @@ namespace NMib
 				;
 			}
 			
-			NConcurrency::TCContinuation<NConcurrency::CActorCallback> Continuation;
+			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
 			
 			try
 			{

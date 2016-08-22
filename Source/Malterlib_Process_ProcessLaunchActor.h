@@ -17,7 +17,7 @@ namespace NMib
 			CProcessLaunchActor();
 			~CProcessLaunchActor();
 			
-			NConcurrency::TCContinuation<NConcurrency::CActorCallback> f_Launch
+			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_Launch
 				(
 					CProcessLaunchParams const &_Params
 					, EProcessLaunchCloseFlag _DestructFlags
