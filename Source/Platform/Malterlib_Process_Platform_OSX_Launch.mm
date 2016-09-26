@@ -11,6 +11,8 @@
 
 #include "Malterlib_Process_Platform_POSIX_PlatformSpecific.h"
 
+DMibDeprecatedSupressStart;
+
 bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
 {
 	CAutoReleasePool ARPool;
@@ -431,3 +433,5 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_Process_DeRegisterAtStartup(NStr::CStr
 
 	return true;
 }
+
+DMibDeprecatedSupressStop;
