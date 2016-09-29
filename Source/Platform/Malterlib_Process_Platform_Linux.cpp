@@ -370,7 +370,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			{
 				auto FileData = NMib::NPlatform::fg_ReadProcFS(NMib::NStr::CFStr256::CFormat("/proc/{}/cmdline") << Process.m_ProcessID);
 				ch8 const *pParse = FileData.f_GetArray();
-				ch8 const *pEnd = pParse + FileData.f_GetLen();
+				ch8 const *pEnd = pParse + FileData.f_GetLen() - 1;
 				while (pParse < pEnd)
 				{
 					mint nChars = NStr::fg_StrLen(pParse, pEnd - pParse);
