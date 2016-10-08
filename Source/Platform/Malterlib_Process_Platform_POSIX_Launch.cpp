@@ -428,12 +428,16 @@ namespace NMib
 					DMibLock(NMib::NPlatform::fg_ForkLock());
 #endif
 					
+#if !defined(DMibMemoryOverrideDll)
 					if (fg_GetSys()->f_IsDll()) // We need to prepare
+#endif
 						NMib::NPlatform::fg_ForkPrepare();
 					
 					pid_t ForkResult = fork();
 					
-					if (fg_GetSys()->f_IsDll()) // We need to cleanup after fork
+#if !defined(DMibMemoryOverrideDll)
+				if (fg_GetSys()->f_IsDll()) // We need to cleanup after fork
+#endif
 						NMib::NPlatform::fg_ForkParentOrChild();
 
 					if (ForkResult == -1)
