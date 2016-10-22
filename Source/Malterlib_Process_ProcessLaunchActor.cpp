@@ -90,11 +90,88 @@ namespace NMib
 			;
 			return Continuation;
 		}
+
+		CProcessLaunchActor::CLaunch::CLaunch(CProcessLaunchParams const &_Params)
+			: m_Params{_Params} 
+		{
+		}
+
+		CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(NStr::CStr const &_Executable)
+			: m_Executable{_Executable}
+			, CLaunch{CProcessLaunchParams{}}
+		{
+		}
+
+		NConcurrency::TCContinuation<CProcessLaunchActor::CSimpleLaunchResult> CProcessLaunchActor::f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch)
+		{
+			if (_SimpleLaunch.m_Params.m_fOnOutput)
+				return DMibErrorInstance("On output cannot be specified for simple launch");
+			if (_SimpleLaunch.m_Params.m_fOnStateChange)
+				return DMibErrorInstance("On state change cannot be specified for simple launch");
+
+			struct CState
+			{
+				NConcurrency::CActorSubscription m_Subscription;
+				CProcessLaunchActor::CSimpleLaunchResult m_LaunchResult;
+				NConcurrency::TCContinuation<CProcessLaunchActor::CSimpleLaunchResult> m_Continuation;
+			};
+			
+			NPtr::TCSharedPointer<CState> pState = fg_Construct();
+			
+			CLaunch Params{_SimpleLaunch};
+			Params.m_Params.m_Target = _SimpleLaunch.m_Executable;
+			Params.m_Params.m_Parameters = NMib::NProcess::CProcessLaunchParams::fs_GetParams(_SimpleLaunch.m_CommandLineParams);
+			Params.m_Params.m_bSeparateStdErr = true;
+			Params.m_Params.m_bAllowExecutableLocate = true;
+			Params.m_Params.m_WorkingDirectory = _SimpleLaunch.m_WorkingDirectory;
+			Params.m_Params.m_fOnStateChange = [this, pState](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
+				{
+					switch (_StateChange.f_GetTypeID())
+					{
+					case EProcessLaunchState_Launched:
+						{
+						}
+						break;
+					case EProcessLaunchState_LaunchFailed:
+						{
+							pState->m_Continuation.f_SetException(DMibErrorInstance(fg_Format("Launch failed: {}", _StateChange.f_Get<EProcessLaunchState_LaunchFailed>())));
+							pState->m_Subscription.f_Clear();
+						}
+						break;
+					case EProcessLaunchState_Exited:
+						{
+							int32 ExitCode = _StateChange.f_Get<EProcessLaunchState_Exited>();
+							pState->m_LaunchResult.m_ExitCode = ExitCode;
+							pState->m_Continuation.f_SetResult(fg_Move(pState->m_LaunchResult));
+							pState->m_Subscription.f_Clear();
+						}
+						break;
+					}
+				}
+			;
+			
+			Params.m_Params.m_bSeparateStdErr = true;
+			
+			Params.m_Params.m_fOnOutput = [pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+				{
+					auto &OutputEntry = pState->m_LaunchResult.m_Output.f_Insert();
+					OutputEntry.m_Type = _OutputType;
+					OutputEntry.m_Output = _Output;
+				}
+			;
+			
+			f_Launch(Params, fg_ThisActor(this)) > pState->m_Continuation / [pState](NConcurrency::CActorSubscription &&_Subscription)
+				{
+					pState->m_Subscription = fg_Move(_Subscription); 
+				}
+			;
+			
+			return pState->m_Continuation;
+		}
 		
 		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CProcessLaunchActor::f_Launch
 			(
-				CProcessLaunchParams const &_Params
-				, EProcessLaunchCloseFlag _DestructFlags
+				CLaunch const &_Launch
 				, NConcurrency::TCActor<NConcurrency::CActor> &&_CallbackActor
 			)
 		{
@@ -102,9 +179,31 @@ namespace NMib
 
 			mp_pInternal = fg_Construct(this);
 			auto &Internal = *mp_pInternal;
-			Internal.m_DestructFlags = _DestructFlags;
+			Internal.m_DestructFlags = _Launch.m_DestructFlags;
 			
-			CProcessLaunchParams Params = _Params;
+			struct CState
+			{
+				NMib::NLog::CSysLogCatScope f_LogScope() const
+				{
+					return NMib::NLog::CSysLogCatScope{NMib::fg_GetSys()->f_GetLogger(), m_LogName};
+				}
+				
+				ELogFlag m_ToLog;
+				NStr::CStr m_LogName;
+			};
+			
+			NPtr::TCSharedPointer<CState> pState = fg_Construct();
+			
+			if (_Launch.m_ToLog)
+			{
+				pState->m_ToLog = _Launch.m_ToLog; 
+				if (_Launch.m_LogName.f_IsEmpty())
+					pState->m_LogName = NFile::CFile::fs_GetFileNoExt(_Launch.m_Params.m_Target);
+				else
+					pState->m_LogName = _Launch.m_LogName;
+			}
+			
+			CProcessLaunchParams Params = _Launch.m_Params;
 			
 			Params.m_fDispatcher.f_Clear();
 			
@@ -117,7 +216,7 @@ namespace NMib
 				pCombinedReference->m_References.f_Insert(Internal.m_OnStateChange.f_Register(_CallbackActor, fg_Move(Params.m_fOnStateChange)));
 			}
 			
-			Params.m_fOnStateChange = [this, ThisWeak = fg_ThisActor(this).f_Weak(), bOnStateChangeRegistered](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+			Params.m_fOnStateChange = [this, ThisWeak = fg_ThisActor(this).f_Weak(), bOnStateChangeRegistered, pState](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 				{
 					auto ThisActor = ThisWeak.f_Lock();
 					if (!ThisActor)
@@ -129,7 +228,7 @@ namespace NMib
 							, NFunction::TCFunction<void ()>
 							(
 								//[this, _State, _TimeSinceStart, bOnStateChangeRegistered]
-								[this, _TimeSinceStart, bOnStateChangeRegistered, State = _State]
+								[this, _TimeSinceStart, bOnStateChangeRegistered, State = _State, pState]
 								{
 									auto &Internal = *mp_pInternal;
 									
@@ -142,6 +241,23 @@ namespace NMib
 										{
 											uint32 ExitCode = State.f_Get<NProcess::EProcessLaunchState_Exited>();
 											
+											if (!ExitCode)
+											{
+												if (pState->m_ToLog & ELogFlag_Info)
+												{
+													auto LogScope = pState->f_LogScope(); 
+													DMibLog(Info, "Launch finished successfully");
+												}
+											}
+											else
+											{
+												if (pState->m_ToLog & ELogFlag_Error)
+												{
+													auto LogScope = pState->f_LogScope(); 
+													DMibLog(Error, "Launch exited with error code: {}", ExitCode);
+												}
+											}
+											
 											for (auto &Pending : Internal.m_PendingProcessStops)
 												Pending.m_fOnStop(ExitCode);
 											
@@ -151,6 +267,11 @@ namespace NMib
 										break;
 									case NProcess::EProcessLaunchState_Launched:
 										{
+											if (pState->m_ToLog & ELogFlag_Info)
+											{
+												auto LogScope = pState->f_LogScope(); 
+												DMibLog(Info, "Launched");
+											}
 											Internal.m_bProcessRunning = true;
 											if (Internal.m_pProcessLaunch)
 											{
@@ -177,6 +298,11 @@ namespace NMib
 										break;
 									case NProcess::EProcessLaunchState_LaunchFailed:
 										{
+											if (pState->m_ToLog & ELogFlag_Error)
+											{
+												auto LogScope = pState->f_LogScope(); 
+												DMibLog(Error, "Launch failed: {}", State.f_Get<EProcessLaunchState_LaunchFailed>());
+											}
 											for (auto &Pending : Internal.m_PendingProcessStops)
 												Pending.m_fOnStop(-1);
 											Internal.m_PendingProcessStops.f_Clear();
@@ -196,8 +322,25 @@ namespace NMib
 			{
 				pCombinedReference->m_References.f_Insert(Internal.m_OnOutput.f_Register(_CallbackActor, fg_Move(Params.m_fOnOutput)));
 				
-				Params.m_fOnOutput = [this, ThisWeak = fg_ThisActor(this).f_Weak()](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+				Params.m_fOnOutput = [this, ThisWeak = fg_ThisActor(this).f_Weak(), pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 					{
+						if (_OutputType == EProcessLaunchOutputType_StdOut)
+						{
+							if (pState->m_ToLog & ELogFlag_StdOut)
+							{
+								auto LogScope = pState->f_LogScope(); 
+								DMibLog(Info, "{}", _Output.f_TrimRight());
+							}
+						}
+						else
+						{
+							if (pState->m_ToLog & ELogFlag_Error)
+							{
+								auto LogScope = pState->f_LogScope(); 
+								DMibLog(Error, "{}", _Output.f_TrimRight());
+							}
+						}
+						
 						auto ThisActor = ThisWeak.f_Lock();
 						if (!ThisActor)
 							return; // Already deleted
@@ -219,11 +362,26 @@ namespace NMib
 			}
 			
 			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
+
+			if (pState->m_ToLog & ELogFlag_Info)
+			{
+				auto LogScope = pState->f_LogScope(); 
+				DMibLog(Info, "Launching");
+			}
 			
 			try
 			{
-				Internal.m_pProcessLaunch = fg_Construct(Params, _DestructFlags);
+				Internal.m_pProcessLaunch = fg_Construct(Params, _Launch.m_DestructFlags);
 				Continuation.f_SetResult(fg_Move(pCombinedReference));
+			}
+			catch (NException::CException const &_Exception)
+			{
+				if (pState->m_ToLog & ELogFlag_Error)
+				{
+					auto LogScope = pState->f_LogScope(); 
+					DMibLog(Error, "Exception launching: {}", _Exception.f_GetErrorStr());
+				}
+				Continuation.f_SetCurrentException();
 			}
 			catch (...)
 			{
