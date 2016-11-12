@@ -1402,7 +1402,11 @@ namespace NMib
 				void fg_ConvertMemoryStatistics(CProcessStatistics &_Dest, rusage const &_Info)
 				{
 					if (_Info.ru_maxrss)
+#ifdef DPlatformFamily_OSX
 						_Dest.m_Statistics("Max resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_maxrss, 1024 * 1024));
+#else
+						_Dest.m_Statistics("Max resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_maxrss * 1024, 1024 * 1024));
+#endif
 					
 					if (_Info.ru_ixrss)
 						_Dest.m_Statistics("Shared text segment", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_ixrss * 1024, 1024 * 1024));
