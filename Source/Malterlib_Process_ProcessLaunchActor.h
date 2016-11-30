@@ -19,8 +19,9 @@ namespace NMib
 				ELogFlag_None = 0
 				, ELogFlag_Error = DMibBit(0) 
 				, ELogFlag_StdOut = DMibBit(1)
-				, ELogFlag_Info = DMibBit(2)
-				, ELogFlag_All = ELogFlag_Error | ELogFlag_StdOut | ELogFlag_Info  
+				, ELogFlag_StdErr = DMibBit(2) 
+				, ELogFlag_Info = DMibBit(3)
+				, ELogFlag_All = ELogFlag_Error | ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Info  
 			};
 			struct COutput
 			{
@@ -40,11 +41,8 @@ namespace NMib
 			
 			struct CSimpleLaunch : public CLaunch 
 			{
-				CSimpleLaunch(NStr::CStr const &_Executable);
-				
-				NStr::CStr m_Executable;
-				NContainer::TCVector<NStr::CStr> m_CommandLineParams;
-				NStr::CStr m_WorkingDirectory; 
+				CSimpleLaunch(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params = {}, NStr::CStr const &_WorkingDir = {});
+				CSimpleLaunch(CProcessLaunchParams const &_Params);
 			};
 			
 			struct CSimpleLaunchResult
@@ -55,7 +53,6 @@ namespace NMib
 				NStr::CStr f_GetStdOut() const;
 				NStr::CStr f_GetErrorOut() const;
 			};
-
 			
 			CProcessLaunchActor();
 			~CProcessLaunchActor();

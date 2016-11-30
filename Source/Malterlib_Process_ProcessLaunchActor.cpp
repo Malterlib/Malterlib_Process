@@ -96,10 +96,15 @@ namespace NMib
 		{
 		}
 
-		CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(NStr::CStr const &_Executable)
-			: m_Executable{_Executable}
-			, CLaunch{CProcessLaunchParams{}}
+		CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(CProcessLaunchParams const &_Params)
+			: CLaunch{_Params}
 		{
+		}
+		
+		CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params, NStr::CStr const &_WorkingDir)
+			: CSimpleLaunch{CProcessLaunchParams::fs_LaunchExecutable(_Executable, _Params, _WorkingDir, {})}
+		{
+			m_Params.m_bAllowExecutableLocate = true;
 		}
 
 		NConcurrency::TCContinuation<CProcessLaunchActor::CSimpleLaunchResult> CProcessLaunchActor::f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch)
@@ -119,11 +124,6 @@ namespace NMib
 			NPtr::TCSharedPointer<CState> pState = fg_Construct();
 			
 			CLaunch Params{_SimpleLaunch};
-			Params.m_Params.m_Target = _SimpleLaunch.m_Executable;
-			Params.m_Params.m_Parameters = NMib::NProcess::CProcessLaunchParams::fs_GetParams(_SimpleLaunch.m_CommandLineParams);
-			Params.m_Params.m_bSeparateStdErr = true;
-			Params.m_Params.m_bAllowExecutableLocate = true;
-			Params.m_Params.m_WorkingDirectory = _SimpleLaunch.m_WorkingDirectory;
 			Params.m_Params.m_fOnStateChange = [this, pState](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
 				{
 					switch (_StateChange.f_GetTypeID())
@@ -330,6 +330,14 @@ namespace NMib
 							{
 								auto LogScope = pState->f_LogScope(); 
 								DMibLog(Info, "{}", _Output.f_TrimRight());
+							}
+						}
+						else if (_OutputType == EProcessLaunchOutputType_StdErr)
+						{
+							if (pState->m_ToLog & ELogFlag_StdErr)
+							{
+								auto LogScope = pState->f_LogScope(); 
+								DMibLog(Error, "{}", _Output.f_TrimRight());
 							}
 						}
 						else
@@ -568,6 +576,28 @@ namespace NMib
 					}
 				)
 			;
+		}
+		
+		NStr::CStr CProcessLaunchActor::CSimpleLaunchResult::f_GetStdOut() const
+		{
+			NStr::CStr Return;
+			for (auto &Output : m_Output)
+			{
+				if (Output.m_Type == EProcessLaunchOutputType_StdOut)
+					Return += Output.m_Output;
+			}
+			return Return;
+		}
+		
+		NStr::CStr CProcessLaunchActor::CSimpleLaunchResult::f_GetErrorOut() const
+		{
+			NStr::CStr Return;
+			for (auto &Output : m_Output)
+			{
+				if (Output.m_Type != EProcessLaunchOutputType_StdOut)
+					Return += Output.m_Output;
+			}
+			return Return;
 		}
 	}
 }

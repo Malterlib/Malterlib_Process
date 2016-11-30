@@ -354,7 +354,6 @@ namespace NMib
 
 		};
 
-		
 		class CProcessLaunch
 		{
 			DMibClassNoCopyAllowed(CProcessLaunch);
@@ -437,6 +436,8 @@ namespace NMib
 					, CProcessLaunchParams const &_LaunchParams = CProcessLaunchParams()
 				)
 			;
+			
+			static mint fs_KillProcessesInDirectory(NStr::CStr const &_NamePattern, NStr::CStr const &_ArgsPattern = {}, NStr::CStr const &_Directory = {}, fp64 _Timeout = 30.0);
 		};
 	}
 }

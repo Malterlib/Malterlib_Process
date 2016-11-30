@@ -482,6 +482,16 @@ namespace NMib
 							fp_DestroyPipe(_hStdOutWrite);
 							fp_DestroyPipe(_hStdErrWrite);
 
+							if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
+							{
+								if (setpgid(0, 0))
+								{
+									int ErrNo = errno;
+									DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno("setpgid(0, 0) when creating new process group in forked process", ErrNo));
+									NMib::NSys::fg_TerminateProcess(65);
+								}
+							}
+							
 							if (mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default)
 								fg_Process_SetPriority(mp_LastLaunchOptions.m_LaunchPriority);
 							
@@ -537,7 +547,7 @@ namespace NMib
 									if (setrlimit(RLimit, &Limits))
 									{
 										int ErrNo = errno;
-										DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setrlimit({}) when setting limits in forked process") << RLimit, ErrNo));
+										DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setrlimit({}, {{{}, {}}) when setting limits in forked process") << RLimit << Limits.rlim_cur << Limits.rlim_max, ErrNo));
 										NMib::NSys::fg_TerminateProcess(67);
 									}
 								}
@@ -1073,7 +1083,7 @@ namespace NMib
 								fp_OnOutput
 									(
 										EProcessLaunchOutputType_GeneralError
-										, NStr::CStr::CFormat("Process terminated due to signal {}{}\n") << Signal << (bCoreDumped ? " and a core dump was created\n" : "\n")
+										, NStr::CStr::CFormat("Process terminated due to signal {}{}\n") << Signal << (bCoreDumped ? " and a core dump was created" : "")
 									)
 								;
 								break;
