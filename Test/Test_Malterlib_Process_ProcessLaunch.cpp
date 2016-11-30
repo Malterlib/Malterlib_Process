@@ -1947,7 +1947,7 @@ namespace
 						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(ExitCode) == DMibExpr(255));
 #ifndef DPlatformFamily_Windows
-						DMibTest(DMibExpr(StdErr) == DMibExpr("Process terminated due to signal 9\n\n")); // (ETestFlag_NoValues);
+						DMibTest(DMibExpr(StdErr) == DMibExpr("Process terminated due to signal 9\n")); // (ETestFlag_NoValues);
 #endif
 					}
 				};
