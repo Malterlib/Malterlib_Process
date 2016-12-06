@@ -150,8 +150,6 @@ namespace NMib
 				}
 			;
 			
-			Params.m_Params.m_bSeparateStdErr = true;
-			
 			Params.m_Params.m_fOnOutput = [pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 				{
 					auto &OutputEntry = pState->m_LaunchResult.m_Output.f_Insert();
