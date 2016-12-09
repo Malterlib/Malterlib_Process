@@ -597,6 +597,14 @@ namespace NMib
 			}
 			return Return;
 		}
+		
+		NStr::CStr CProcessLaunchActor::CSimpleLaunchResult::f_GetCombinedOut() const
+		{
+			NStr::CStr Return;
+			for (auto &Output : m_Output)
+				Return += Output.m_Output;
+			return Return;
+		}
 	}
 }
 

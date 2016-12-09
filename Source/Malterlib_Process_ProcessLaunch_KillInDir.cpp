@@ -56,6 +56,9 @@ namespace NMib
 			else
 				Directory = _Directory;
 			
+			if (Directory[Directory.f_GetLen() - 1] != '/')
+				Directory += "/";
+			
 			NContainer::TCVector<mint> ProcessIDs = fg_GetProcessesMatching(_NamePattern, _ArgsPattern, Directory);
 
 			NContainer::TCSet<mint> Killed;

@@ -52,6 +52,7 @@ namespace NMib
 				
 				NStr::CStr f_GetStdOut() const;
 				NStr::CStr f_GetErrorOut() const;
+				NStr::CStr f_GetCombinedOut() const;
 			};
 			
 			CProcessLaunchActor();
