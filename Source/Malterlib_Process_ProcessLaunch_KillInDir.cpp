@@ -85,7 +85,7 @@ namespace NMib
 					ProcessIDs = fg_GetProcessesMatching(_NamePattern, _ArgsPattern, Directory);
 					if (ProcessIDs.f_IsEmpty())
 						break;
-					NSys::fg_Thread_Sleep(0.1);
+					NSys::fg_Thread_Sleep(0.1f);
 				}
 
 				// If we still have processes, terminate them
@@ -108,7 +108,7 @@ namespace NMib
 					ProcessIDs = fg_GetProcessesMatching(_NamePattern, _ArgsPattern, Directory);
 					if (ProcessIDs.f_IsEmpty())
 						break;
-					NSys::fg_Thread_Sleep(0.1);
+					NSys::fg_Thread_Sleep(0.1f);
 				}
 
 				// Fail and report failure
