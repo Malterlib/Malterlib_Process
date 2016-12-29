@@ -125,6 +125,7 @@ namespace NMib
 
 		public:
 			CProcessLaunchParams();
+			CProcessLaunchParams(NStr::CStr const &_WorkingDirectory);
 			CProcessLaunchParams(CProcessLaunchParams const &_From);
 			CProcessLaunchParams(CProcessLaunchParams &&_From);
 
@@ -433,6 +434,13 @@ namespace NMib
 					, NFunction::TCFunction<void (NStr::CStr const &_Output)> const &_fOnStdOut
 					, NFunction::TCFunction<void (NStr::CStr const &_Output)> const &_fOnStrErr
 					, uint32 &_ExitCode
+					, CProcessLaunchParams const &_LaunchParams = CProcessLaunchParams()
+				)
+			;
+			static NStr::CStr fs_LaunchTool
+				(
+					NStr::CStr const &_Executable
+					, NContainer::TCVector<NStr::CStr> const &_Params
 					, CProcessLaunchParams const &_LaunchParams = CProcessLaunchParams()
 				)
 			;

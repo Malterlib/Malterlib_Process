@@ -187,6 +187,22 @@ namespace NMib
 			return bRet;
 		}
 		
+		NStr::CStr CProcessLaunch::fs_LaunchTool
+			(
+				NStr::CStr const &_Executable
+				, NContainer::TCVector<NStr::CStr> const &_Params
+				, CProcessLaunchParams const &_LaunchParams
+			)
+		{
+			NStr::CStr StdOut;
+			NStr::CStr StdErr;
+			uint32 ExitCode = 1;
+			if (!CProcessLaunch::fs_LaunchBlock(_Executable, _Params, StdOut, StdErr, ExitCode, _LaunchParams))
+				DMibError(fg_Format("{} failed to launch: {}", _Executable, StdErr));
+			if (ExitCode)
+				DMibError(fg_Format("{} exited with {}: {}", _Executable, ExitCode, StdErr.f_TrimRight()));
+			return StdOut;
+		}
 
 		void CProcessLaunch::f_Close(EProcessLaunchCloseFlag _CloseFlags)
 		{
@@ -439,6 +455,12 @@ namespace NMib
 			m_fOnOutput = _From.m_fOnOutput;
 			m_fDispatcher = _From.m_fDispatcher;
 			return *this;
+		}
+
+		CProcessLaunchParams::CProcessLaunchParams(NStr::CStr const &_WorkingDirectory)
+			: CProcessLaunchParams()
+		{
+			m_WorkingDirectory = _WorkingDirectory;
 		}
 
 		CProcessLaunchParams::CProcessLaunchParams()
