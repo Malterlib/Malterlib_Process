@@ -65,7 +65,7 @@ namespace NMib
 			
 			TCSubSystem<CSubSystem_Process_Platform_POSIX_Launch, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_Launch = {DAggregateInit};
 
-			NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths)
+			NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths, NStr::CStr const &_LocalPaths)
 			{
 				// First look in current dir
 				NStr::CStr FullPath = NFile::NPlatform::fg_ConvertToPOSIXPath(_Path, true);
@@ -75,11 +75,13 @@ namespace NMib
 				if (!_bAllowLocate)
 					return _Path;
 				
-				NStr::CStr PathMixed;
-				if (NMib::NSys::fg_Process_GetEnvironmentVariable("PATH", PathMixed))
+				for (mint i = 0; i < 2; ++i)
 				{
-					NStr::CStr Path = PathMixed;
-					
+					NStr::CStr Path;
+					if (i == 0)
+						Path = _LocalPaths;
+					else 
+						Path = NMib::NSys::fg_Process_GetEnvironmentVariable(NStr::CStr("PATH"));
 					while (!Path.f_IsEmpty())
 					{
 						NStr::CStr ThisPath = fg_GetStrSep(Path, ":");
@@ -89,7 +91,6 @@ namespace NMib
 							return ExecutablePath;
 					}
 				}
-				
 				for (auto &Path : _ExtraPaths)
 				{
 					NStr::CStr ExecutablePath = NMib::NFile::CFile::fs_AppendPath(Path, _Path);
@@ -293,11 +294,14 @@ namespace NMib
 				}
 				else
 				{
-					
+
+					NStr::CStr LocalPaths;
+					if (auto pPath = mp_LastLaunchOptions.m_Environment.f_FindEqual("PATH"))
+						LocalPaths = *pPath;
 
 #ifdef DPlatformFamily_OSX
 					NStr::CStr OriginalProgram = Program;
-					Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Directory);
+					Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Directory, {}, LocalPaths);
 					if ( NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
 					{
 						if (NMib::NFile::CFile::fs_GetExtension(Program).f_CmpNoCase("app") == 0)
@@ -312,10 +316,10 @@ namespace NMib
 							return fg_MacOSX_LaunchUIExecutable(NewLaunchOptions, mp_ProcessID, _Errors);
 						}
 						else
-							Program = fg_FindExecutable(OriginalProgram, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable);
+							Program = fg_FindExecutable(OriginalProgram, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 					}
 #else
-					Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable);
+					Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 #endif
 
 					mp_ProcessID = -1;
@@ -586,7 +590,7 @@ namespace NMib
 							
 							if (!Chroot.f_IsEmpty())
 							{
-								NStr::CStr LaunchHelper = fg_FindExecutable("MalterlibSandBox_" DMibStringize(DArchitecture), true, NMib::NFile::EFileAttrib_File);
+								NStr::CStr LaunchHelper = fg_FindExecutable("MalterlibSandBox_" DMibStringize(DArchitecture), true, NMib::NFile::EFileAttrib_File, {}, LocalPaths);
 								
 								if (!NMib::NFile::CFile::fs_FileExists(LaunchHelper, NMib::NFile::EFileAttrib_File))
 								{
