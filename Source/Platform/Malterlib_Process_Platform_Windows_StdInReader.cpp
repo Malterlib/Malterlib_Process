@@ -78,6 +78,20 @@ namespace NMib
 						GetConsoleMode(mp_hStdInFile, &m_OldConsoleMode);
 						SetConsoleMode(mp_hStdInFile, m_OldConsoleMode & ~DWORD(ENABLE_LINE_INPUT));
 						m_bIsChar = true;
+						if 
+							(
+								NLocal::g_VersionInfo.dwPlatformId == VER_PLATFORM_WIN32_NT 
+								&& 
+								(
+									NLocal::g_VersionInfo.dwMajorVersion < 6 
+									|| (NLocal::g_VersionInfo.dwMajorVersion == 6 && NLocal::g_VersionInfo.dwMinorVersion < 3)
+								)
+							)
+						{
+							// Can't cancel read console on older versions of windows
+							m_bDoPolling = true;
+						}
+
 					}
 					else if (HandleType = FILE_TYPE_PIPE)
 					{
