@@ -81,7 +81,7 @@ namespace NMib
 					if (i == 0)
 						Path = _LocalPaths;
 					else 
-						Path = fg_GetSys()->f_GetEnvironmentVariable(NStr::CStr("PATH"));
+						Path = fg_GetSys()->f_GetEnvironmentVariable("PATH");
 					while (!Path.f_IsEmpty())
 					{
 						NStr::CStr ThisPath = fg_GetStrSep(Path, ":");
