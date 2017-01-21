@@ -1043,11 +1043,11 @@ namespace NMib
 				}
 			}
 			
-			NContainer::TCThreadSafeQueue<NFunction::TCFunction<void ()>> m_DispatchQueue;
+			NContainer::TCThreadSafeQueue<NFunction::TCFunctionMovable<void ()>> m_DispatchQueue;
 
-			void f_Dispatch(NFunction::TCFunction<void ()> const &_ToDispatch)
+			void f_Dispatch(NFunction::TCFunctionMovable<void ()> &&_ToDispatch)
 			{
-				m_DispatchQueue.f_Push(_ToDispatch);
+				m_DispatchQueue.f_Push(fg_Move(_ToDispatch));
 				{
 					DMibLock(m_ThreadLock);
 					m_pThreadObject->m_EventWantQuit.f_Signal();
@@ -1073,14 +1073,14 @@ namespace NMib
 
 									}
 									, EStdInReaderFlag_Exclusive
-									, [&](NFunction::TCFunction<void ()> const &_ToDispatch)
+									, [&](NFunction::TCFunctionMovable<void ()> &&_ToDispatch)
 									{
-										f_Dispatch(_ToDispatch);
+										f_Dispatch(fg_Move(_ToDispatch));
 									}
 								)
 							;
 
-							CStdInReader Reader(Params);
+							CStdInReader Reader(fg_Move(Params));
 
 							while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 							{

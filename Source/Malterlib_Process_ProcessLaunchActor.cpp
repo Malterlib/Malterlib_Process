@@ -49,6 +49,14 @@ namespace NMib
 		{
 		}
 		
+		void CProcessLaunchActor::f_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output)
+		{
+		}
+		
+		void CProcessLaunchActor::f_ModifyLaunch(CLaunch &o_Launch)
+		{
+		}
+		
 		NConcurrency::TCContinuation<void> CProcessLaunchActor::f_Destroy()
 		{
 			auto &Internal = *mp_pInternal;
@@ -174,10 +182,13 @@ namespace NMib
 			)
 		{
 			DMibRequire(!mp_pInternal);
-
+			
 			mp_pInternal = fg_Construct(this);
 			auto &Internal = *mp_pInternal;
 			Internal.m_DestructFlags = _Launch.m_DestructFlags;
+
+			CLaunch Launch = _Launch;
+			f_ModifyLaunch(Launch);
 			
 			struct CState
 			{
@@ -186,22 +197,128 @@ namespace NMib
 					return NMib::NLog::CSysLogCatScope{NMib::fg_GetSys()->f_GetLogger(), m_LogName};
 				}
 				
+				~CState()
+				{
+					f_FlushOutput();
+				}
+				
+				void f_FlushOutput()
+				{
+					f_ProcessOutput(EProcessLaunchOutputType_StdOut, true);
+					f_ProcessOutput(EProcessLaunchOutputType_StdErr, true);
+					f_ProcessOutput(EProcessLaunchOutputType_GeneralError, true);
+					f_ProcessOutput(EProcessLaunchOutputType_TerminateMessage, true);
+				}
+				
+				void f_ProcessOutput(EProcessLaunchOutputType _OutputType, bool _bFlush)
+				{
+					if (!m_bWholeLineOutput)
+						_bFlush = true;
+					
+					NStr::CStr Output;
+					
+					if (_bFlush)
+						Output = fg_Move(m_OutputBuffers[_OutputType]);
+					else
+					{
+						auto &OutputBuffer = m_OutputBuffers[_OutputType];
+						auto *pParse = OutputBuffer.f_GetStr();
+						auto *pFinishedOutput = pParse;
+						while (*pParse)
+						{
+							NStr::fg_ParseToEndOfLine(pParse);
+							auto *pEndOfLine = pParse;
+							NStr::fg_ParseEndOfLine(pParse);
+							if (pParse != pEndOfLine)
+								pFinishedOutput = pParse;
+							else
+								break;
+						}
+						mint nFinishedChars = pFinishedOutput - OutputBuffer.f_GetStr();
+						if (!nFinishedChars)
+							return;
+						Output = OutputBuffer.f_Extract(0, nFinishedChars);
+						fg_StrDelete(OutputBuffer, 0, nFinishedChars);
+					}
+					
+					if (Output.f_IsEmpty())
+						return;
+					
+					switch (_OutputType)
+					{
+					case EProcessLaunchOutputType_StdOut:
+						{
+							if (m_ToLog & ELogFlag_StdOut)
+							{
+								auto LogScope = f_LogScope();
+								DMibLog(Info, "{}", Output.f_TrimRight());
+							}
+							break;
+						}
+					case EProcessLaunchOutputType_StdErr: 
+						{
+							if (m_ToLog & ELogFlag_StdErr)
+							{
+								auto LogScope = f_LogScope();
+								DMibLog(Error, "{}", Output.f_TrimRight());
+							}
+							break;
+						}
+					default:
+						{
+							if (m_ToLog & ELogFlag_Error)
+							{
+								auto LogScope = f_LogScope();
+								DMibLog(Error, "{}", Output.f_TrimRight());
+							}
+							break;
+						}
+					}
+					
+					auto ThisActor = m_ThisWeak.f_Lock();
+					if (!ThisActor)
+						return; // Already deleted
+					
+					fg_Dispatch
+						(
+							ThisActor
+							, [pThis = m_pThis, _OutputType, Output = fg_Move(Output)]() mutable
+							{
+								auto &Internal = *pThis->mp_pInternal;
+								pThis->f_FilterOutput(_OutputType, Output);
+								if (Output.f_IsEmpty())
+									return;
+								Internal.m_OnOutput(_OutputType, Output);
+							}
+						) 
+						> NConcurrency::fg_DiscardResult()
+					;
+				}
+				
 				ELogFlag m_ToLog;
 				NStr::CStr m_LogName;
+				NStr::CStr m_OutputBuffers[EProcessLaunchOutputType_Max];
+				NConcurrency::TCWeakActor<CProcessLaunchActor> m_ThisWeak;
+				CProcessLaunchActor *m_pThis = nullptr;
+				bool m_bWholeLineOutput = true;
 			};
 			
 			NPtr::TCSharedPointer<CState> pState = fg_Construct();
 			
-			if (_Launch.m_ToLog)
+			pState->m_bWholeLineOutput = Launch.m_bWholeLineOutput;
+			pState->m_ThisWeak = fg_ThisActor(this);
+			pState->m_pThis = this;
+			
+			if (Launch.m_ToLog)
 			{
-				pState->m_ToLog = _Launch.m_ToLog; 
-				if (_Launch.m_LogName.f_IsEmpty())
-					pState->m_LogName = NFile::CFile::fs_GetFileNoExt(_Launch.m_Params.m_Target);
+				pState->m_ToLog = Launch.m_ToLog; 
+				if (Launch.m_LogName.f_IsEmpty())
+					pState->m_LogName = NFile::CFile::fs_GetFileNoExt(Launch.m_Params.m_Target);
 				else
-					pState->m_LogName = _Launch.m_LogName;
+					pState->m_LogName = Launch.m_LogName;
 			}
 			
-			CProcessLaunchParams Params = _Launch.m_Params;
+			CProcessLaunchParams Params = Launch.m_Params;
 			
 			Params.m_fDispatcher.f_Clear();
 			
@@ -214,9 +331,9 @@ namespace NMib
 				pCombinedReference->m_References.f_Insert(Internal.m_OnStateChange.f_Register(_CallbackActor, fg_Move(Params.m_fOnStateChange)));
 			}
 			
-			Params.m_fOnStateChange = [this, ThisWeak = fg_ThisActor(this).f_Weak(), bOnStateChangeRegistered, pState](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+			Params.m_fOnStateChange = [this, bOnStateChangeRegistered, pState](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 				{
-					auto ThisActor = ThisWeak.f_Lock();
+					auto ThisActor = pState->m_ThisWeak.f_Lock();
 					if (!ThisActor)
 						return; // Already deleted
 					
@@ -316,53 +433,16 @@ namespace NMib
 				}
 			;
 			
-			if (Params.m_fOnOutput)
+			if (Params.m_fOnOutput || (pState->m_ToLog & (ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Error)))
 			{
-				pCombinedReference->m_References.f_Insert(Internal.m_OnOutput.f_Register(_CallbackActor, fg_Move(Params.m_fOnOutput)));
+				if (Params.m_fOnOutput)
+					pCombinedReference->m_References.f_Insert(Internal.m_OnOutput.f_Register(_CallbackActor, fg_Move(Params.m_fOnOutput)));
 				
-				Params.m_fOnOutput = [this, ThisWeak = fg_ThisActor(this).f_Weak(), pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+				Params.m_fOnOutput = [this, pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 					{
-						if (_OutputType == EProcessLaunchOutputType_StdOut)
-						{
-							if (pState->m_ToLog & ELogFlag_StdOut)
-							{
-								auto LogScope = pState->f_LogScope(); 
-								DMibLog(Info, "{}", _Output.f_TrimRight());
-							}
-						}
-						else if (_OutputType == EProcessLaunchOutputType_StdErr)
-						{
-							if (pState->m_ToLog & ELogFlag_StdErr)
-							{
-								auto LogScope = pState->f_LogScope(); 
-								DMibLog(Error, "{}", _Output.f_TrimRight());
-							}
-						}
-						else
-						{
-							if (pState->m_ToLog & ELogFlag_Error)
-							{
-								auto LogScope = pState->f_LogScope(); 
-								DMibLog(Error, "{}", _Output.f_TrimRight());
-							}
-						}
-						
-						auto ThisActor = ThisWeak.f_Lock();
-						if (!ThisActor)
-							return; // Already deleted
-						
-						ThisActor
-							(
-								&CActor::f_Dispatch
-								, [this, _OutputType, _Output]
-								{
-									auto &Internal = *mp_pInternal;
-									Internal.m_OnOutput(_OutputType, _Output);
-								}
-							) 
-							> NConcurrency::fg_DiscardResult()
-						;
-						
+						DMibFastCheck(_OutputType < EProcessLaunchOutputType_Max);
+						pState->m_OutputBuffers[_OutputType] += _Output;
+						pState->f_ProcessOutput(_OutputType, false);
 					}
 				;
 			}
@@ -377,7 +457,7 @@ namespace NMib
 			
 			try
 			{
-				Internal.m_pProcessLaunch = fg_Construct(Params, _Launch.m_DestructFlags);
+				Internal.m_pProcessLaunch = fg_Construct(Params, Launch.m_DestructFlags);
 				Continuation.f_SetResult(fg_Move(pCombinedReference));
 			}
 			catch (NException::CException const &_Exception)

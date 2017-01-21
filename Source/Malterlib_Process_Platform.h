@@ -122,7 +122,7 @@ namespace NMib
 			void fg_Process_GetExecutionCurrentStatistics(void *_pProcess, NProcess::CProcessStatistics &_Stats);
 			void fg_Process_GetExecutionOverallStatistics(void *_pProcess, NProcess::CProcessStatistics &_Stats);
 
-			void *fg_Process_StdInReader_Open(NMib::NProcess::CStdInReaderParams const &_Params);
+			void *fg_Process_StdInReader_Open(NMib::NProcess::CStdInReaderParams &&_Params);
 			void fg_Process_StdInReader_Close(void *_pStdInReader);
 
 			void *fg_ProcessLaunch_Open(NMib::NProcess::CProcessLaunchParams const &_Params);

@@ -5,94 +5,87 @@
 
 #include <Mib/Core/Core>
 
-namespace NMib
+namespace NMib::NProcess
 {
-	namespace NProcess
+	enum EStdInReaderFlag
 	{
+		EStdInReaderFlag_None = 0
+		, EStdInReaderFlag_Exclusive = DMibBit(0) // Set to gurantee exclusive input, otherwise several CStdInReader can be created and all will receive input
+		, EStdInReaderFlag_ForcePolling = DMibBit(1) // Set to force polling behaviour. Mainly for unit testing to make sure that XP polling mode works
+	};
 
+	enum EStdInReaderOutputType
+	{
+		EStdInReaderOutputType_StdIn
+		, EStdInReaderOutputType_GeneralError
+	};
 
-		enum EStdInReaderFlag
-		{
-			EStdInReaderFlag_None = 0
-			, EStdInReaderFlag_Exclusive = DMibBit(0) // Set to gurantee exclusive input, otherwise several CStdInReader can be created and all will receive input
-			, EStdInReaderFlag_ForcePolling = DMibBit(1) // Set to force polling behaviour. Mainly for unit testing to make sure that XP polling mode works
-		};
+	struct CStdInReaderParams
+	{
+	public:
 
+	public:
+		CStdInReaderParams();
+		CStdInReaderParams(CStdInReaderParams const &_From) = delete;
+		CStdInReaderParams(CStdInReaderParams &&_From);
 
-		enum EStdInReaderOutputType
-		{
-			EStdInReaderOutputType_StdIn
-			, EStdInReaderOutputType_GeneralError
-		};
+		CStdInReaderParams &operator =(CStdInReaderParams const &_From) = delete;
+		CStdInReaderParams &operator =(CStdInReaderParams &&_From);
 
-		struct CStdInReaderParams
-		{
-		public:
+		EStdInReaderFlag m_Flags;
+		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStr const &_Input)> m_fOnReceiveInput;
+		NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> m_fDispatcher;
 
-		public:
-			CStdInReaderParams();
-			CStdInReaderParams(CStdInReaderParams const &_From);
-			CStdInReaderParams(CStdInReaderParams &&_From);
+		static CStdInReaderParams fs_Create
+			(
+				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStr const &_Input)> &&_fOnReceiveInput
+				, EStdInReaderFlag _Flags = EStdInReaderFlag_None
+				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher = {} 
+			)
+		;
+	};
 
-			CStdInReaderParams &operator =(CStdInReaderParams const &_From);
-			CStdInReaderParams &operator =(CStdInReaderParams &&_From);
-
-			EStdInReaderFlag m_Flags;
-			NFunction::TCFunction<void (EStdInReaderOutputType _Type, NStr::CStr const &_Input)> m_fOnReceiveInput;
-			NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> m_fDispatcher;
-
-			static CStdInReaderParams fs_Create
-				(
-					NFunction::TCFunction<void (EStdInReaderOutputType _Type, NStr::CStr const &_Input)> const &_fOnReceiveInput
-					, EStdInReaderFlag _Flags = EStdInReaderFlag_None
-					, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_fDispatcher 
-					= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)>()
-				)
-			;
-		};
-
-		class CStdInReader
-		{
-			DMibClassNoCopyAllowed(CStdInReader);
-			void *m_pStdInReader;
-			void fp_CheckOpen() const;
-		public:
-			CStdInReader(CStdInReaderParams const &_Params);
-			~CStdInReader();
-			CStdInReader(CStdInReader &&_Other);
-		};
-		
-		class CBlockingStdInReader
+	class CStdInReader
+	{
+		DMibClassNoCopyAllowed(CStdInReader);
+		void *m_pStdInReader;
+		void fp_CheckOpen() const;
+	public:
+		CStdInReader(CStdInReaderParams &&_Params);
+		~CStdInReader();
+		CStdInReader(CStdInReader &&_Other);
+	};
+	
+	class CBlockingStdInReader
+	{
+	public:
+		struct CPromptParams
 		{
 		public:
-			struct CPromptParams
+			CPromptParams()
+				: m_bPassword(false)
 			{
-			public:
-				CPromptParams()
-					: m_bPassword(false)
-				{
-				}
+			}
 
-				bool m_bPassword;
-				NStr::CStr m_Prompt;
-			};
-
-		private:
-			NThread::CMutual m_Lock;
-			NStr::CStr m_Buffer;
-			NStr::CStr m_Errors;
-			NThread::CEventAutoReset m_Event;
-			NPtr::TCUniquePointer<CStdInReader> m_pStdInReader;
-
-		public:
-
-			CBlockingStdInReader();
-			~CBlockingStdInReader();
-			NStr::CStr f_ReadLine();
-			NStr::CStr f_TryReadLine();
-			bool f_ReadPrompt(CPromptParams const &_Params, NStr::CStr &_Result);
+			bool m_bPassword;
+			NStr::CStr m_Prompt;
 		};
-	}
+
+	private:
+		NThread::CMutual m_Lock;
+		NStr::CStr m_Buffer;
+		NStr::CStr m_Errors;
+		NThread::CEventAutoReset m_Event;
+		NPtr::TCUniquePointer<CStdInReader> m_pStdInReader;
+
+	public:
+
+		CBlockingStdInReader();
+		~CBlockingStdInReader();
+		NStr::CStr f_ReadLine();
+		NStr::CStr f_TryReadLine();
+		bool f_ReadPrompt(CPromptParams const &_Params, NStr::CStr &_Result);
+	};
 }
 
 #ifndef DMibPNoShortCuts

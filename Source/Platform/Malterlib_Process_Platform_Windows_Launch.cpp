@@ -107,7 +107,7 @@ namespace NMib
 
 			NStr::CStr fg_GetSandboxDir(NStr::CStr &_Errors)
 			{
-				NStr::CStr Folder = NSys::fg_Process_GetEnvironmentVariable(NStr::CStr("MalterlibSandboxDeviceFolder"));
+				NStr::CStr Folder = fg_GetSys()->f_GetEnvironmentVariable("MalterlibSandboxDeviceFolder");
 
 				if (Folder.f_IsEmpty() || !NFile::CFile::fs_FileExists(Folder, NFile::EFileAttrib_Directory))
 				{
@@ -223,9 +223,7 @@ namespace NMib
 						else
 						{
 							if (SubPath[0] == '%')
-							{
-								SubPath = NSys::fg_Process_GetEnvironmentVariable(NStr::CStr(SubPath.f_Replace("%", "")));
-							}
+								SubPath = fg_GetSys()->f_GetEnvironmentVariable(SubPath.f_Replace("%", ""));
 							if (!RetPath.f_IsEmpty() && RetPath[RetPath.f_GetLen() - 1] == '/')
 								RetPath += SubPath;
 							else
@@ -1089,60 +1087,28 @@ namespace NMib
 
 						NContainer::TCVector<ch16> NewEnvStrs;
 
-						if (!Environment.f_IsEmpty())
+						NContainer::TCMap<NStr::CStr, NStr::CStr> NewEnvironment;
+						if (mp_LastLaunchOptions.m_bMergeEnvironment)
 						{
-							NContainer::TCMap<NStr::CStr, NStr::CStr> NewEnvironment;
-							if (mp_LastLaunchOptions.m_bMergeEnvironment)
-							{
-								NContainer::TCMap<NStr::CStr, NStr::CStr> OriginalEnvironment;
-								LPWSTR pStrings = GetEnvironmentStringsW();
-								LPWSTR pStringsOrig = pStrings;
-								auto Cleanup 
-									= fg_OnScopeExit
-									(
-										[&]
-										{
-											if (pStringsOrig)
-												FreeEnvironmentStringsW(pStringsOrig);
-										}
-									)
-								;
-								while (pStrings && *pStrings)
-								{
-									NStr::CStr String = NStr::NPlatform::fg_StrFromWindows(pStrings);
-									NStr::CStr Key;
-									NStr::CStr Value;
-									if (String[0] == '=')
-									{
-										String = String.f_Extract(1);
-										Key = "=" + fg_GetStrSep(String, "=");
-									}
-									else
-										Key = fg_GetStrSep(String, "=");
-									Value = String;
-				
-									OriginalEnvironment[Key] = Value;
-
-									pStrings += NStr::fg_StrLen(pStrings) + 1;
-								}
-
-								NewEnvironment = Environment;
-								NewEnvironment += OriginalEnvironment;
-							}
-							else
-								NewEnvironment = Environment;
-
-							auto Iter = NewEnvironment.f_GetIterator();
-
-							while (Iter)
-							{
-								NStr::CWStr WholeStr = NStr::NPlatform::fg_StrToWindows(Iter.f_GetKey() + "=" + *Iter);
-								NewEnvStrs.f_Insert(WholeStr.f_GetStr(), WholeStr.f_GetLen() + 1);
-				
-								++Iter;
-							}
-							NewEnvStrs.f_Insert(ch16(0));
+							NContainer::TCMap<NStr::CStr, NStr::CStr> OriginalEnvironment = fg_GetSys()->f_Environment();
+							NewEnvironment = Environment;
+							NewEnvironment += OriginalEnvironment;
 						}
+						else if (!Environment.f_IsEmpty())
+							NewEnvironment = Environment;
+						else
+							NewEnvironment = fg_GetSys()->f_Environment();
+						
+						auto Iter = NewEnvironment.f_GetIterator();
+
+						while (Iter)
+						{
+							NStr::CWStr WholeStr = NStr::NPlatform::fg_StrToWindows(Iter.f_GetKey() + "=" + *Iter);
+							NewEnvStrs.f_Insert(WholeStr.f_GetStr(), WholeStr.f_GetLen() + 1);
+			
+							++Iter;
+						}
+						NewEnvStrs.f_Insert(ch16(0));
 
 						// Set up the start up info struct.
 						NMem::fg_MemClear(si);

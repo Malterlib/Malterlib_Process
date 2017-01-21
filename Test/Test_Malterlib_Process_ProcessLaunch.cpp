@@ -645,7 +645,7 @@ namespace
 						)
 					;
 
-					NMib::NProcess::CStdInReader Reader(Params);
+					NMib::NProcess::CStdInReader Reader(NMib::fg_Move(Params));
 					
 					if (Event.f_WaitTimeout(10.0))
 						DMibConOut("Timed out waiting for std input. Current input: {}", Input);
@@ -1768,7 +1768,7 @@ namespace
 						NMib::NStr::CStr Suite = NMib::NStr::CStr::fs_ToStr(i);
 						DMibTestSuite(Suite)
 						{
-							NMib::NStr::CStr FileToOpen = NMib::NSys::fg_Process_GetEnvironmentVariable(NMib::NStr::CStr("LockFileDir"));
+							NMib::NStr::CStr FileToOpen = NMib::fg_GetSys()->f_GetEnvironmentVariable("LockFileDir");
 							NMib::NFile::CFile::fs_CreateDirectory(FileToOpen);
 							auto FileDir = FileToOpen;
 							FileToOpen += NMib::NStr::CStr::CFormat("/{}.FileOpen") << i;
@@ -1786,8 +1786,8 @@ namespace
 							;
 							
 #ifndef DPlatformFamily_Windows
-							NMib::NStr::CStr User = NMib::NSys::fg_Process_GetEnvironmentVariable(NMib::NStr::CStr("MalterlibOriginalUser"));
-							NMib::NStr::CStr Group = NMib::NSys::fg_Process_GetEnvironmentVariable(NMib::NStr::CStr("MalterlibOriginalGroup"));
+							NMib::NStr::CStr User = NMib::fg_GetSys()->f_GetEnvironmentVariable("MalterlibOriginalUser");
+							NMib::NStr::CStr Group = NMib::fg_GetSys()->f_GetEnvironmentVariable("MalterlibOriginalGroup");
 							
 							NMib::NFile::CFile::fs_SetOwner(FileToOpen, User);
 							NMib::NFile::CFile::fs_SetGroup(FileToOpen, Group);

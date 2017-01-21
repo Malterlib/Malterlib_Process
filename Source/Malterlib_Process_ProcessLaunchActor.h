@@ -23,6 +23,7 @@ namespace NMib
 				, ELogFlag_Info = DMibBit(3)
 				, ELogFlag_All = ELogFlag_Error | ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Info  
 			};
+
 			struct COutput
 			{
 				EProcessLaunchOutputType m_Type = EProcessLaunchOutputType_StdErr;
@@ -36,7 +37,8 @@ namespace NMib
 				
 				ELogFlag m_ToLog = ELogFlag_None;
 				NStr::CStr m_LogName;
-				EProcessLaunchCloseFlag m_DestructFlags = EProcessLaunchCloseFlag_StopProcess | EProcessLaunchCloseFlag_BlockOnExit; 
+				EProcessLaunchCloseFlag m_DestructFlags = EProcessLaunchCloseFlag_StopProcess | EProcessLaunchCloseFlag_BlockOnExit;
+				bool m_bWholeLineOutput = true;
 			};
 			
 			struct CSimpleLaunch : public CLaunch 
@@ -80,6 +82,10 @@ namespace NMib
 			
 			NConcurrency::TCContinuation<void> f_Destroy() override;
 
+		protected:
+			virtual void f_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output);
+			virtual void f_ModifyLaunch(CLaunch &o_Launch);
+			
 		private:
 			struct CInternal;
 			

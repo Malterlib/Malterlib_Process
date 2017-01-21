@@ -27,8 +27,8 @@ namespace NMib
 				NMib::NPtr::TCSharedPointer<NMib::NProcess::CStdInReaderParams> m_pParams;
 				DMibListLinkDS_Link(CPOSIXStdInReader, m_Link);	
 
-				CPOSIXStdInReader(NMib::NProcess::CStdInReaderParams const &_Params)
-					: m_pParams(fg_Construct(_Params))
+				CPOSIXStdInReader(NMib::NProcess::CStdInReaderParams &&_Params)
+					: m_pParams(fg_Construct(fg_Move(_Params)))
 				{
 				}
 				CPOSIXStdInReader()
@@ -304,12 +304,14 @@ namespace NMib
 
 }
 
-void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CStdInReaderParams const &_Params)
+void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CStdInReaderParams &&_Params)
 {
 	NPtr::TCUniquePointer<CPOSIXStdInReaderImplementation> pNew; // First because we want it to be destroyed after pReader in case of exception in f_Init
-	NPtr::TCUniquePointer<CPOSIXStdInReader> pReader = fg_Construct(_Params);
+	NPtr::TCUniquePointer<CPOSIXStdInReader> pReader = fg_Construct(fg_Move(_Params));
+	
+	auto &Params = *pReader->m_pParams;
 
-	if (_Params.m_fOnReceiveInput.f_IsEmpty())
+	if (Params.m_fOnReceiveInput.f_IsEmpty())
 		DMibError("No on receive input function specified for stdin reader");
 
 	auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
@@ -319,7 +321,7 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 
 		NPtr::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
 
-		if (_Params.m_Flags & EStdInReaderFlag_Exclusive)
+		if (Params.m_Flags & EStdInReaderFlag_Exclusive)
 		{
 			if (pImp && !pImp->m_Readers.f_IsEmpty())
 				DMibError("Stdin reader opened for exclusive access, but another reader is already open");
@@ -333,7 +335,7 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 		bool bInit = false;
 		if (!pImp)
 		{
-			pNew = fg_Construct<CPOSIXStdInReaderImplementation>((_Params.m_Flags & EStdInReaderFlag_ForcePolling) != 0);
+			pNew = fg_Construct<CPOSIXStdInReaderImplementation>((Params.m_Flags & EStdInReaderFlag_ForcePolling) != 0);
 			pImp = (CPOSIXStdInReaderImplementation *)pNew.f_Get();
 			bInit = true;
 		}

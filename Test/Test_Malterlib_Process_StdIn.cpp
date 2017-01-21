@@ -59,47 +59,53 @@ namespace
 				{
 					NMib::NThread::CMutual InputLock;
 					NMib::NStr::CStr Input;
-					CStdInReaderParams Params
-						= CStdInReaderParams::fs_Create
-						(
-							[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
-							{
-								DMibLock(InputLock);
-								Input += _Input;
-							}
-						)
+					auto fCreateParams = [&](bool _bExclusive = false)
+						{
+							auto Params = CStdInReaderParams::fs_Create
+								(
+									[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
+									{
+										DMibLock(InputLock);
+										Input += _Input;
+									}
+								)
+							;
+							Params.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
+							if (_bExclusive)
+								Params.m_Flags |= EStdInReaderFlag_Exclusive;
+							return NMib::fg_Move(Params);
+						}
 					;
 
-					Params.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
 
-					CStdInReaderParams ExclusiveParams = Params;
+					CStdInReaderParams ExclusiveParams = fCreateParams();
 					ExclusiveParams.m_Flags |= EStdInReaderFlag_Exclusive;
 
 					{
-						CStdInReader Reader0(Params);
-						CStdInReader Reader1(Params);
+						CStdInReader Reader0(fCreateParams());
+						CStdInReader Reader1(fCreateParams());
 					}
 					auto fl_CreateNormal
 						= [&]
 						{
-							CStdInReader Reader1(Params);
+							CStdInReader Reader1(fCreateParams());
 						}
 					;
 					auto fl_CreateExclusive
 						= [&]
 						{
-							CStdInReader Reader1(ExclusiveParams);
+							CStdInReader Reader1(fCreateParams(true));
 						}
 					;
 					{
 						DMibTestPath("Shared");
-						CStdInReader Reader0(Params);
+						CStdInReader Reader0(fCreateParams());
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
 						DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fl_CreateNormal()));
 					}
 					{
 						DMibTestPath("Exclusive");
-						CStdInReader Reader0(ExclusiveParams);
+						CStdInReader Reader0(fCreateParams(true));
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateNormal()));
 					}
@@ -109,47 +115,49 @@ namespace
 				{
 					NMib::NThread::CMutual InputLock;
 					NMib::NStr::CStr Input;
-					CStdInReaderParams Params
-						= CStdInReaderParams::fs_Create
-						(
-							[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
-							{
-								DMibLock(InputLock);
-								Input += _Input;
-							}
-						)
+					auto fCreateParams = [&](bool _bExclusive = false)
+						{
+							auto Params = CStdInReaderParams::fs_Create
+								(
+									[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
+									{
+										DMibLock(InputLock);
+										Input += _Input;
+									}
+								)
+							;
+							Params.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
+							if (_bExclusive)
+								Params.m_Flags |= EStdInReaderFlag_Exclusive;
+							return NMib::fg_Move(Params);
+						}
 					;
 
-					Params.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
-
-					CStdInReaderParams ExclusiveParams = Params;
-					ExclusiveParams.m_Flags |= EStdInReaderFlag_Exclusive;
-
 					{
-						CStdInReader Reader0(Params);
-						CStdInReader Reader1(Params);
+						CStdInReader Reader0(fCreateParams());
+						CStdInReader Reader1(fCreateParams());
 					}
 					auto fl_CreateNormal
 						= [&]
 						{
-							CStdInReader Reader1(Params);
+							CStdInReader Reader1(fCreateParams());
 						}
 					;
 					auto fl_CreateExclusive
 						= [&]
 						{
-							CStdInReader Reader1(ExclusiveParams);
+							CStdInReader Reader1(fCreateParams(true));
 						}
 					;
 					{
 						DMibTestPath("Shared");
-						CStdInReader Reader0(Params);
+						CStdInReader Reader0(fCreateParams());
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
 						DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fl_CreateNormal()));
 					}
 					{
 						DMibTestPath("Exclusive");
-						CStdInReader Reader0(ExclusiveParams);
+						CStdInReader Reader0(fCreateParams(true));
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateNormal()));
 					}
@@ -185,7 +193,7 @@ namespace
 
 							Params0.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
 
-							CStdInReader Reader0(Params0);
+							CStdInReader Reader0(NMib::fg_Move(Params0));
 
 							if (Event.f_WaitTimeout(10.0))
 								DMibConOut("Timed out waiting for std input. Current input: {}", Input0);

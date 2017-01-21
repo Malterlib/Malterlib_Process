@@ -386,7 +386,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 
 bool NMib::NProcess::NPlatform::fg_Linux_Process_RegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name)
 {
-	NMib::NStr::CStr XdgConfigHomeDir = NSys::fg_Process_GetEnvironmentVariable(NStr::CStr("XDG_CONFIG_HOME"));
+	NMib::NStr::CStr XdgConfigHomeDir = fg_GetSys()->f_GetEnvironmentVariable("XDG_CONFIG_HOME");
 	if (XdgConfigHomeDir.f_IsEmpty())
 		XdgConfigHomeDir = NMib::NFile::CFile::fs_AppendPath(NSys::NFile::fg_GetUserHomeDirectory(), ".config");
 	NMib::NStr::CStr AutoStartFile = NMib::NFile::CFile::fs_AppendPath(XdgConfigHomeDir, "autostart/" + _Name + ".desktop");
@@ -415,7 +415,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_Process_RegisterAtStartup(NMib::NStr::C
 
 bool NMib::NProcess::NPlatform::fg_Linux_Process_DeRegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name)
 {
-	NMib::NStr::CStr XdgConfigHomeDir = NSys::fg_Process_GetEnvironmentVariable(NStr::CStr("XDG_CONFIG_HOME"));
+	NMib::NStr::CStr XdgConfigHomeDir = fg_GetSys()->f_GetEnvironmentVariable("XDG_CONFIG_HOME");
 	if (XdgConfigHomeDir.f_IsEmpty())
 		XdgConfigHomeDir = NMib::NFile::CFile::fs_AppendPath(NSys::NFile::fg_GetUserHomeDirectory(), ".config");
 	NMib::NStr::CStr AutoStartFile = NMib::NFile::CFile::fs_AppendPath(XdgConfigHomeDir, "autostart/" + _Name + ".desktop");

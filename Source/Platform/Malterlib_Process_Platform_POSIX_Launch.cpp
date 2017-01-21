@@ -81,7 +81,7 @@ namespace NMib
 					if (i == 0)
 						Path = _LocalPaths;
 					else 
-						Path = NMib::NSys::fg_Process_GetEnvironmentVariable(NStr::CStr("PATH"));
+						Path = fg_GetSys()->f_GetEnvironmentVariable(NStr::CStr("PATH"));
 					while (!Path.f_IsEmpty())
 					{
 						NStr::CStr ThisPath = fg_GetStrSep(Path, ":");
@@ -405,7 +405,7 @@ namespace NMib
 
 					NContainer::TCVector<NStr::CStr> Env;
 					NContainer::TCVector<ch8 *> EnvList;
-					auto FinalEnv = NMib::NSys::fg_Process_GetEnvironmentVariables();
+					auto FinalEnv = fg_GetSys()->f_Environment();
 					if (!mp_LastLaunchOptions.m_Environment.f_IsEmpty())
 					{
 						NContainer::TCMap<NStr::CStr, NStr::CStr> NewEnvironment;

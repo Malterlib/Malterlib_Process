@@ -18,6 +18,8 @@ namespace NMib
 			, EProcessLaunchOutputType_StdErr
 			, EProcessLaunchOutputType_GeneralError
 			, EProcessLaunchOutputType_TerminateMessage
+			
+			, EProcessLaunchOutputType_Max
 		};
 
 		enum EProcessLaunchElevation
