@@ -408,7 +408,7 @@ namespace NMib
 					auto FinalEnv = fg_GetSys()->f_Environment();
 					if (!mp_LastLaunchOptions.m_Environment.f_IsEmpty())
 					{
-						NContainer::TCMap<NStr::CStr, NStr::CStr> NewEnvironment;
+						CSystemEnvironment NewEnvironment;
 						if (mp_LastLaunchOptions.m_bMergeEnvironment)
 						{
 							auto OldEnv = fg_Move(FinalEnv);

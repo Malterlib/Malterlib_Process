@@ -144,7 +144,7 @@ namespace NMib
 
 			NContainer::TCMap<NMib::NStr::CStr, NMib::NStr::CStr> m_SandboxRoots; // On unix use empty key for setting chroot, on windows use one remapping per drive
 
-			NContainer::TCMap<NMib::NStr::CStr, NMib::NStr::CStr> m_Environment;
+			CSystemEnvironment m_Environment;
 
 			NContainer::TCMap<EProcessLimit, CProcessLimit> m_Limits;
 			

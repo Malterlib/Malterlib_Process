@@ -1087,10 +1087,10 @@ namespace NMib
 
 						NContainer::TCVector<ch16> NewEnvStrs;
 
-						NContainer::TCMap<NStr::CStr, NStr::CStr> NewEnvironment;
+						CSystemEnvironment NewEnvironment;
 						if (mp_LastLaunchOptions.m_bMergeEnvironment)
 						{
-							NContainer::TCMap<NStr::CStr, NStr::CStr> OriginalEnvironment = fg_GetSys()->f_Environment();
+							CSystemEnvironment OriginalEnvironment = fg_GetSys()->f_Environment();
 							NewEnvironment = Environment;
 							NewEnvironment += OriginalEnvironment;
 						}
