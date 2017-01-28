@@ -23,6 +23,12 @@ namespace NMib
 				, ELogFlag_Info = DMibBit(3)
 				, ELogFlag_All = ELogFlag_Error | ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Info  
 			};
+			
+			enum ESimpleLaunchFlag
+			{
+				ESimpleLaunchFlag_None = 0
+				, ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode = DMibBit(0)
+			};
 
 			struct COutput
 			{
@@ -43,8 +49,17 @@ namespace NMib
 			
 			struct CSimpleLaunch : public CLaunch 
 			{
-				CSimpleLaunch(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params = {}, NStr::CStr const &_WorkingDir = {});
+				CSimpleLaunch
+					(
+						NStr::CStr const &_Executable
+						, NContainer::TCVector<NStr::CStr> const &_Params = {}
+						, NStr::CStr const &_WorkingDir = {}
+						, ESimpleLaunchFlag _Flags = ESimpleLaunchFlag_None
+					)
+				;
 				CSimpleLaunch(CProcessLaunchParams const &_Params);
+				
+				ESimpleLaunchFlag m_SimpleFlags = ESimpleLaunchFlag_None;
 			};
 			
 			struct CSimpleLaunchResult
@@ -83,8 +98,9 @@ namespace NMib
 			NConcurrency::TCContinuation<void> f_Destroy() override;
 
 		protected:
-			virtual void f_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output);
-			virtual void f_ModifyLaunch(CLaunch &o_Launch);
+			virtual bool fp_WillFilterOutput();
+			virtual void fp_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output);
+			virtual void fp_ModifyLaunch(CLaunch &o_Launch);
 			
 		private:
 			struct CInternal;

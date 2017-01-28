@@ -49,11 +49,16 @@ namespace NMib
 		{
 		}
 		
-		void CProcessLaunchActor::f_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output)
+		bool CProcessLaunchActor::fp_WillFilterOutput()
+		{
+			return false;
+		}
+		
+		void CProcessLaunchActor::fp_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output)
 		{
 		}
 		
-		void CProcessLaunchActor::f_ModifyLaunch(CLaunch &o_Launch)
+		void CProcessLaunchActor::fp_ModifyLaunch(CLaunch &o_Launch)
 		{
 		}
 		
@@ -109,10 +114,17 @@ namespace NMib
 		{
 		}
 		
-		CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params, NStr::CStr const &_WorkingDir)
+		CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch
+			(
+				NStr::CStr const &_Executable
+				, NContainer::TCVector<NStr::CStr> const &_Params
+				, NStr::CStr const &_WorkingDir
+				, ESimpleLaunchFlag _Flags
+			)
 			: CSimpleLaunch{CProcessLaunchParams::fs_LaunchExecutable(_Executable, _Params, _WorkingDir, {})}
 		{
 			m_Params.m_bAllowExecutableLocate = true;
+			m_SimpleFlags = _Flags;
 		}
 
 		NConcurrency::TCContinuation<CProcessLaunchActor::CSimpleLaunchResult> CProcessLaunchActor::f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch)
@@ -127,9 +139,12 @@ namespace NMib
 				NConcurrency::CActorSubscription m_Subscription;
 				CProcessLaunchActor::CSimpleLaunchResult m_LaunchResult;
 				NConcurrency::TCContinuation<CProcessLaunchActor::CSimpleLaunchResult> m_Continuation;
+				ESimpleLaunchFlag m_SimpleFlags = ESimpleLaunchFlag_None;
 			};
 			
 			NPtr::TCSharedPointer<CState> pState = fg_Construct();
+			
+			pState->m_SimpleFlags = _SimpleLaunch.m_SimpleFlags;
 			
 			CLaunch Params{_SimpleLaunch};
 			Params.m_Params.m_fOnStateChange = [this, pState](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
@@ -149,8 +164,13 @@ namespace NMib
 					case EProcessLaunchState_Exited:
 						{
 							int32 ExitCode = _StateChange.f_Get<EProcessLaunchState_Exited>();
-							pState->m_LaunchResult.m_ExitCode = ExitCode;
-							pState->m_Continuation.f_SetResult(fg_Move(pState->m_LaunchResult));
+							if (ExitCode && (pState->m_SimpleFlags & ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode))
+								pState->m_Continuation.f_SetException(DMibErrorInstance(fg_Format("Launch exited with {}: {}", ExitCode, pState->m_LaunchResult.f_GetErrorOut())));
+							else
+							{
+								pState->m_LaunchResult.m_ExitCode = ExitCode;
+								pState->m_Continuation.f_SetResult(fg_Move(pState->m_LaunchResult));
+							}
 							pState->m_Subscription.f_Clear();
 						}
 						break;
@@ -188,9 +208,9 @@ namespace NMib
 			Internal.m_DestructFlags = _Launch.m_DestructFlags;
 
 			CLaunch Launch = _Launch;
-			f_ModifyLaunch(Launch);
+			fp_ModifyLaunch(Launch);
 			
-			struct CState
+			struct CState : NPtr::TCSharedPointerIntrusiveBase<>
 			{
 				NMib::NLog::CSysLogCatScope f_LogScope() const
 				{
@@ -244,37 +264,6 @@ namespace NMib
 					if (Output.f_IsEmpty())
 						return;
 					
-					switch (_OutputType)
-					{
-					case EProcessLaunchOutputType_StdOut:
-						{
-							if (m_ToLog & ELogFlag_StdOut)
-							{
-								auto LogScope = f_LogScope();
-								DMibLog(Info, "{}", Output.f_TrimRight());
-							}
-							break;
-						}
-					case EProcessLaunchOutputType_StdErr: 
-						{
-							if (m_ToLog & ELogFlag_StdErr)
-							{
-								auto LogScope = f_LogScope();
-								DMibLog(Error, "{}", Output.f_TrimRight());
-							}
-							break;
-						}
-					default:
-						{
-							if (m_ToLog & ELogFlag_Error)
-							{
-								auto LogScope = f_LogScope();
-								DMibLog(Error, "{}", Output.f_TrimRight());
-							}
-							break;
-						}
-					}
-					
 					auto ThisActor = m_ThisWeak.f_Lock();
 					if (!ThisActor)
 						return; // Already deleted
@@ -282,12 +271,44 @@ namespace NMib
 					fg_Dispatch
 						(
 							ThisActor
-							, [pThis = m_pThis, _OutputType, Output = fg_Move(Output)]() mutable
+							, [pThis = m_pThis, _OutputType, Output = fg_Move(Output), this, pState = NPtr::TCSharedPointer<CState>(fg_Explicit(this))]() mutable
 							{
 								auto &Internal = *pThis->mp_pInternal;
-								pThis->f_FilterOutput(_OutputType, Output);
+								pThis->fp_FilterOutput(_OutputType, Output);
 								if (Output.f_IsEmpty())
 									return;
+								
+								switch (_OutputType)
+								{
+								case EProcessLaunchOutputType_StdOut:
+									{
+										if (m_ToLog & ELogFlag_StdOut)
+										{
+											auto LogScope = f_LogScope();
+											DMibLog(Info, "{}", Output.f_TrimRight());
+										}
+										break;
+									}
+								case EProcessLaunchOutputType_StdErr: 
+									{
+										if (m_ToLog & ELogFlag_StdErr)
+										{
+											auto LogScope = f_LogScope();
+											DMibLog(Error, "{}", Output.f_TrimRight());
+										}
+										break;
+									}
+								default:
+									{
+										if (m_ToLog & ELogFlag_Error)
+										{
+											auto LogScope = f_LogScope();
+											DMibLog(Error, "{}", Output.f_TrimRight());
+										}
+										break;
+									}
+								}
+								
 								Internal.m_OnOutput(_OutputType, Output);
 							}
 						) 
@@ -295,7 +316,7 @@ namespace NMib
 					;
 				}
 				
-				ELogFlag m_ToLog;
+				ELogFlag m_ToLog = ELogFlag_None;
 				NStr::CStr m_LogName;
 				NStr::CStr m_OutputBuffers[EProcessLaunchOutputType_Max];
 				NConcurrency::TCWeakActor<CProcessLaunchActor> m_ThisWeak;
@@ -308,10 +329,10 @@ namespace NMib
 			pState->m_bWholeLineOutput = Launch.m_bWholeLineOutput;
 			pState->m_ThisWeak = fg_ThisActor(this);
 			pState->m_pThis = this;
+			pState->m_ToLog = Launch.m_ToLog; 
 			
 			if (Launch.m_ToLog)
 			{
-				pState->m_ToLog = Launch.m_ToLog; 
 				if (Launch.m_LogName.f_IsEmpty())
 					pState->m_LogName = NFile::CFile::fs_GetFileNoExt(Launch.m_Params.m_Target);
 				else
@@ -433,7 +454,7 @@ namespace NMib
 				}
 			;
 			
-			if (Params.m_fOnOutput || (pState->m_ToLog & (ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Error)))
+			if (fp_WillFilterOutput() || Params.m_fOnOutput || (pState->m_ToLog & (ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Error)))
 			{
 				if (Params.m_fOnOutput)
 					pCombinedReference->m_References.f_Insert(Internal.m_OnOutput.f_Register(_CallbackActor, fg_Move(Params.m_fOnOutput)));
