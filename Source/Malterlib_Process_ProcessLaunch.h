@@ -4,8 +4,9 @@
 #pragma once
 
 #include <Mib/Core/Core>
-
 #include "Malterlib_Process_Platform.h"
+
+#include <Mib/Storage/Variant>
 
 namespace NMib
 {
