@@ -3,7 +3,7 @@
 
 #include <Mib/Core/Core>
 #include "Malterlib_Process_StdInActor.h"
-#include <Mib/Concurrency/ActorCallbackManager>
+#include <Mib/Concurrency/ActorSubscription>
 
 namespace NMib::NProcess
 {
