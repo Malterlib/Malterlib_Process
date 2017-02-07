@@ -21,6 +21,7 @@ namespace NMib
 				, ELogFlag_StdOut = DMibBit(1)
 				, ELogFlag_StdErr = DMibBit(2) 
 				, ELogFlag_Info = DMibBit(3)
+				, ELogFlag_AdditionallyOutputToStdErr = DMibBit(4)
 				, ELogFlag_All = ELogFlag_Error | ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Info  
 			};
 			

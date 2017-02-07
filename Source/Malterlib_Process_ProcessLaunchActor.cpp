@@ -9,7 +9,7 @@ namespace NMib
 {
 	namespace NProcess
 	{
-		
+		static NThread::CMutual g_StdOutLogLock;
 		struct CProcessLaunchActor::CInternal
 		{
 			NPtr::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
@@ -212,6 +212,11 @@ namespace NMib
 			
 			struct CState : NPtr::TCSharedPointerIntrusiveBase<>
 			{
+				static NMib::NLog::CSysLogCatScope fs_LogScope(NStr::CStr const &_LogName)
+				{
+					return NMib::NLog::CSysLogCatScope{NMib::fg_GetSys()->f_GetLogger(), _LogName};
+				}
+				
 				NMib::NLog::CSysLogCatScope f_LogScope() const
 				{
 					return NMib::NLog::CSysLogCatScope{NMib::fg_GetSys()->f_GetLogger(), m_LogName};
@@ -268,50 +273,61 @@ namespace NMib
 					if (!ThisActor)
 						return; // Already deleted
 					
-					fg_Dispatch
-						(
-							ThisActor
-							, [pThis = m_pThis, _OutputType, Output = fg_Move(Output), this, pState = NPtr::TCSharedPointer<CState>(fg_Explicit(this))]() mutable
+					NConcurrency::g_Dispatch(ThisActor) > [pThis = m_pThis, _OutputType, Output = fg_Move(Output), ToLog = m_ToLog, LogName = m_LogName]() mutable
+						{
+							auto &Internal = *pThis->mp_pInternal;
+							pThis->fp_FilterOutput(_OutputType, Output);
+							if (Output.f_IsEmpty())
+								return;
+							
+							switch (_OutputType)
 							{
-								auto &Internal = *pThis->mp_pInternal;
-								pThis->fp_FilterOutput(_OutputType, Output);
-								if (Output.f_IsEmpty())
-									return;
-								
-								switch (_OutputType)
+							case EProcessLaunchOutputType_StdOut:
 								{
-								case EProcessLaunchOutputType_StdOut:
+									if (ToLog & ELogFlag_StdOut)
 									{
-										if (m_ToLog & ELogFlag_StdOut)
+										if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 										{
-											auto LogScope = f_LogScope();
-											DMibLog(Info, "{}", Output.f_TrimRight());
+											DMibLock(g_StdOutLogLock);
+											DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
 										}
-										break;
+										auto LogScope = fs_LogScope(LogName);
+										DMibLog(Info, "{}", Output.f_TrimRight());
 									}
-								case EProcessLaunchOutputType_StdErr: 
-									{
-										if (m_ToLog & ELogFlag_StdErr)
-										{
-											auto LogScope = f_LogScope();
-											DMibLog(Error, "{}", Output.f_TrimRight());
-										}
-										break;
-									}
-								default:
-									{
-										if (m_ToLog & ELogFlag_Error)
-										{
-											auto LogScope = f_LogScope();
-											DMibLog(Error, "{}", Output.f_TrimRight());
-										}
-										break;
-									}
+									break;
 								}
-								
-								Internal.m_OnOutput(_OutputType, Output);
+							case EProcessLaunchOutputType_StdErr: 
+								{
+									if (ToLog & ELogFlag_StdErr)
+									{
+										if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
+										{
+											DMibLock(g_StdOutLogLock);
+											DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
+										}
+										auto LogScope = fs_LogScope(LogName);
+										DMibLog(Error, "{}", Output.f_TrimRight());
+									}
+									break;
+								}
+							default:
+								{
+									if (ToLog & ELogFlag_Error)
+									{
+										if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
+										{
+											DMibLock(g_StdOutLogLock);
+											DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
+										}
+										auto LogScope = fs_LogScope(LogName);
+										DMibLog(Error, "{}", Output.f_TrimRight());
+									}
+									break;
+								}
 							}
-						) 
+							
+							Internal.m_OnOutput(_OutputType, Output);
+						}
 						> NConcurrency::fg_DiscardResult()
 					;
 				}
@@ -331,7 +347,7 @@ namespace NMib
 			pState->m_pThis = this;
 			pState->m_ToLog = Launch.m_ToLog; 
 			
-			if (Launch.m_ToLog)
+			if (Launch.m_ToLog & ELogFlag_All)
 			{
 				if (Launch.m_LogName.f_IsEmpty())
 					pState->m_LogName = NFile::CFile::fs_GetFileNoExt(Launch.m_Params.m_Target);
