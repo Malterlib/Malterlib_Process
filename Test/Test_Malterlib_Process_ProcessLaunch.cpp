@@ -1293,8 +1293,9 @@ namespace
 						}
 					;
 					{
+						mint nLaunches = NMib::fg_Min(nCores*16, 64u);
 						NMib::NContainer::TCVector<NMib::NPtr::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
-						for (mint i = 0; i < nCores*16; ++i)
+						for (mint i = 0; i < nLaunches; ++i)
 							Launches.f_Insert(f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit));
 					}
 					
