@@ -96,9 +96,9 @@ namespace NMib
 			NConcurrency::TCContinuation<CProcessStatistics> f_GetOverallExecutionStatistics() const;
 			NConcurrency::TCContinuation<CProcessStatistics> f_GetOverallMemoryStatistics() const;
 			
-			NConcurrency::TCContinuation<void> f_Destroy() override;
 
 		protected:
+			NConcurrency::TCContinuation<void> fp_Destroy() override;
 			virtual bool fp_WillFilterOutput();
 			virtual void fp_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output);
 			virtual void fp_ModifyLaunch(CLaunch &o_Launch);

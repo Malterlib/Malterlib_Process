@@ -62,7 +62,7 @@ namespace NMib
 		{
 		}
 		
-		NConcurrency::TCContinuation<void> CProcessLaunchActor::f_Destroy()
+		NConcurrency::TCContinuation<void> CProcessLaunchActor::fp_Destroy()
 		{
 			auto &Internal = *mp_pInternal;
 			if (!Internal.m_pProcessLaunch || Internal.m_bProcessExited)
