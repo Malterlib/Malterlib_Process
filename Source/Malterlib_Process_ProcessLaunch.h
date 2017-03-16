@@ -224,7 +224,7 @@ namespace NMib
 			static NStr::CStr fs_GetParamsWindows(NContainer::TCVector<NStr::CStr> const &_Params);
 			static NStr::CStr fs_GetParams(NContainer::TCVector<NStr::CStr> const &_Params);
 
-			enum
+			enum : uint32
 			{
 				EProtocolVersion = 0x105
 			};

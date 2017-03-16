@@ -16,7 +16,7 @@ namespace NMib
 
 		namespace NPrivate
 		{
-			enum
+			enum : uint32
 			{
 				EProtocolVersion = 0x105
 			};
