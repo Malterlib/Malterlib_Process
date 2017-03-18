@@ -502,6 +502,7 @@ namespace NMib
 				if (pState->m_ToLog & ELogFlag_Error)
 				{
 					auto LogScope = pState->f_LogScope(); 
+					(void)_Exception;
 					DMibLog(Error, "Exception launching: {}", _Exception.f_GetErrorStr());
 				}
 				Continuation.f_SetCurrentException();
