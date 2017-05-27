@@ -345,6 +345,9 @@ namespace NMib
 					NStr::CStr f_GetThreadName();
 					aint f_Main();
 
+					DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference m_DebugSelfRef);
+					DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference m_DebugSelfThreadRef);
+
 				private:
 					NThread::CEventAutoResetReportable mp_Event;
 
@@ -2194,13 +2197,15 @@ namespace NMib
 					// Increase ref count for thread
 					if (mp_LastLaunchOptions.m_bThreaded)
 					{
-						f_RefCountIncrease();
-						auto CleanupRef = fg_OnScopeExit(
-							[&]()
-							{
-								f_RefCountDecrease();
-							}
-						);
+						f_RefCountIncrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef));
+						auto CleanupRef = fg_OnScopeExit
+							(
+								[&]()
+								{
+									f_RefCountDecrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef));
+								}
+							)
+						;
 
 						__super::f_Start(EThreadPriority_Highest, 0, 0, true);
 
@@ -2231,7 +2236,7 @@ namespace NMib
 
 				bool CConsoleRedirector::f_DestroyThread()
 				{
-					if (f_RefCountDecrease() == 0)
+					if (f_RefCountDecrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef)) == 0)
 					{
 						delete this;
 						return true;
@@ -2375,14 +2380,16 @@ void *NMib::NProcess::NPlatform::fg_ProcessLaunch_Open(CProcessLaunchParams cons
 {
 	NPtr::TCSharedPointer<CConsoleRedirector> pRedir = fg_Construct();
 
-	pRedir->f_RefCountIncrease();
+	pRedir->f_RefCountIncrease(DMibRefcountDebuggingOnly(pRedir->m_DebugSelfRef));
 
-	auto CleanupRef = fg_OnScopeExit(
-		[&]()
-		{
-			pRedir->f_RefCountDecrease();
-		}
-	);
+	auto CleanupRef = fg_OnScopeExit
+		(
+			[&]()
+			{
+				pRedir->f_RefCountDecrease(DMibRefcountDebuggingOnly(pRedir->m_DebugSelfRef));
+			}
+		)
+	;
 
 	pRedir->f_Open(_Params);
 
@@ -2401,7 +2408,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessL
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_Close(_Flags);
-	if (pLaunch->f_RefCountDecrease() == 0)
+	if (pLaunch->f_RefCountDecrease(DMibRefcountDebuggingOnly(pLaunch->m_DebugSelfRef)) == 0)
 		delete pLaunch;
 }
 

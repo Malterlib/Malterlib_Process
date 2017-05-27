@@ -180,7 +180,7 @@ namespace NMib
 
 			bool CPOSIXLaunchContext::f_DestroyThread()
 			{
-				if (f_RefCountDecrease() == 0)
+				if (f_RefCountDecrease(DMibRefcountDebuggingOnly(m_DebugSelfRef)) == 0)
 				{
 					delete this;
 					return true;
@@ -1308,13 +1308,16 @@ namespace NMib
 				
 				if (mp_LastLaunchOptions.m_bThreaded)
 				{
-					f_RefCountIncrease();
-					auto CleanupRef = fg_OnScopeExit(
-						[&]()
-					{
-						f_RefCountDecrease();
-					}
-					);
+					DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference DebugRef);
+					f_RefCountIncrease(DMibRefcountDebuggingOnly(DebugRef));
+					auto CleanupRef = fg_OnScopeExit
+						(
+							[&]() mutable
+							{
+								f_RefCountDecrease(DMibRefcountDebuggingOnly(DebugRef));
+							}
+						)
+					;
 
 					this->f_Start(EThreadPriority_High, 0, 0, true);
 
@@ -1579,14 +1582,16 @@ void *NMib::NProcess::NPlatform::fg_ProcessLaunch_Open(CProcessLaunchParams cons
 {
 	NPtr::TCSharedPointer<NPlatform::CPOSIXLaunchContext> pRedir = fg_Construct();
 
-	pRedir->f_RefCountIncrease();
+	pRedir->f_RefCountIncrease(DMibRefcountDebuggingOnly(pRedir->m_DebugSelfRef));
 
-	auto CleanupRef = fg_OnScopeExit(
-		[&]()
-	{
-		pRedir->f_RefCountDecrease();
-	}
-	);
+	auto CleanupRef = fg_OnScopeExit
+		(
+			[&]()
+			{
+				pRedir->f_RefCountDecrease(DMibRefcountDebuggingOnly(pRedir->m_DebugSelfRef));
+			}
+		)
+	;
 
 	pRedir->f_Open(_Params);
 
@@ -1605,7 +1610,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessL
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_Close(_Flags);
-	if (pLaunch->f_RefCountDecrease() == 0)
+	if (pLaunch->f_RefCountDecrease(DMibRefcountDebuggingOnly(pLaunch->m_DebugSelfRef)) == 0)
 		delete pLaunch;
 }
 

@@ -112,6 +112,8 @@ namespace NMib
 				
 				CProcessStatistics mp_OverallMemoryStatistics;
 				CProcessStatistics mp_OverallExecutionStatistics;
+
+				DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference m_DebugSelfRef);
 				
 				int mp_hStdinWrite;	// write end of child's stdin pipe
 				int mp_hStdoutRead;	// read end of child's stdout pipe
