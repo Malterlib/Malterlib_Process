@@ -488,3 +488,38 @@ void NMib::NProcess::NPlatform::fg_Process_Stop(mint _ProcessID)
 	}
 }
 
+void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
+{
+	static NAggregate::TCAggregate<NThread::CEvent> s_TerminationEvent = {DAggregateInit};
+
+	PHANDLER_ROUTINE fHandler = [](DWORD _CtrlType) -> BOOL
+		{
+			if (_CtrlType == CTRL_C_EVENT || _CtrlType == CTRL_BREAK_EVENT)
+			{
+				s_TerminationEvent->f_SetSignaled();
+				return true;
+			}
+
+			return false;
+		}
+	;
+
+	SetConsoleCtrlHandler
+		(
+			fHandler
+			, true
+		)
+	;
+
+	s_TerminationEvent->f_Wait();
+
+	SetConsoleCtrlHandler
+		(
+			fHandler
+			, false
+		)
+	;
+
+	s_TerminationEvent.f_Destruct();
+}
+
