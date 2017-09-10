@@ -147,7 +147,7 @@ namespace NMib
 			pState->m_SimpleFlags = _SimpleLaunch.m_SimpleFlags;
 			
 			CLaunch Params{_SimpleLaunch};
-			Params.m_Params.m_fOnStateChange = [this, pState](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
+			Params.m_Params.m_fOnStateChange = [pState](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
 				{
 					switch (_StateChange.f_GetTypeID())
 					{
@@ -475,7 +475,7 @@ namespace NMib
 				if (Params.m_fOnOutput)
 					pCombinedReference->m_References.f_Insert(Internal.m_OnOutput.f_Register(_CallbackActor, fg_Move(Params.m_fOnOutput)));
 				
-				Params.m_fOnOutput = [this, pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+				Params.m_fOnOutput = [pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 					{
 						DMibFastCheck(_OutputType < EProcessLaunchOutputType_Max);
 						pState->m_OutputBuffers[_OutputType] += _Output;

@@ -345,7 +345,7 @@ namespace
 						
 						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 						
-						uint32 LaunchResult = fLaunchInDll(Params.m_Target, Params.m_Parameters);
+						[[maybe_unused]] uint32 LaunchResult = fLaunchInDll(Params.m_Target, Params.m_Parameters);
 						
 						NMib::NSys::fg_FreeLibrary(pDll);
 					}
