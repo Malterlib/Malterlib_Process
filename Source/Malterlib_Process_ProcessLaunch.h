@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -375,7 +375,7 @@ namespace NMib
 			void f_Start(); // Has to be called if _Params.m_bThreaded is not true
 			bint f_IsOpen() const;
 			bint f_IsRunning() const;
-			void f_SendStdIn(NMib::NStr::CStr const &_Data) const;
+			void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const;
 			void f_SendStdInBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data) const;
 			fp64 f_GetRunningTime() const;
 			mint f_GetProcessID() const;

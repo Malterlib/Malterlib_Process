@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -558,7 +558,7 @@ namespace NMib
 			;
 		}
 		
-		NConcurrency::TCContinuation<void> CProcessLaunchActor::f_SendStdIn(NMib::NStr::CStr const &_Data) const
+		NConcurrency::TCContinuation<void> CProcessLaunchActor::f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const
 		{
 			auto &Internal = *mp_pInternal;
 			return Internal.f_RunBlocking

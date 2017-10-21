@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -700,7 +700,7 @@ namespace NMib
 				virtual void f_Close(EProcessLaunchCloseFlag _CloseFlags) override;
 				virtual bint f_IsOpen() const override;
 				virtual bint f_IsRunning() const override;
-				virtual void f_SendStdIn(NMib::NStr::CStr const &_Data) const override;
+				virtual void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const override;
 				virtual fp64 f_GetRunningTime() const override;
 			};
 			
@@ -1502,7 +1502,7 @@ namespace NMib
 			return m_pState->m_bIsRunning.f_Load();
 		}
 
-		void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_SendStdIn(NMib::NStr::CStr const &_Data) const
+		void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const
 		{
 			NPtr::TCSharedPointer<CLaunchState> pState = m_pState;
 			NPrivate::CProcessLaunch_Input Message(pState->m_LaunchID, _Data);

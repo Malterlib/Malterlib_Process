@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -233,7 +233,7 @@ namespace NMib
 			return NPlatform::fg_ProcessLaunch_IsRunning(m_pProcessLaunch);
 		}
 
-		void CProcessLaunch::f_SendStdIn(NMib::NStr::CStr const &_Data) const
+		void CProcessLaunch::f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const
 		{
 			fp_CheckOpen();
 			NPlatform::fg_ProcessLaunch_SendStdIn(m_pProcessLaunch, _Data);

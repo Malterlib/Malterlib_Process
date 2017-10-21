@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -231,7 +231,7 @@ namespace NMib
 			return m_Launch.f_IsRunning();
 		}
 
-		void CVirtualProcessLaunch_Default::f_SendStdIn(NMib::NStr::CStr const &_Data) const
+		void CVirtualProcessLaunch_Default::f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const
 		{
 			return m_Launch.f_SendStdIn(_Data);
 		}

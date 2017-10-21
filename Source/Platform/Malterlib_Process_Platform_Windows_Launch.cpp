@@ -404,7 +404,7 @@ namespace NMib
 					fp64 f_GetRunningTime();
 					uint32 f_GetExitCode();
 					bint f_IsRunning();
-					bint f_SendText(NStr::CStr const &_Data);
+					bint f_SendText(NStr::CStrSecure const &_Data);
 					void f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data);
 					mint f_GetID() const;
 					HANDLE f_GetChildProcess() const
@@ -2296,7 +2296,7 @@ namespace NMib
 					return (f_GetState() == NThread::EThreadState_Running);
 				}
 
-				bint CConsoleRedirector::f_SendText(NStr::CStr const &_Data)
+				bint CConsoleRedirector::f_SendText(NStr::CStrSecure const &_Data)
 				{
 					if (!mp_hStdinWrite)
 						return FALSE;
@@ -2304,13 +2304,13 @@ namespace NMib
 					if (::GetFileType(mp_hStdinWrite) == FILE_TYPE_CHAR)
 					{
 						DWORD dwWritten;
-						NStr::CWStr Output = _Data;
+						NStr::CWStrSecure Output = _Data;
 						return ::WriteConsoleW(mp_hStdinWrite, Output.f_GetStr(), Output.f_GetLen(), &dwWritten, nullptr);
 					}
 					else
 					{
 						DWORD dwWritten;
-						NStr::CStr Output = _Data;
+						NStr::CStrSecure Output = _Data;
 						return ::WriteFile(mp_hStdinWrite, Output.f_GetStr(), Output.f_GetLen(), &dwWritten, nullptr);
 					}
 				}
@@ -2418,7 +2418,7 @@ bint NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
 	return pLaunch->f_IsRunning();
 }
 
-void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStr const &_Data)
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrSecure const &_Data)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_SendText(_Data);

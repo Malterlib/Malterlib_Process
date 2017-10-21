@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -21,7 +21,7 @@ namespace NMib
 			virtual void f_Close(EProcessLaunchCloseFlag _CloseFlags) = 0;
 			virtual bint f_IsOpen() const = 0;
 			virtual bint f_IsRunning() const = 0;
-			virtual void f_SendStdIn(NMib::NStr::CStr const &_Data) const = 0;
+			virtual void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const = 0;
 			virtual fp64 f_GetRunningTime() const = 0;
 			
 			virtual CProcessStatistics f_GetExecutionStatistics() const
@@ -56,7 +56,7 @@ namespace NMib
 			void f_Close(EProcessLaunchCloseFlag _CloseFlags) override;
 			bint f_IsOpen() const override;
 			bint f_IsRunning() const override;
-			void f_SendStdIn(NMib::NStr::CStr const &_Data) const override;
+			void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const override;
 			fp64 f_GetRunningTime() const override;
 			CProcessStatistics f_GetExecutionStatistics() const override;
 			CProcessStatistics f_GetMemoryStatistics() const override;

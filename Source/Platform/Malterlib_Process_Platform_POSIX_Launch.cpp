@@ -1363,7 +1363,7 @@ namespace NMib
 				return (f_GetState() == NThread::EThreadState_Running);
 			}
 			
-			void CPOSIXLaunchContext::f_SendText(NStr::CStr const &_Text)
+			void CPOSIXLaunchContext::f_SendText(NStr::CStrSecure const &_Text)
 			{
 				if (!mp_hStdinWrite)
 					return;
@@ -1620,7 +1620,7 @@ bint NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
 	return pLaunch->f_IsRunning();
 }
 	
-void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStr const &_Data)
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrSecure const &_Data)
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_SendText(_Data);

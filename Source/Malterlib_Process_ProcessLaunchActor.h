@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -85,7 +85,7 @@ namespace NMib
 
 			NConcurrency::TCContinuation<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch);
 			
-			NConcurrency::TCContinuation<void> f_SendStdIn(NMib::NStr::CStr const &_Data) const;
+			NConcurrency::TCContinuation<void> f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const;
 			NConcurrency::TCContinuation<void> f_SendStdInBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data) const;
 			NConcurrency::TCContinuation<uint32> f_StopProcess() const; // Soft termination
 			

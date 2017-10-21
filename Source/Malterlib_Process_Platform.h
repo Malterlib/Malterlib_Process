@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -129,7 +129,7 @@ namespace NMib
 			void fg_ProcessLaunch_Start(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _DestructFlags);
 			void fg_ProcessLaunch_Close(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _Flags);
 			bint fg_ProcessLaunch_IsRunning(void *_pLaunch);
-			void fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStr const &_Data);
+			void fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrSecure const &_Data);
 			void fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data);
 
 			fp64 fg_ProcessLaunch_GetRunningTime(void *_pLaunch);

@@ -18,12 +18,19 @@ namespace NMib::NProcess
 		CStdInActor();
 		~CStdInActor();
 
-		using FOnInput = NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<void> (EStdInReaderOutputType _Type, NStr::CStr const &_Input)>;
+		using FOnInput = NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<void> (EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)>;
 		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags);
 
+		NConcurrency::TCContinuation<NStr::CStrSecure> f_ReadLine();
+		NConcurrency::TCContinuation<NStr::CStrSecure> f_ReadPrompt(CStdInReaderPromptParams const &_Params);
+
+		void f_AbortReads();
+
 	private:
+		NConcurrency::TCContinuation<void> fp_Destory();
+
 		struct CInternal;
-		
+
 		NPtr::TCUniquePointer<CInternal> mp_pInternal;
 	};
 }

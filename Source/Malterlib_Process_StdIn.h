@@ -44,6 +44,20 @@ namespace NMib::NProcess
 			)
 		;
 	};
+	struct CStdInReaderPromptParams
+	{
+	public:
+		CStdInReaderPromptParams()
+			: m_bPassword(false)
+		{
+		}
+
+		template <typename tf_CStream>
+		void f_Stream(tf_CStream &_Stream);
+
+		NStr::CStr m_Prompt;
+		bool m_bPassword;
+	};
 
 	class CStdInReader
 	{
@@ -59,17 +73,7 @@ namespace NMib::NProcess
 	class CBlockingStdInReader
 	{
 	public:
-		struct CPromptParams
-		{
-		public:
-			CPromptParams()
-				: m_bPassword(false)
-			{
-			}
-
-			bool m_bPassword;
-			NStr::CStr m_Prompt;
-		};
+		using CPromptParams = CStdInReaderPromptParams;
 
 	private:
 		NThread::CMutual m_Lock;
@@ -87,6 +91,8 @@ namespace NMib::NProcess
 		bool f_ReadPrompt(CPromptParams const &_Params, NStr::CStr &_Result);
 	};
 }
+
+#include "Malterlib_Process_StdIn.hpp"
 
 #ifndef DMibPNoShortCuts
 	using namespace NMib::NProcess;	
