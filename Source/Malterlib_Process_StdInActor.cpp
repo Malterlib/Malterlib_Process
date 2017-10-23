@@ -199,7 +199,6 @@ namespace NMib::NProcess
 					auto &Prompt = ReadEntry.m_EntryInfo.f_Get<EReadEntry_Prompt>();
 
 					Prompt.f_CheckOutputPrompt();
-					Prompt.m_Params.m_bPassword = false;
 
 					auto iUTFChar = BufferEntry.m_Input.f_GetUnicodeIterator();
 
