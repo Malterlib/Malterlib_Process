@@ -67,7 +67,7 @@ namespace NMib::NProcess
 			void f_Redraw(mint _OldLen, mint _NewInsertPos)
 			{
 				mint ExtraChars = 0;
-				if (_OldLen > m_Result.f_GetLen())
+				if (_OldLen > mint(m_Result.f_GetLen()))
 					ExtraChars = _OldLen - m_Result.f_GetLen();
 
 				mint InsertPosFromEnd = (m_Result.f_GetLen() + ExtraChars) - _NewInsertPos;
@@ -246,7 +246,7 @@ namespace NMib::NProcess
 									case 'C':
 										{
 											mint nPlaces = Parameters.f_ToInt(mint(1));
-											auto NewPos = fg_Clamp(Prompt.m_iInsertPos + nPlaces, 0, Prompt.m_Result.f_GetLen());
+											auto NewPos = fg_Clamp(Prompt.m_iInsertPos + nPlaces, 0, mint(Prompt.m_Result.f_GetLen()));
 											Prompt.f_ChangeInsertPos(NewPos);
 											break;
 										}
@@ -261,7 +261,7 @@ namespace NMib::NProcess
 										{
 											if (Parameters == "3")
 											{
-												if (Prompt.m_iInsertPos < Prompt.m_Result.f_GetLen())
+												if (Prompt.m_iInsertPos < mint(Prompt.m_Result.f_GetLen()))
 												{
 													mint OldLen = Prompt.m_Result.f_GetLen();
 													Prompt.m_Result = Prompt.m_Result.f_Delete(Prompt.m_iInsertPos, 1);
