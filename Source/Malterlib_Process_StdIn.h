@@ -18,6 +18,7 @@ namespace NMib::NProcess
 	{
 		EStdInReaderOutputType_StdIn
 		, EStdInReaderOutputType_GeneralError
+		, EStdInReaderOutputType_EndOfFile
 	};
 
 	struct CStdInReaderParams
@@ -33,14 +34,22 @@ namespace NMib::NProcess
 		CStdInReaderParams &operator =(CStdInReaderParams &&_From);
 
 		EStdInReaderFlag m_Flags;
-		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStr const &_Input)> m_fOnReceiveInput;
+		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)> m_fOnReceiveInput;
+		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, NStr::CStr const &_Error)> m_fOnReceiveBinaryInput;
 		NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> m_fDispatcher;
 
 		static CStdInReaderParams fs_Create
 			(
-				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStr const &_Input)> &&_fOnReceiveInput
+				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)> &&_fOnReceiveInput
 				, EStdInReaderFlag _Flags = EStdInReaderFlag_None
-				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher = {} 
+				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher = {}
+			)
+		;
+		static CStdInReaderParams fs_CreateBinary
+			(
+				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, NStr::CStr const &_Error)> &&_fOnReceiveInput
+				, EStdInReaderFlag _Flags = EStdInReaderFlag_None
+				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher = {}
 			)
 		;
 	};

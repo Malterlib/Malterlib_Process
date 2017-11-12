@@ -160,8 +160,8 @@ namespace NMib
 
 				HANDLE mp_hStdInFile;
 
-				NContainer::TCVector<uint8> mp_StdInReadBuffer;
-				NStr::CWStr mp_StdInStringBuffer;
+				NContainer::CSecureByteVector mp_StdInReadBuffer;
+				NStr::CWStrSecure mp_StdInStringBuffer;
 
 
 				bool fp_Read()
@@ -188,10 +188,7 @@ namespace NMib
 											bRet = false;
 
 										if (nBytesRead)
-										{
-											NStr::CStr ToSend((ch8 const *)mp_StdInReadBuffer.f_GetArray(), nBytesRead);
-											fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStr(ToSend));
-										}
+											fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CSecureByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
 									}
 								}
 								else
@@ -225,7 +222,7 @@ namespace NMib
 								}
 							;
 
-							NStr::CWStr ToSend;
+							NStr::CWStrSecure ToSend;
 							while (true)
 							{
 								DWORD LastAvailable;
@@ -284,7 +281,7 @@ namespace NMib
 									break;
 							}
 							if (!ToSend.f_IsEmpty())
-								fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStr(ToSend));
+								fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStrSecure(ToSend));
 						}
 					}
 					else
@@ -301,9 +298,12 @@ namespace NMib
 									bRet = false;
 
 								if (nBytesRead)
+									fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CSecureByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
+								else if (bRet)
 								{
-									NStr::CStr ToSend((ch8 const *)mp_StdInReadBuffer.f_GetArray(), nBytesRead);
-									fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStr(ToSend));
+									// Does nBytesRead == 0 mean we have found EOF?
+									fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
+									bRet = false;
 								}
 								if (nBytesRead != 4096)
 									break;
@@ -316,7 +316,7 @@ namespace NMib
 								else if (nReadChars)
 								{
 									mp_StdInStringBuffer.f_SetAt(nReadChars, 0);
-									fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStr(mp_StdInStringBuffer));
+									fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStrSecure(mp_StdInStringBuffer));
 								}
 
 								if (nReadChars != 4096)
@@ -327,7 +327,8 @@ namespace NMib
 
 					return bRet;
 				}
-				void fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStr const &_String);
+				void fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrSecure const &_String);
+				void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer);
 			};
 
 			struct CSubSystem_Process_Platform_Windows_StdInReader : public CSubSystem
@@ -371,8 +372,9 @@ namespace NMib
 				}
 			}
 
-			void CWindowsStdInReaderImplementation::fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStr const &_String)
+			void CWindowsStdInReaderImplementation::fp_SendToReaders(EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer)
 			{
+				DMibRequire(_Type == EStdInReaderOutputType_StdIn);
 				auto &SubSystem = *g_SubSystem_Process_Platform_Windows_StdInReader;
 				DMibLock(SubSystem.m_StdInReaderImpLock);
 				for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
@@ -380,17 +382,80 @@ namespace NMib
 					auto pParams = iReader->m_pParams;
 					if (pParams->m_fDispatcher)
 					{
-						pParams->m_fDispatcher
-							(
-								[_Type, _String, pParams]()
-								{
-									pParams->m_fOnReceiveInput(_Type, _String);
-								}
-							)
-						;
+						if (pParams->m_fOnReceiveInput)
+						{
+							pParams->m_fDispatcher
+								(
+									[_Type, String = NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()), pParams]()
+									{
+										pParams->m_fOnReceiveInput(_Type, String);
+									}
+								)
+							;
+						}
+						else
+						{
+							pParams->m_fDispatcher
+								(
+									[_Type, _Buffer, pParams]()
+									{
+										pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
+									}
+								)
+							;
+						}
+
 					}
 					else
-						pParams->m_fOnReceiveInput(_Type, _String);
+					{
+						if (pParams->m_fOnReceiveInput)
+							pParams->m_fOnReceiveInput(_Type, NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()));
+						else
+							pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
+					}
+				}
+			}
+
+			void CWindowsStdInReaderImplementation::fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrSecure const &_String)
+			{
+				DMibRequire(_Type != EStdInReaderOutputType_StdIn);
+				auto &SubSystem = *g_SubSystem_Process_Platform_Windows_StdInReader;
+				DMibLock(SubSystem.m_StdInReaderImpLock);
+				for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
+				{
+					auto pParams = iReader->m_pParams;
+					if (pParams->m_fDispatcher)
+					{
+						if (pParams->m_fOnReceiveInput)
+						{
+							pParams->m_fDispatcher
+								(
+									[_Type, _String, pParams]()
+									{
+										pParams->m_fOnReceiveInput(_Type, _String);
+									}
+								)
+							;
+						}
+						else
+						{
+							pParams->m_fDispatcher
+								(
+									[_Type, _String, pParams]()
+									{
+										pParams->m_fOnReceiveBinaryInput(_Type, {}, _String);
+									}
+								)
+							;
+						}
+					}
+					else
+					{
+						if (pParams->m_fOnReceiveInput)
+							pParams->m_fOnReceiveInput(_Type, _String);
+						else
+							pParams->m_fOnReceiveBinaryInput(_Type, {}, _String);
+					}
 				}
 			}
 		}
@@ -404,8 +469,11 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 	
 	auto &Params = *pReader->m_pParams;
 
-	if (Params.m_fOnReceiveInput.f_IsEmpty())
+	if (Params.m_fOnReceiveInput.f_IsEmpty() && Params.m_fOnReceiveBinaryInput.f_IsEmpty())
 		DMibError("No on receive input function specified for stdin reader");
+
+	if (Params.m_fOnReceiveInput.f_IsEmpty() == Params.m_fOnReceiveBinaryInput.f_IsEmpty())
+		DMibError("Both string and binary on receive input function specified for stdin reader");
 
 	auto &SubSystem = *g_SubSystem_Process_Platform_Windows_StdInReader;
 

@@ -178,7 +178,7 @@ namespace NMib
 						++nPoll;
 						
 						int PollReturn = poll(ToPoll, nPoll, -1);
-						
+
 						if (PollReturn == -1)
 						{
 							int ErrNo = errno;
@@ -195,7 +195,7 @@ namespace NMib
 					return 0;
 				}
 
-				NContainer::TCVector<uint8> mp_StdInReadBuffer;
+				NContainer::CSecureByteVector mp_StdInReadBuffer;
 
 
 				bool fp_Read()
@@ -206,12 +206,9 @@ namespace NMib
 						mp_StdInReadBuffer.f_SetLen(4096);
 					
 					auto ReadBytes = read(0, mp_StdInReadBuffer.f_GetArray(), 4096);
-					
+
 					if (ReadBytes > 0)
-					{
-						NStr::CStr Temp((ch8 *)mp_StdInReadBuffer.f_GetArray(), ReadBytes);
-						fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_StdIn, NStr::CStr(Temp));
-					}
+						fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_StdIn, NContainer::CSecureByteVector(mp_StdInReadBuffer.f_GetArray(), ReadBytes));
 					else if (ReadBytes < 0)
 					{
 						int ErrNo = errno;
@@ -228,13 +225,15 @@ namespace NMib
 					}
 					else
 					{
-						fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_GeneralError, "End of file");
+						fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_EndOfFile, "End of file");
 						bRet = false;
 					}
 
 					return bRet;
 				}
-				void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStr const &_String);
+
+				void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer);
+				void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure const &_String);
 			};
 
 			struct CSubSystem_Process_Platform_POSIX_StdInReader : public CSubSystem
@@ -277,8 +276,10 @@ namespace NMib
 					}
 				}
 			}
-			void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStr const &_String)
+			void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer)
 			{
+				DMibRequire(_Type == EStdInReaderOutputType_StdIn);
+
 				auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
 				DMibLock(SubSystem.m_StdInReaderImpLock);
 				for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
@@ -286,22 +287,85 @@ namespace NMib
 					auto pParams = iReader->m_pParams;
 					if (pParams->m_fDispatcher)
 					{
-						pParams->m_fDispatcher
-							(
-								[_Type, _String, pParams]()
-								{
-									pParams->m_fOnReceiveInput(_Type, _String);
-								}
-							)
-						;
+						if (pParams->m_fOnReceiveInput)
+						{
+							pParams->m_fDispatcher
+								(
+									[_Type, String = NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()), pParams]()
+									{
+										pParams->m_fOnReceiveInput(_Type, String);
+									}
+								)
+							;
+						}
+						else
+						{
+							pParams->m_fDispatcher
+								(
+									[_Type, _Buffer, pParams]()
+									{
+										pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
+									}
+								)
+							;
+						}
+
 					}
 					else
-						pParams->m_fOnReceiveInput(_Type, _String);
+					{
+						if (pParams->m_fOnReceiveInput)
+							pParams->m_fOnReceiveInput(_Type, NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()));
+						else
+							pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
+					}
+				}
+			}
+
+			void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure const &_String)
+			{
+				DMibRequire(_Type != EStdInReaderOutputType_StdIn);
+
+				auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
+				DMibLock(SubSystem.m_StdInReaderImpLock);
+				for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
+				{
+					auto pParams = iReader->m_pParams;
+					if (pParams->m_fDispatcher)
+					{
+						if (pParams->m_fOnReceiveInput)
+						{
+							pParams->m_fDispatcher
+								(
+									[_Type, _String, pParams]()
+									{
+										pParams->m_fOnReceiveInput(_Type, _String);
+									}
+								)
+							;
+						}
+						else
+						{
+							pParams->m_fDispatcher
+								(
+									[_Type, _String, pParams]()
+									{
+										pParams->m_fOnReceiveBinaryInput(_Type, {}, _String);
+									}
+								)
+							;
+						}
+					}
+					else
+					{
+						if (pParams->m_fOnReceiveInput)
+							pParams->m_fOnReceiveInput(_Type, _String);
+						else
+							pParams->m_fOnReceiveBinaryInput(_Type, {}, _String);
+					}
 				}
 			}
 		}
 	}
-
 }
 
 void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CStdInReaderParams &&_Params)
@@ -311,8 +375,11 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 	
 	auto &Params = *pReader->m_pParams;
 
-	if (Params.m_fOnReceiveInput.f_IsEmpty())
+	if (Params.m_fOnReceiveInput.f_IsEmpty() && Params.m_fOnReceiveBinaryInput.f_IsEmpty())
 		DMibError("No on receive input function specified for stdin reader");
+
+	if (Params.m_fOnReceiveInput.f_IsEmpty() == Params.m_fOnReceiveBinaryInput.f_IsEmpty())
+		DMibError("Both string and binary on receive input function specified for stdin reader");
 
 	auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
 

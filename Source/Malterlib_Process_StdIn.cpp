@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -163,13 +163,27 @@ namespace NMib::NProcess
 
 	CStdInReaderParams CStdInReaderParams::fs_Create
 		(
-			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStr const &_Input)> &&_fOnReceiveInput
+			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)> &&_fOnReceiveInput
 			, EStdInReaderFlag _Flags
-			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher 
+			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher
 		)
 	{
 		CStdInReaderParams Ret;
 		Ret.m_fOnReceiveInput = fg_Move(_fOnReceiveInput);
+		Ret.m_Flags = _Flags;
+		Ret.m_fDispatcher = fg_Move(_fDispatcher);
+		return Ret;
+	}
+
+	CStdInReaderParams CStdInReaderParams::fs_CreateBinary
+		(
+			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, NStr::CStr const &_Error)> &&_fOnReceiveInput
+			, EStdInReaderFlag _Flags
+			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher
+		)
+	{
+		CStdInReaderParams Ret;
+		Ret.m_fOnReceiveBinaryInput = fg_Move(_fOnReceiveInput);
 		Ret.m_Flags = _Flags;
 		Ret.m_fDispatcher = fg_Move(_fDispatcher);
 		return Ret;
