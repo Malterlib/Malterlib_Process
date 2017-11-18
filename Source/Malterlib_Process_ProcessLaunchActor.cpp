@@ -124,6 +124,7 @@ namespace NMib
 			: CSimpleLaunch{CProcessLaunchParams::fs_LaunchExecutable(_Executable, _Params, _WorkingDir, {})}
 		{
 			m_Params.m_bAllowExecutableLocate = true;
+			m_Params.m_bShowLaunched = false;
 			m_SimpleFlags = _Flags;
 		}
 
