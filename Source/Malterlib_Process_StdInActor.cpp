@@ -270,7 +270,7 @@ namespace NMib::NProcess
 									case 'C':
 										{
 											mint nPlaces = Parameters.f_ToInt(mint(1));
-											auto NewPos = fg_Clamp(Prompt.m_iInsertPos + nPlaces, 0, mint(Prompt.m_Result.f_GetLen()));
+											auto NewPos = fg_Clamp(Prompt.m_iInsertPos + nPlaces, 0u, mint(Prompt.m_Result.f_GetLen()));
 											Prompt.f_ChangeInsertPos(NewPos);
 											break;
 										}
