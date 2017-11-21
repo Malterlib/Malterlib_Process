@@ -63,6 +63,10 @@ namespace NMib
 			uint16 m_Revision;
 			uint16 m_MinorRevision;
 			NStr::CStr m_Branch;
+
+			NStr::CStr m_GitBranch;
+			NStr::CStr m_GitCommit;
+
 			NTime::CTime m_BuildTime;
 
 			uint64 f_GetFullVersion()

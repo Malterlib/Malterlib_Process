@@ -143,13 +143,36 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		{
 			for (mint i = 0; i < (QuerySize/sizeof(struct LANGANDCODEPAGE)); ++i)
 			{
-				NStr::CWStr SubBlock = NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild")) << pTranslate[i].wLanguage << pTranslate[i].wCodePage;
+				NStr::CWStr SubBlock = NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild"))
+					<< pTranslate[i].wLanguage
+					<< pTranslate[i].wCodePage
+				;
 
 				ch16 const *pBuffer = nullptr;
 				UINT BufferBytes = 0;
 				if (VerQueryValue(pBlock, SubBlock.f_GetStr(), (LPVOID*)&pBuffer, &BufferBytes))
 				{
-					_VersionInfo.m_Branch = NStr::CWStr(pBuffer);
+					NStr::CStr BuildData = NStr::CWStr(pBuffer);
+					if (BuildData.f_StartsWith("{"))
+					{
+						try
+						{
+							CEJSON JsonBuildData = CEJSON::fs_FromString(BuildData);
+
+							if (auto pValue = JsonBuildData.f_GetMember("MalterlibBranch", EJSONType_String))
+								_VersionInfo.m_Branch = pValue->f_String();
+							if (auto pValue = JsonBuildData.f_GetMember("MalterlibGitBranch", EJSONType_String))
+								_VersionInfo.m_GitBranch = pValue->f_String();
+							if (auto pValue = JsonBuildData.f_GetMember("MalterlibGitCommit", EJSONType_String))
+								_VersionInfo.m_GitCommit = pValue->f_String();
+						}
+						catch (CException const &)
+						{
+						}
+					}
+					else
+						_VersionInfo.m_Branch = ExtraData;
+
 					break;
 				}
 			}

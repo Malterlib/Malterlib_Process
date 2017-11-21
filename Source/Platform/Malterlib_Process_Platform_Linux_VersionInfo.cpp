@@ -114,5 +114,9 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		}
 		else if (Var == "MalterlibBranch")
 			_VersionInfo.m_Branch = Line;
+		else if (Var == "MalterlibGitBranch")
+			_VersionInfo.m_GitBranch = Line;
+		else if (Var == "MalterlibGitCommit")
+			_VersionInfo.m_GitCommit = Line;
 	}
 }

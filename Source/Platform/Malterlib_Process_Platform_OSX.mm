@@ -83,8 +83,10 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 			_VersionInfo.m_Minor = fg_GetDictionaryValue(pPList, "ProductVersionMinor", NStr::CStr::fs_ToStr(_VersionInfo.m_Minor)).f_ToInt(uint16(0));
 			_VersionInfo.m_Revision = fg_GetDictionaryValue(pPList, "ProductVersionRevision", NStr::CStr::fs_ToStr(_VersionInfo.m_Revision)).f_ToInt(uint16(0));
 			_VersionInfo.m_Branch = fg_GetDictionaryValue(pPList, "MalterlibBranch", _VersionInfo.m_Branch);
-			return ;
+			_VersionInfo.m_GitBranch = fg_GetDictionaryValue(pPList, "MalterlibGitBranch", _VersionInfo.m_GitBranch);
+			_VersionInfo.m_GitCommit = fg_GetDictionaryValue(pPList, "MalterlibGitCommit", "");
+
+			return;
 		}
 	}			
 }
-
