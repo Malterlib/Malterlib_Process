@@ -5,6 +5,7 @@
 #include <Mib/Core/PlatformSpecific/WindowsFilePath>
 #include <Mib/Core/PlatformSpecific/WindowsFile>
 #include <Mib/Core/PlatformSpecific/WindowsError>
+#include <Mib/Encoding/EJSON>
 #include "../Malterlib_Process_Platform.h"
 #include <Windows.h>
 #include "Malterlib_Process_Platform_Windows.h"
@@ -157,6 +158,8 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 					{
 						try
 						{
+							using namespace NEncoding;
+
 							CEJSON JsonBuildData = CEJSON::fs_FromString(BuildData);
 
 							if (auto pValue = JsonBuildData.f_GetMember("MalterlibBranch", EJSONType_String))
@@ -166,12 +169,12 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 							if (auto pValue = JsonBuildData.f_GetMember("MalterlibGitCommit", EJSONType_String))
 								_VersionInfo.m_GitCommit = pValue->f_String();
 						}
-						catch (CException const &)
+						catch (NException::CException const &)
 						{
 						}
 					}
 					else
-						_VersionInfo.m_Branch = ExtraData;
+						_VersionInfo.m_Branch = BuildData;
 
 					break;
 				}
