@@ -16,7 +16,7 @@ namespace NMib
 				NThread::CMutual m_ProcessIDsLock;
 				NContainer::TCSet<pid_t> m_ProcessIDs;
 				fp32 m_CPULimit;
-				zbool m_bDidPause;
+				bool m_bDidPause = false;
 				
 				NTime::CClock m_Clock;
 				zfp64 m_LastUpdate;
@@ -33,7 +33,7 @@ namespace NMib
 					zuint64 m_StartTime;
 					zmint m_StartPause;
 					
-					zbool m_bPaused;
+					void *m_pPausedToken = nullptr;
 					zbool m_bTouched;
 					zbool m_bTriedTask; 
 

@@ -1992,7 +1992,10 @@ namespace
 				f_TestKillSandbox<t_ProxyType>();
 				f_TestExecutableFromDll<t_ProxyType>();
 #ifndef DPlatformFamily_Linux // Not supported on linux for now
-				f_TestLimits<t_ProxyType>();
+#ifdef DPlatformFamily_OSX
+				if (NMib::NProcess::NPlatform::fg_Process_GetElevation() >= NMib::NProcess::EProcessElevation_IsElevated) // Process pause is unreliable unless root is used for now
+#endif
+					f_TestLimits<t_ProxyType>();
 #endif
 				f_TestStdOut<t_ProxyType>();
 				f_TestSimpleURLLaunch<t_ProxyType>();

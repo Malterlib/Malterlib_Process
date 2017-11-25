@@ -479,12 +479,13 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 	return "Windows";
 }
 
-void NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
+void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
 {
 	DMibError("fg_Process_Pause not implemented");
+	return nullptr;
 }
 
-void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID)
+void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID, void *_pPauseToken)
 {
 	DMibError("fg_Process_Resume not implemented");
 }

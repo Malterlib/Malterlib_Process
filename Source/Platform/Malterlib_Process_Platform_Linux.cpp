@@ -188,7 +188,7 @@ namespace
 		
 		NMib::NContainer::TCMap<pid_t, CProcessEntry> m_AllProcesses;
 		
-		zbool m_bPaused;
+		void *m_pPausedToken = nullptr;
 		
 		pid_t f_GetID() const
 		{
@@ -205,8 +205,8 @@ namespace
 
 	CProcessEntry::~CProcessEntry()
 	{
-		if (m_bPaused)
-			NMib::NProcess::NPlatform::fg_Process_Resume(f_GetID());
+		if (m_pPausedToken)
+			NMib::NProcess::NPlatform::fg_Process_Resume(f_GetID(), m_pPausedToken);
 	}
 
 	void CProcessEntry::f_MapProcess(pid_t _ID)
@@ -229,11 +229,10 @@ namespace
 	bool CProcessEntry::f_PauseTree()
 	{
 		bool bRet = false;
-		if (!m_bPaused)
+		if (!m_pPausedToken)
 		{
-			m_bPaused = true;
+			m_pPausedToken = NMib::NProcess::NPlatform::fg_Process_Pause(f_GetID());
 			bRet = true;
-			NMib::NProcess::NPlatform::fg_Process_Pause(f_GetID());
 		}
 		for (auto iChild = m_Children.f_GetIterator(); iChild; ++iChild)
 		{

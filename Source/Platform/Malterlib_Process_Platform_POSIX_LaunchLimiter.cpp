@@ -60,8 +60,8 @@ namespace NMib
 
 			CProcessLaunchLimiter::CProcessEntry::~CProcessEntry()
 			{
-				if (m_bPaused)
-					fg_Process_Resume(f_GetID());
+				if (m_pPausedToken)
+					fg_Process_Resume(f_GetID(), m_pPausedToken);
 			}
 			
 			void CProcessLaunchLimiter::CProcessEntry::f_MapProcess(pid_t _ID, uint64 _StartTime)
@@ -144,11 +144,10 @@ namespace NMib
 				for (mint iChild = m_StartPause; nLoops; --nLoops)
 				{
 					auto &Child = *(_Children[iChild]);
-					if (!Child.m_bPaused)
+					if (!Child.m_pPausedToken)
 					{
-						Child.m_bPaused = true;
+						Child.m_pPausedToken = fg_Process_Pause(Child.f_GetID());
 						bRet = true;
-						fg_Process_Pause(Child.f_GetID());
 					}
 					++iChild;
 					if (iChild >= nChildren)
@@ -169,12 +168,11 @@ namespace NMib
 				for (mint iChild = m_StartPause; nLoops; --nLoops)
 				{
 					auto &Child = *(_Children[iChild]);
-					if (Child.m_bPaused)
+					if (Child.m_pPausedToken)
 					{
-						Child.m_bPaused = false;
+						fg_Process_Resume(Child.f_GetID(), Child.m_pPausedToken);
+						Child.m_pPausedToken = nullptr;
 						bRet = true;
-
-						fg_Process_Resume(Child.f_GetID());
 					}
 					++iChild;
 					if (iChild >= nChildren)
@@ -219,7 +217,6 @@ namespace NMib
 				}
 				fp64 NextUpdate;
 				fp64 Interval = 1.0 / 240.0;
-				
 				
 				if (m_bDidPause)
 				{

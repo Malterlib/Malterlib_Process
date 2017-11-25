@@ -102,8 +102,8 @@ namespace NMib
 			NMib::NStr::CStr fg_Process_GetComputerDomain();
 			uint64 fg_Process_GetPhysicalMemory();
 			
-			void fg_Process_Pause(mint _ProcessID);
-			void fg_Process_Resume(mint _ProcessID);
+			void *fg_Process_Pause(mint _ProcessID);
+			void fg_Process_Resume(mint _ProcessID, void *_pPauseToken);
 			void fg_Process_Stop(mint _ProcessID);
 			void fg_Process_Terminate(mint _ProcessID);
 	 

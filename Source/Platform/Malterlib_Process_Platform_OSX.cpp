@@ -101,7 +101,7 @@ namespace
 		
 		NMib::NContainer::TCMap<pid_t, CProcessEntry> m_AllProcesses;
 		
-		zbool m_bPaused;
+		void *m_pPausedToken = nullptr;
 		
 		pid_t f_GetID() const
 		{
@@ -118,8 +118,8 @@ namespace
 
 	CProcessEntry::~CProcessEntry()
 	{
-		if (m_bPaused)
-			NMib::NProcess::NPlatform::fg_Process_Resume(f_GetID());
+		if (m_pPausedToken)
+			NMib::NProcess::NPlatform::fg_Process_Resume(f_GetID(), m_pPausedToken);
 	}
 
 	void CProcessEntry::f_MapProcess(pid_t _ID)
@@ -142,11 +142,10 @@ namespace
 	bool CProcessEntry::f_PauseTree()
 	{
 		bool bRet = false;
-		if (!m_bPaused)
+		if (!m_pPausedToken)
 		{
-			m_bPaused = true;
+			m_pPausedToken = NMib::NProcess::NPlatform::fg_Process_Pause(f_GetID());
 			bRet = true;
-			NMib::NProcess::NPlatform::fg_Process_Pause(f_GetID());
 		}
 		for (auto iChild = m_Children.f_GetIterator(); iChild; ++iChild)
 		{
@@ -372,30 +371,68 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	return Ret;
 }		
 
-void NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
+void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
 {
-	mach_port_t Task;
-	if (task_for_pid(mach_task_self(), _ProcessID, &Task) != KERN_SUCCESS)
-		return;
-//				DTrace("task_for_pid failed!!!\n", 0);
-	
-	if (task_suspend(Task) != KERN_SUCCESS)
-		return;
-//				DTrace("task_suspend failed!!!\n", 0);
-	//kill(_ProcessID, SIGSTOP);
+	if (fg_Process_GetElevation() >= EProcessElevation_IsElevated)
+	{
+		if (CSystem::ms_PlatformVersion >= 10'09'00)
+		{
+			mach_port_t Task;
+			if (task_for_pid(mach_task_self(), _ProcessID, &Task) != KERN_SUCCESS)
+				return nullptr;
+
+			task_suspension_token_t SuspensionToken;
+			if (task_suspend2(Task, &SuspensionToken) != KERN_SUCCESS)
+				return nullptr;
+
+			return (void *)(mint)SuspensionToken;
+		}
+		else
+		{
+			mach_port_t Task;
+			if (task_for_pid(mach_task_self(), _ProcessID, &Task) != KERN_SUCCESS)
+				return nullptr;
+
+			if (task_suspend(Task) != KERN_SUCCESS)
+				return nullptr;
+
+			return (void *)1;
+		}
+	}
+	else
+	{
+		if (kill(_ProcessID, SIGSTOP))
+			return nullptr;
+
+		return (void *)1;
+	}
 }
 
-void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID)
+void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID, void *_pPauseToken)
 {
-	mach_port_t Task;
-	if (task_for_pid(mach_task_self(), _ProcessID, &Task) != KERN_SUCCESS)
+	if (!_pPauseToken)
 		return;
-//				DTrace("task_for_pid failed!!!\n", 0);
-	
-	if (task_resume(Task) != KERN_SUCCESS)
-		return;
-//				DTrace("task_resume failed!!!\n", 0);
-//			kill(_ProcessID, SIGCONT);
+
+	if (fg_Process_GetElevation() >= EProcessElevation_IsElevated)
+	{
+		if (CSystem::ms_PlatformVersion >= 10'09'00)
+		{
+			task_suspension_token_t SuspensionToken = (mint)_pPauseToken;
+			if (task_resume2(SuspensionToken) != KERN_SUCCESS)
+				return;
+		}
+		else
+		{
+			mach_port_t Task;
+			if (task_for_pid(mach_task_self(), _ProcessID, &Task) != KERN_SUCCESS)
+				return;
+
+			if (task_resume(Task) != KERN_SUCCESS)
+				return;
+		}
+	}
+	else
+		kill(_ProcessID, SIGCONT);
 }
 
 NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int32 _MajorMax, int32 _MinorMax)

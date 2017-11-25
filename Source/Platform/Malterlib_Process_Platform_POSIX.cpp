@@ -49,12 +49,18 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetUserName()
 
 #ifndef DPlatformFamily_OSX
 
-void NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
+void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
 {
-	kill(_ProcessID, SIGSTOP);
+	if (kill(_ProcessID, SIGSTOP))
+		return nullptr;
+
+	return (void *)1;
 }
-void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID)
+void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID, void *_pPauseToken)
 {
+	if (!_pPauseToken)
+		return;
+
 	kill(_ProcessID, SIGCONT);
 }
 
