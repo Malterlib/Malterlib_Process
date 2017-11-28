@@ -180,7 +180,7 @@ namespace NMib
 
 			bool CPOSIXLaunchContext::f_DestroyThread()
 			{
-				if (f_RefCountDecrease(DMibRefcountDebuggingOnly(m_DebugSelfRef)) == 0)
+				if (f_RefCountDecrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef)) == 0)
 				{
 					delete this;
 					return true;
@@ -1308,13 +1308,12 @@ namespace NMib
 				
 				if (mp_LastLaunchOptions.m_bThreaded)
 				{
-					DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference DebugRef);
-					f_RefCountIncrease(DMibRefcountDebuggingOnly(DebugRef));
+					f_RefCountIncrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef));
 					auto CleanupRef = fg_OnScopeExit
 						(
 							[&]() mutable
 							{
-								f_RefCountDecrease(DMibRefcountDebuggingOnly(DebugRef));
+								f_RefCountDecrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef));
 							}
 						)
 					;

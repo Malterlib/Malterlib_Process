@@ -61,7 +61,10 @@ namespace NMib
 				CProcessStatistics f_OverallMemoryStatistics() const;
 				CProcessStatistics f_OverallExecutionStatistics() const;
 				bool f_OverallStatsAvailable() const;
-				
+
+				DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference m_DebugSelfRef);
+				DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference m_DebugSelfThreadRef);
+
 			private:
 				void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
 				void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
@@ -113,8 +116,6 @@ namespace NMib
 				CProcessStatistics mp_OverallMemoryStatistics;
 				CProcessStatistics mp_OverallExecutionStatistics;
 
-				DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference m_DebugSelfRef);
-				
 				int mp_hStdinWrite;	// write end of child's stdin pipe
 				int mp_hStdoutRead;	// read end of child's stdout pipe
 				int mp_hStderrRead;	// read end of child's stderr pipe
