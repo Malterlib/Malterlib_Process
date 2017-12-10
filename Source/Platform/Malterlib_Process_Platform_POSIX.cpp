@@ -175,7 +175,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 	auto fSigterm = signal(SIGTERM, (sig_t)fSigTermHandler);
 	auto fSigint = signal(SIGINT, (sig_t)fSigTermHandler);
 
-	return g_OnScopeExitShared > []
+	return g_OnScopeExitShared > [fSigterm, fSigint]
 		{
 			signal(SIGTERM, fSigterm);
 			signal(SIGINT, fSigint);
