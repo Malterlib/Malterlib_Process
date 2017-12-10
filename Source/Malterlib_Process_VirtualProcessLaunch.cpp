@@ -146,10 +146,18 @@ namespace NMib
 
 		void CProcessLaunchHandler::f_StopAll()
 		{
-			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
+			NException::CDisableExceptionTraceScope DisableExceptionTrace;
+			for (auto &Launch : m_Launches)
 			{
-				if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
-					Iter->m_pProcessLaunch->f_StopProcess();
+				if (!Launch.m_pProcessLaunch || !Launch.m_pProcessLaunch->f_IsOpen())
+					continue;
+				try
+				{
+					Launch.m_pProcessLaunch->f_StopProcess();
+				}
+				catch (NException::CException const &)
+				{
+				}
 			}
 		}
 
