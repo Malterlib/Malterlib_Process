@@ -885,6 +885,14 @@ namespace NMib
 						auto Environment = mp_LastLaunchOptions.m_Environment;
 
 						NStr::CWStr ProgramPathFull = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate);
+
+						if (ProgramPathFull.f_IsEmpty())
+						{
+							using namespace NStr;
+							_Errors += "Failed to find an executable for '{}'\n"_f << Program;
+							return false;
+						}
+
 						NStr::CStr SandboxDll;
 						NStr::CStr SandboxFullPath;
 						DWORD BinaryType;
@@ -1242,7 +1250,7 @@ namespace NMib
 								)
 							{
 								NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
-								_Errors += NStr::CStr::CFormat("CreateProcessW({}, {}) failed with : {}" DMibNewLine) << ProgramPathFull << Params << Error;
+								_Errors += NStr::CStr::CFormat("CreateProcessW(\"{}\", {}) failed with : {}" DMibNewLine) << ProgramPathFull << Params << Error;
 								return false;
 							}
 						}
