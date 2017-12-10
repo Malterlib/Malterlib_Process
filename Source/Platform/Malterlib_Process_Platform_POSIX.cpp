@@ -157,6 +157,32 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 	}
 }
 
+static NMib::NAggregate::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};
+
+NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTermination(NFunction::TCFunction<void ()> &&_fOnTerminate)
+{
+	if (gs_TerminationFunction.f_IsConstructed())
+		DMibError("You can only install one wait for termination handler");
+
+	gs_TerminationFunction.f_Construct(fg_Move(_fOnTerminate));
+
+	static auto fSigTermHandler = [](int const _Signal)
+		{
+			(*gs_TerminationFunction)();
+		}
+	;
+
+	auto fSigterm = signal(SIGTERM, (sig_t)fSigTermHandler);
+	auto fSigint = signal(SIGINT, (sig_t)fSigTermHandler);
+
+	return g_OnScopeExitShared > []
+		{
+			signal(SIGTERM, fSigterm);
+			signal(SIGINT, fSigint);
+			gs_TerminationFunction.f_Destruct();
+		}
+	;
+}
 
 bint NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
 {

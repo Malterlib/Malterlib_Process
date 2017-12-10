@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <Mib/Function/Function>
+#include <Mib/Core/OnScopeExitShared>
+
 namespace NMib
 {
 	namespace NProcess
@@ -141,6 +144,8 @@ namespace NMib
 			void fg_ProcessLaunch_Stop(void *_pLaunch);
 			
 			void fg_Process_WaitForTermination();
+
+			COnScopeExitShared fg_Process_WaitForTermination(NFunction::TCFunction<void ()> &&_fOnTerminate);
 
 			NProcess::CProcessStatistics fg_ProcessLaunch_GetExecutionStatistics(void *_pLaunch);
 			NProcess::CProcessStatistics fg_ProcessLaunch_GetMemoryStatistics(void *_pLaunch);

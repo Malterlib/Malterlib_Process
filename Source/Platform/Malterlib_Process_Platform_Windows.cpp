@@ -526,7 +526,6 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 				s_TerminationEvent->f_SetSignaled();
 				return true;
 			}
-
 			return false;
 		}
 	;
@@ -548,5 +547,47 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 	;
 
 	s_TerminationEvent.f_Destruct();
+}
+
+static NMib::NAggregate::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};
+
+NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTermination(NFunction::TCFunction<void ()> &&_fOnTerminate)
+{
+	if (gs_TerminationFunction.f_IsConstructed())
+		DMibError("You can only install one wait for termination handler");
+
+	gs_TerminationFunction.f_Construct(fg_Move(_fOnTerminate));
+
+	static PHANDLER_ROUTINE fHandler = [](DWORD _CtrlType) -> BOOL
+		{
+			if (_CtrlType == CTRL_C_EVENT || _CtrlType == CTRL_BREAK_EVENT)
+			{
+				(*gs_TerminationFunction)();
+				return true;
+			}
+
+			return false;
+		}
+	;
+
+	SetConsoleCtrlHandler
+		(
+			fHandler
+			, true
+		)
+	;
+
+
+	return g_OnScopeExitShared > []
+		{
+			SetConsoleCtrlHandler
+				(
+					fHandler
+					, false
+				)
+			;
+			gs_TerminationFunction.f_Destruct();
+		}
+	;
 }
 
