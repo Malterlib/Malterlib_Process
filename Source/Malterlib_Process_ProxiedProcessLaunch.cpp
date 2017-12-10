@@ -460,6 +460,53 @@ namespace NMib
 				void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 			};
 
+			class CProcessLaunch_Stop
+			{
+				uint64 m_LaunchID;
+			public:
+				CProcessLaunch_Stop(uint64 _LaunchID)
+					: m_LaunchID(_LaunchID)
+				{
+				}
+
+				CProcessLaunch_Stop()
+					: m_LaunchID(0)
+				{
+				}
+
+				struct CResponse
+				{
+					CResponse()
+					{
+					}
+
+					template <typename tf_CStream>
+					void f_Feed(tf_CStream &_Stream) const
+					{
+					}
+
+					template <typename tf_CStream>
+					void f_Consume(tf_CStream &_Stream)
+					{
+					}
+				};
+
+				template <typename tf_CStream>
+				void f_Feed(tf_CStream &_Stream) const
+				{
+					_Stream << m_LaunchID;
+				}
+
+				template <typename tf_CStream>
+				void f_Consume(tf_CStream &_Stream)
+				{
+					_Stream >> m_LaunchID;
+				}
+
+				void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+				void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+			};
+
 			DProcessProxyProtocolType(CConnect, 0);
 			DProcessProxyProtocolType(CDisconnect, 1);
 			DProcessProxyProtocolType(CProcessLaunch_Launch, 2);
@@ -467,8 +514,9 @@ namespace NMib
 			DProcessProxyProtocolType(CProcessLaunch_Output, 4);
 			DProcessProxyProtocolType(CProcessLaunch_Input, 5);
 			DProcessProxyProtocolType(CProcessLaunch_Close, 6);
+			DProcessProxyProtocolType(CProcessLaunch_Stop, 7);
 
-#define DProcessProxyProtocolNumTypeID 7
+#define DProcessProxyProtocolNumTypeID 8
 
 #undef DProcessProxyProtocolType
 
@@ -698,6 +746,7 @@ namespace NMib
 				virtual ~CVirtualProcessLaunch_Client();
 				virtual EProcessLaunchCloseFlag f_GetCloseFlags() const override;
 				virtual void f_Close(EProcessLaunchCloseFlag _CloseFlags) override;
+				virtual void f_StopProcess() const override;
 				virtual bint f_IsOpen() const override;
 				virtual bint f_IsRunning() const override;
 				virtual void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const override;
@@ -1312,6 +1361,19 @@ namespace NMib
 				_OnResponse(Reponse);
 			}
 			
+			void CProcessLaunch_Stop::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+			{
+				DMibErrorProcessProxyProtocol("Not valid on client");
+			}
+			void CProcessLaunch_Stop::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+			{
+				auto pState = _pServer->f_GetLaunchState(m_LaunchID);
+				if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
+					pState->m_pLaunch->f_StopProcess();
+				CResponse Reponse;
+				_OnResponse(Reponse);
+			}
+			
 			struct CHandleMessageVisitor
 			{
 				CProxiedLaunchClient::CInternal *m_pClient;
@@ -1448,6 +1510,32 @@ namespace NMib
 		EProcessLaunchCloseFlag CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_GetCloseFlags() const
 		{
 			return m_pState->m_DestructFlags;
+		}
+
+		void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_StopProcess() const
+		{
+			if (!m_pState->m_bOpen.f_Load())
+				return;
+
+			NPtr::TCSharedPointer<CLaunchState> pState = m_pState;
+
+			NPrivate::CProcessLaunch_Stop Message(pState->m_LaunchID);
+			pState->m_pClient->f_SendMessageAsync
+				(
+					Message
+					, [pState](NConcurrency::TCAsyncResult<NPrivate::CProcessLaunch_Stop::CResponse> const &_Response)
+					{
+						try
+						{
+							_Response.f_Get();
+						}
+						catch (NException::CException const &_Exception)
+						{
+							pState->f_ReportOutput(pState, EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("error: {}" DMibNewLine) << _Exception.f_GetErrorStr());
+						}
+					}
+				)
+			;
 		}
 
 		void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_Close(EProcessLaunchCloseFlag _CloseFlags)

@@ -135,12 +135,21 @@ namespace NMib
 			return pInfo;
 		}
 
-		void CProcessLaunchHandler::f_TerminateAll()
+		void CProcessLaunchHandler::f_TerminateAll(bool _bBlock)
 		{
 			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 			{
 				if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
-					Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_LingerUntilDone);
+					Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_TerminateProcess | _bBlock ? EProcessLaunchCloseFlag_BlockOnExit : EProcessLaunchCloseFlag_LingerUntilDone);
+			}
+		}
+
+		void CProcessLaunchHandler::f_StopAll()
+		{
+			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
+			{
+				if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
+					Iter->m_pProcessLaunch->f_StopProcess();
 			}
 		}
 
@@ -219,6 +228,11 @@ namespace NMib
 		void CVirtualProcessLaunch_Default::f_Close(EProcessLaunchCloseFlag _CloseFlags)
 		{
 			return m_Launch.f_Close(_CloseFlags);
+		}
+
+		void CVirtualProcessLaunch_Default::f_StopProcess() const
+		{
+			return m_Launch.f_StopProcess();
 		}
 
 		bint CVirtualProcessLaunch_Default::f_IsOpen() const
