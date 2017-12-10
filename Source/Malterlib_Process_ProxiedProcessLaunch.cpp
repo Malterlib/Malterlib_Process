@@ -525,11 +525,7 @@ namespace NMib
 			template <typename t_CVisitor>
 			bool fg_VisitType(t_CVisitor &&_Visitor, uint32 _TypeID)
 			{
-#ifdef DCompiler_MSVC
-#			define DMibTemp_GenerateParam(z, n, text) case n: _Visitor.operator ()<TCIDToType<n>::CType>(); break;
-#else
 #			define DMibTemp_GenerateParam(z, n, text) case n: _Visitor.template operator ()<TCIDToType<n>::CType>(); break;
-#endif
 				switch (_TypeID)
 				{
 						DMibPreRepeat(DProcessProxyProtocolNumTypeID, DMibTemp_GenerateParam, unsued);
