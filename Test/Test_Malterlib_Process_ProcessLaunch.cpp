@@ -1825,7 +1825,7 @@ namespace
 			}
 			else
 			{
-				DMibTestSuite("KillSandbox")
+				DMibTestCategoryFlags("KillSandbox", ETestCategoryFlag_DisableExceptionFilter | ETestCategoryFlag_Tests)
 				{
 					EExitResult Exited = EExitResult_None;
 					uint32 ExitCode = 66;
