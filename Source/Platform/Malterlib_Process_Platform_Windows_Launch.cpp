@@ -54,7 +54,7 @@ namespace NMib
 
 			CProcessEntry::~CProcessEntry()
 			{
-				m_AllProcess.f_DeleteAll();
+				m_AllProcess.f_DeleteAllDefiniteType();
 			}
 			bint CProcessEntry::operator == (uint32 _Process) const
 			{
