@@ -239,6 +239,12 @@ namespace NMib
 			NPlatform::fg_ProcessLaunch_SendStdIn(m_pProcessLaunch, _Data);
 		}
 
+		void CProcessLaunch::f_CloseStdIn() const
+		{
+			fp_CheckOpen();
+			NPlatform::fg_ProcessLaunch_CloseStdIn(m_pProcessLaunch);
+		}
+
 		void CProcessLaunch::f_SendStdInBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data) const
 		{
 			fp_CheckOpen();

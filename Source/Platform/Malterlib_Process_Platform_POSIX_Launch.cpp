@@ -1364,15 +1364,23 @@ namespace NMib
 			
 			void CPOSIXLaunchContext::f_SendText(NStr::CStrSecure const &_Text)
 			{
-				if (!mp_hStdinWrite)
+				if (mp_hStdinWrite == -1)
 					return;
-				
+
 				write(mp_hStdinWrite, _Text.f_GetStr(), _Text.f_GetLen());
 			}
-			
+
+			void CPOSIXLaunchContext::f_CloseStdIn()
+			{
+				if (mp_hStdinWrite == -1)
+					return;
+
+				fp_DestroyPipe(mp_hStdinWrite);
+			}
+
 			void CPOSIXLaunchContext::f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
 			{
-				if (!mp_hStdinWrite)
+				if (mp_hStdinWrite == -1)
 					return;
 				
 				write(mp_hStdinWrite, _Data.f_GetArray(), _Data.f_GetLen());
@@ -1623,6 +1631,12 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib:
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_SendText(_Data);
+}
+
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_CloseStdIn(void *_pLaunch)
+{
+	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
+	pLaunch->f_CloseStdIn();
 }
 
 void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)

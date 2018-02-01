@@ -47,6 +47,7 @@ namespace NMib
 
 				bint f_IsRunning();
 				void f_SendText(NStr::CStrSecure const &_Text);
+				void f_CloseStdIn();
 				void f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data);
 				fp64 f_GetRunningTime();
 				mint f_GetID();

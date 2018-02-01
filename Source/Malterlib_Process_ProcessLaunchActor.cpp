@@ -571,7 +571,20 @@ namespace NMib
 				)
 			;
 		}
-		
+
+		NConcurrency::TCContinuation<void> CProcessLaunchActor::f_CloseStdIn() const
+		{
+			auto &Internal = *mp_pInternal;
+			return Internal.f_RunBlocking
+				(
+					[](NPtr::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)
+					{
+						_pProcessLaunch->f_CloseStdIn();
+					}
+				)
+			;
+		}
+
 		NConcurrency::TCContinuation<uint32> CProcessLaunchActor::f_StopProcess() const
 		{
 			auto &Internal = *mp_pInternal;

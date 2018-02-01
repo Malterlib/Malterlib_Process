@@ -258,6 +258,11 @@ namespace NMib
 			return m_Launch.f_SendStdIn(_Data);
 		}
 
+		void CVirtualProcessLaunch_Default::f_CloseStdIn() const
+		{
+			return m_Launch.f_CloseStdIn();
+		}
+
 		fp64 CVirtualProcessLaunch_Default::f_GetRunningTime() const
 		{
 			return m_Launch.f_GetRunningTime();

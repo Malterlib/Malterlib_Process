@@ -86,6 +86,7 @@ namespace NMib
 			NConcurrency::TCContinuation<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch);
 			
 			NConcurrency::TCContinuation<void> f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const;
+			NConcurrency::TCContinuation<void> f_CloseStdIn() const;
 			NConcurrency::TCContinuation<void> f_SendStdInBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data) const;
 			NConcurrency::TCContinuation<uint32> f_StopProcess() const; // Soft termination
 			

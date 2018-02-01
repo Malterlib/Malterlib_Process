@@ -405,6 +405,7 @@ namespace NMib
 					uint32 f_GetExitCode();
 					bint f_IsRunning();
 					bint f_SendText(NStr::CStrSecure const &_Data);
+					void f_CloseStdIn();
 					void f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data);
 					mint f_GetID() const;
 					HANDLE f_GetChildProcess() const
@@ -2322,7 +2323,15 @@ namespace NMib
 						return ::WriteFile(mp_hStdinWrite, Output.f_GetStr(), Output.f_GetLen(), &dwWritten, nullptr);
 					}
 				}
-				
+
+				void CConsoleRedirector::f_CloseStdIn()
+				{
+					if (!mp_hStdinWrite)
+						return;
+
+					fp_DestroyHandle(mp_hStdinWrite);
+				}
+
 				void CConsoleRedirector::f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
 				{
 					if (!mp_hStdinWrite)
@@ -2430,6 +2439,12 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib:
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_SendText(_Data);
+}
+
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_CloseStdIn(void *_pLaunch)
+{
+	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
+	pLaunch->f_CloseStdIn();
 }
 
 void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
