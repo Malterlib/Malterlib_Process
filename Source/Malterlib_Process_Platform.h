@@ -119,7 +119,7 @@ namespace NMib
 			NMib::NStr::CStr fg_Process_GetComputerAddress();
 			NMib::NStr::CStr fg_Process_GetHostName();
 
-			void fg_Process_SetPriority(uint16 _Priority);
+			void fg_Process_SetPriority(EExecutionPriority _Priority);
 
 			NContainer::TCVector<NProcess::CProcessInfo> fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet = NProcess::EProcessInfoFlag_None, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum = nullptr);
 			

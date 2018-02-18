@@ -12,6 +12,12 @@ using namespace NMib;
 #include <sys/time.h>
 #include <sys/resource.h>
 #endif
+#ifdef DPlatformFamily_OSX
+#include <mach/mach_init.h>
+#include <mach/thread_policy.h>
+#include <mach/task_policy.h>
+#include <mach/task.h>
+#endif
 
 #include "Malterlib_Process_Platform_POSIX.h"
 
@@ -189,12 +195,25 @@ bint NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _Proce
 	return getppid() == _ProcessID;
 }
 
-void NMib::NProcess::NPlatform::fg_Process_SetPriority(uint16 _Priority)
+void NMib::NProcess::NPlatform::fg_Process_SetPriority(EExecutionPriority _Priority)
 {
-	int32 NiceProirity = (-int32(_Priority)*20 - 1) / int32(0x8000) + 20;
-	if (setpriority(PRIO_PROCESS, getpid(), NiceProirity))
+	// Best effort for setting priority
+	for (int32 NiceProirity = (-(int32(_Priority)+1)*20 ) / int32(0x8000) + 20; NiceProirity <= 20; ++NiceProirity)
 	{
-		DMibError(NMib::NPlatform::fg_FormatErrno(NMib::NStr::CStrNonTracked::CFormat("setpriority({}) when setting process priority") << NiceProirity, errno));
+		if (!setpriority(PRIO_PROCESS, getpid(), NiceProirity))
+			break;
 	}
-}
 
+#ifdef DPlatformFamily_OSX
+	{
+		struct task_category_policy TaskCategoryPolity;
+		if (_Priority > EExecutionPriority_Normal)
+			TaskCategoryPolity.role = TASK_FOREGROUND_APPLICATION;
+		else if (_Priority == EExecutionPriority_Normal)
+			TaskCategoryPolity.role = TASK_UNSPECIFIED;
+		else
+			TaskCategoryPolity.role = TASK_BACKGROUND_APPLICATION;
+		task_policy_set(mach_task_self(), TASK_CATEGORY_POLICY, (thread_policy_t)&TaskCategoryPolity, TASK_CATEGORY_POLICY_COUNT);
+	}
+#endif
+}

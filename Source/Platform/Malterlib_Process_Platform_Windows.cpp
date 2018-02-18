@@ -198,9 +198,9 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 }
 
 
-void NMib::NProcess::NPlatform::fg_Process_SetPriority(uint16 _Priority)
+void NMib::NProcess::NPlatform::fg_Process_SetPriority(EExecutionPriority _Priority)
 {
-	SetPriorityClass(GetCurrentProcess(), fg_Win32_TranslateProcessPriority((EExecutionPriority)_Priority));
+	SetPriorityClass(GetCurrentProcess(), fg_Win32_TranslateProcessPriority(_Priority));
 }
 
 NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum)
