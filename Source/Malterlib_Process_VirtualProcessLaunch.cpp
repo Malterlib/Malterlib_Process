@@ -140,7 +140,7 @@ namespace NMib
 			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 			{
 				if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
-					Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_TerminateProcess | _bBlock ? EProcessLaunchCloseFlag_BlockOnExit : EProcessLaunchCloseFlag_LingerUntilDone);
+					Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_TerminateProcess | (_bBlock ? EProcessLaunchCloseFlag_BlockOnExit : EProcessLaunchCloseFlag_LingerUntilDone));
 			}
 		}
 
