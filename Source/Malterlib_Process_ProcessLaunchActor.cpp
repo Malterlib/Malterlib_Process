@@ -213,6 +213,7 @@ namespace NMib
 			
 			struct CState : NPtr::TCSharedPointerIntrusiveBase<>
 			{
+#if (DMibSysLogSeverities) != 0
 				static NMib::NLog::CSysLogCatScope fs_LogScope(NStr::CStr const &_LogName)
 				{
 					return NMib::NLog::CSysLogCatScope{NMib::fg_GetSys()->f_GetLogger(), _LogName};
@@ -222,6 +223,7 @@ namespace NMib
 				{
 					return NMib::NLog::CSysLogCatScope{NMib::fg_GetSys()->f_GetLogger(), m_LogName};
 				}
+#endif
 				
 				~CState()
 				{
@@ -292,8 +294,10 @@ namespace NMib
 											DMibLock(g_StdOutLogLock);
 											DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
 										}
+#if (DMibSysLogSeverities) != 0
 										auto LogScope = fs_LogScope(LogName);
 										DMibLog(Info, "{}", Output.f_TrimRight());
+#endif
 									}
 									break;
 								}
@@ -306,8 +310,10 @@ namespace NMib
 											DMibLock(g_StdOutLogLock);
 											DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
 										}
+#if (DMibSysLogSeverities) != 0
 										auto LogScope = fs_LogScope(LogName);
 										DMibLog(Error, "{}", Output.f_TrimRight());
+#endif
 									}
 									break;
 								}
@@ -320,8 +326,10 @@ namespace NMib
 											DMibLock(g_StdOutLogLock);
 											DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
 										}
+#if (DMibSysLogSeverities) != 0
 										auto LogScope = fs_LogScope(LogName);
 										DMibLog(Error, "{}", Output.f_TrimRight());
+#endif
 									}
 									break;
 								}
@@ -394,6 +402,7 @@ namespace NMib
 										{
 											uint32 ExitCode = State.f_Get<NProcess::EProcessLaunchState_Exited>();
 											
+#if (DMibSysLogSeverities) != 0
 											if (!ExitCode)
 											{
 												if (pState->m_ToLog & ELogFlag_Info)
@@ -410,6 +419,7 @@ namespace NMib
 													DMibLog(Error, "Launch exited with error code: {}", ExitCode);
 												}
 											}
+#endif
 											
 											for (auto &Pending : Internal.m_PendingProcessStops)
 												Pending.m_fOnStop(ExitCode);
@@ -420,11 +430,13 @@ namespace NMib
 										break;
 									case NProcess::EProcessLaunchState_Launched:
 										{
+#if (DMibSysLogSeverities) != 0
 											if (pState->m_ToLog & ELogFlag_Info)
 											{
 												auto LogScope = pState->f_LogScope(); 
 												DMibLog(Info, "Launched");
 											}
+#endif
 											Internal.m_bProcessRunning = true;
 											if (Internal.m_pProcessLaunch)
 											{
@@ -451,11 +463,13 @@ namespace NMib
 										break;
 									case NProcess::EProcessLaunchState_LaunchFailed:
 										{
+#if (DMibSysLogSeverities) != 0
 											if (pState->m_ToLog & ELogFlag_Error)
 											{
 												auto LogScope = pState->f_LogScope(); 
 												DMibLog(Error, "Launch failed: {}", State.f_Get<EProcessLaunchState_LaunchFailed>());
 											}
+#endif
 											for (auto &Pending : Internal.m_PendingProcessStops)
 												Pending.m_fOnStop(-1);
 											Internal.m_PendingProcessStops.f_Clear();
@@ -487,11 +501,13 @@ namespace NMib
 			
 			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
 
+#if (DMibSysLogSeverities) != 0
 			if (pState->m_ToLog & ELogFlag_Info)
 			{
 				auto LogScope = pState->f_LogScope(); 
 				DMibLog(Info, "Launching");
 			}
+#endif
 			
 			try
 			{
@@ -500,12 +516,14 @@ namespace NMib
 			}
 			catch (NException::CException const &_Exception)
 			{
+				(void)_Exception;
+#if (DMibSysLogSeverities) != 0
 				if (pState->m_ToLog & ELogFlag_Error)
 				{
 					auto LogScope = pState->f_LogScope(); 
-					(void)_Exception;
 					DMibLog(Error, "Exception launching: {}", _Exception.f_GetErrorStr());
 				}
+#endif
 				Continuation.f_SetCurrentException();
 			}
 			catch (...)
