@@ -456,6 +456,7 @@ namespace NMib
 			m_CPUUsage = _From.m_CPUUsage;
 			m_Elevation = _From.m_Elevation;
 			m_RunAsUser = _From.m_RunAsUser;
+			m_RunAsUserPassword = _From.m_RunAsUserPassword;
 			m_RunAsGroup = _From.m_RunAsGroup;
 			m_fOnStateChange = _From.m_fOnStateChange;
 			m_fOnOutput = _From.m_fOnOutput;
@@ -526,6 +527,7 @@ namespace NMib
 			, m_bMakeEffectiveGroupReal(_From.m_bMakeEffectiveGroupReal)
 			, m_bCreateNewProcessGroup(_From.m_bCreateNewProcessGroup)
 			, m_RunAsUser(_From.m_RunAsUser)
+			, m_RunAsUserPassword(_From.m_RunAsUserPassword)
 			, m_RunAsGroup(_From.m_RunAsGroup)
 		{
 		}
@@ -563,6 +565,7 @@ namespace NMib
 			, m_bMakeEffectiveGroupReal(_From.m_bMakeEffectiveGroupReal)
 			, m_bCreateNewProcessGroup(_From.m_bCreateNewProcessGroup)
 			, m_RunAsUser(fg_Move(_From.m_RunAsUser))
+			, m_RunAsUserPassword(fg_Move(_From.m_RunAsUserPassword))
 			, m_RunAsGroup(fg_Move(_From.m_RunAsGroup))
 		{
 		}
@@ -601,6 +604,7 @@ namespace NMib
 			m_bMakeEffectiveGroupReal = _From.m_bMakeEffectiveGroupReal;
 			m_bCreateNewProcessGroup = _From.m_bCreateNewProcessGroup;
 			m_RunAsUser = fg_Move(_From.m_RunAsUser);
+			m_RunAsUserPassword = fg_Move(_From.m_RunAsUserPassword);
 			m_RunAsGroup = fg_Move(_From.m_RunAsGroup);
 			return *this;
 		}

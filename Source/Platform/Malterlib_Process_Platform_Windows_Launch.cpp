@@ -20,12 +20,19 @@
 #pragma comment(lib, "wtsapi32.lib")
 #include <Psapi.h>
 
+#include <AclAPI.h>
+
+#include <Userenv.h>
+#pragma comment(lib, "Userenv.lib")
+
 namespace NMib
 {
 	namespace NProcess
 	{
 		namespace NPlatform
 		{
+			BOOL fg_ChangeAceToWindowStation(HWINSTA hwinsta, PSID psid, bool _bRemove, bool &_bAdded);
+			BOOL fg_ChangeAceToDesktop(HDESK hdesk, PSID psid, bool _bRemove, bool &_bAdded);
 
 			class CProcessLaunchLink
 			{
@@ -374,6 +381,8 @@ namespace NMib
 
 					NMib::NProcess::CProcessLaunchParams mp_LastLaunchOptions;
 
+					NContainer::TCVector<COnScopeExitShared> mp_CleanupLoadedProfiles;
+
 					uint32 mp_ReturnValue;
 					uint32 mp_ProcessID;
 					NThread::CMutual mp_NeedTerminationLock;
@@ -407,6 +416,7 @@ namespace NMib
 					bint f_SendText(NStr::CStrSecure const &_Data);
 					void f_CloseStdIn();
 					void f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data);
+					void f_StopProcess();
 					mint f_GetID() const;
 					HANDLE f_GetChildProcess() const
 					{
@@ -594,6 +604,52 @@ namespace NMib
 					return bFailedLaunch;
 				}
 
+				void CConsoleRedirector::f_StopProcess()
+				{
+					using namespace NStr;
+
+					if (!mp_LastLaunchOptions.m_bCreateNewProcessGroup && mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
+						DMibError("Cannot stop a process without m_bCreateNewProcessGroup set on Windows");
+
+					if (fg_GetSys()->f_IsDll() || (mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty() && GetConsoleWindow()))
+					{
+						if (!GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, mp_ProcessID))
+							DMibError("Failed to send GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT): {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr());
+						return;
+					}
+
+					// We launch ourselves to be able to attach to the console in the same context as the launched application
+					NStr::CStr StdErr;
+					NStr::CStr StdOut;
+					uint32 ExitCode = 1;
+
+					CProcessLaunchParams LaunchParams;
+					LaunchParams.m_bMergeEnvironment = true;
+					LaunchParams.m_Environment["MalterlibLaunchStopProcess"] = NStr::CStr::fs_ToStr(mp_ProcessID);
+					LaunchParams.m_RunAsUser = mp_LastLaunchOptions.m_RunAsUser;
+					LaunchParams.m_RunAsUserPassword = mp_LastLaunchOptions.m_RunAsUserPassword;
+					LaunchParams.m_bShowLaunched = false;
+
+					if 
+						(
+							!CProcessLaunch::fs_LaunchBlock
+							(
+								NFile::CFile::fs_GetProgramPath()
+								, ""
+								, StdErr
+								, StdOut
+								, ExitCode
+								, LaunchParams
+							)
+						)
+					{
+						DMibError("Failed to launch self to signal stop for process: {}{}"_f << StdOut << StdErr);
+					}
+					
+					if (ExitCode)
+						DMibError("Failed to launch self to signal stop for process (Exit status {}): {}{}"_f << ExitCode << StdOut << StdErr);
+				}
+
 				bint CConsoleRedirector::fp_LaunchChild(HANDLE _hStdOut, HANDLE _hStdIn, HANDLE _hStdErr, NStr::CStr &_Errors)
 				{
 					void *pOldvalue = nullptr;
@@ -613,6 +669,7 @@ namespace NMib
 					;
 		
 					bool bCreateJob = false; // Should a windows job be created to manage the new process?
+					NContainer::TCVector<COnScopeExitShared> CleanupUserProfiles;
 
 					NStr::CStr Program = mp_LastLaunchOptions.m_Target;
 					NStr::CStr Extension = NFile::CFile::fs_GetExtension(Program);
@@ -878,6 +935,8 @@ namespace NMib
 					{
 						HANDLE hToken = nullptr;
 
+						COnScopeExitShared pCleanupToken;
+
 						DWORD CreateProcessFlags = 0;
 
 						if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
@@ -897,6 +956,8 @@ namespace NMib
 						NStr::CStr SandboxDll;
 						NStr::CStr SandboxFullPath;
 						DWORD BinaryType;
+						bool bRunAsUser = false;
+						CSystemEnvironment UserEnvironment;
 
 						if (mp_LastLaunchOptions.m_Elevation == NMib::NProcess::EProcessLaunchElevation_DeElevate)
 						{
@@ -998,9 +1059,211 @@ namespace NMib
 								_Errors += "When de-elevating, found no process to copy security token from." DMibNewLine;
 								return false;
 							}
+							
+							pCleanupToken = g_OnScopeExitShared > [hToken]
+								{
+									if (hToken)
+										CloseHandle(hToken);
+								}
+							;
+						}
+						else if (!mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
+						{
+							using namespace NStr;
+							CWStr UserName = mp_LastLaunchOptions.m_RunAsUser;
+							CWStrSecure Password = mp_LastLaunchOptions.m_RunAsUserPassword;
+							//HANDLE hLogonToken;
+							PSID pLogonSid = nullptr;
+							if 
+								(
+									!LogonUserExW
+									(
+										UserName.f_GetStr()
+										, L"."
+										, Password.f_GetStr()
+										, LOGON32_LOGON_INTERACTIVE
+										, LOGON32_PROVIDER_DEFAULT
+										, &hToken
+										, &pLogonSid
+										, nullptr
+										, nullptr
+										, nullptr
+									)
+								)
+							{
+								_Errors += "When launching as user, failed to login as user: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+								return false;
+							}
+
+							pCleanupToken = g_OnScopeExitShared > [hToken]
+								{
+									if (hToken)
+										CloseHandle(hToken);
+								}
+							;
+
+							auto pCleanupLogonSid = g_OnScopeExitShared > [pLogonSid]
+								{
+									if (pLogonSid)
+										LocalFree(pLogonSid);
+								}
+							;
+
+
+							PROFILEINFOW ProfileInfo;
+							NMem::fg_MemClear(ProfileInfo);
+							ProfileInfo.dwSize = sizeof(ProfileInfo);
+							ProfileInfo.dwFlags = PI_NOUI;
+							ProfileInfo.lpUserName = UserName.f_GetStrWritable();
+							if (!LoadUserProfileW(hToken, &ProfileInfo))
+							{
+								_Errors += "When launching as user, failed to load user profile: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+								return false;
+							}
+
+							CleanupUserProfiles.f_Insert
+								(
+									g_OnScopeExitShared > [hToken, hProfile = ProfileInfo.hProfile, pCleanupToken]
+									{
+										if (!UnloadUserProfile(hToken, hProfile))
+										{
+											DMibDTrace2("When launching as user, failed to unload user profile: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+										}
+									}
+								)
+							;
+
+							//DuplicateTokenEx(hLogonToken, );
+
+							void *pEnvironmentVoid;
+						    if (!CreateEnvironmentBlock(&pEnvironmentVoid, hToken, false))
+							{
+								_Errors += "When launching as user, failed to create environment block: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+								return false;
+							}
+
+							auto CleanupEnvBlock = g_OnScopeExit > [&]
+								{
+									DestroyEnvironmentBlock(pEnvironmentVoid);
+								}
+							;
+
+							for (ch16 *pEnvironment = (ch16 *)pEnvironmentVoid; *pEnvironment; )
+							{
+								CWStr Line{pEnvironment};
+								mint LineLength = Line.f_GetLen();
+								auto Key = fg_GetStrSep(Line, "=");
+								UserEnvironment[Key] = Line;
+								pEnvironment += LineLength + 1;
+							}
+
+							HWINSTA hCurrentWindowStation = GetProcessWindowStation();
+							if (!hCurrentWindowStation)
+							{
+								_Errors += "When launching as user, failed to get current window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+								return false;
+							}
+
+							HWINSTA hWindowStation = OpenWindowStationW(L"winsta0", false, READ_CONTROL | WRITE_DAC);
+
+							if (!hWindowStation)
+							{
+								_Errors += "When launching as user, failed to open window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+								return false;
+							}
+
+							auto pCleanupWindowStation = g_OnScopeExitShared > [hWindowStation]
+								{
+									CloseWindowStation(hWindowStation);
+								}
+							;
+
+							HDESK hDesktop;
+							{
+								if (!SetProcessWindowStation(hWindowStation))
+								{
+									_Errors += "When launching as user, failed to temporarily set window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+									return false;
+								}
+
+								auto CleanupWindowStation = g_OnScopeExit > [&]
+									{
+										if (!SetProcessWindowStation(hCurrentWindowStation))
+										{
+											DMibDTrace2("When launching as user, failed to restore window station: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+										}
+									}
+								;
+
+								hDesktop = OpenDesktopW(L"default", 0, FALSE, READ_CONTROL | WRITE_DAC | DESKTOP_WRITEOBJECTS | DESKTOP_READOBJECTS);
+							}
+
+							if (!hDesktop)
+							{
+								_Errors += "When launching as user, failed to open desktop: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+								return false;
+							}
+
+							auto pCleanupDesktop = g_OnScopeExitShared > [hDesktop]
+								{
+									CloseDesktop(hDesktop);
+								}
+							;
+
+							bool bAddedToWindowStation = false;
+
+							if (!fg_ChangeAceToWindowStation(hWindowStation, pLogonSid, false, bAddedToWindowStation))
+							{
+								_Errors += "When launching as user, failed to add access to window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+								return false;
+							}
+
+							if (bAddedToWindowStation)
+							{
+								CleanupUserProfiles.f_Insert
+									(
+										g_OnScopeExitShared > [pCleanupWindowStation, pCleanupLogonSid, hWindowStation, pLogonSid]
+										{
+											bool bAdded;
+											if (!fg_ChangeAceToWindowStation(hWindowStation, pLogonSid, true, bAdded))
+											{
+												DMibDTrace2("When launching as user, failed to remove access from window station: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+											}
+										}
+									)
+								;
+							}
+
+							bool bAddedToDesktop = false;
+
+							if (!fg_ChangeAceToDesktop(hDesktop, pLogonSid, false, bAddedToDesktop))
+							{
+								_Errors += "When launching as user, failed to add access to desktop: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+								return false;
+							}
+
+							if (bAddedToDesktop)
+							{
+								CleanupUserProfiles.f_Insert
+									(
+										g_OnScopeExitShared > [pCleanupDesktop, pCleanupLogonSid, hDesktop, pLogonSid]
+										{
+											bool bAdded;
+											if (!fg_ChangeAceToDesktop(hDesktop, pLogonSid, true, bAdded))
+											{
+												DMibDTrace2("When launching as user, failed to remove access from desktop: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+											}
+										}
+									)
+								;
+							}
+							
+							//GENERIC_READ
+							//WINSTA_ALL_ACCESS
+							bRunAsUser = true;
 						}
 
-						else if (mp_LastLaunchOptions.m_bSandboxed)
+						if (mp_LastLaunchOptions.m_bSandboxed)
 						{
 
 							if (!mp_LastLaunchOptions.m_SandboxRoots.f_IsEmpty())
@@ -1102,14 +1365,24 @@ namespace NMib
 						CSystemEnvironment NewEnvironment;
 						if (mp_LastLaunchOptions.m_bMergeEnvironment)
 						{
-							CSystemEnvironment OriginalEnvironment = fg_GetSys()->f_Environment();
+							CSystemEnvironment OriginalEnvironment;
+							if (mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
+								OriginalEnvironment = fg_GetSys()->f_Environment();
+							else
+								OriginalEnvironment = UserEnvironment;
+
 							NewEnvironment = Environment;
 							NewEnvironment += OriginalEnvironment;
 						}
 						else if (!Environment.f_IsEmpty())
 							NewEnvironment = Environment;
 						else
-							NewEnvironment = fg_GetSys()->f_Environment();
+						{
+							if (mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
+								NewEnvironment = fg_GetSys()->f_Environment();
+							else
+								NewEnvironment = UserEnvironment;
+						}
 						
 						auto Iter = NewEnvironment.f_GetIterator();
 
@@ -1130,6 +1403,11 @@ namespace NMib
 						si.hStdError = _hStdErr;
 						si.wShowWindow = mp_LastLaunchOptions.m_bShowLaunched ? SW_SHOWNORMAL : SW_HIDE;
 						si.dwFlags = STARTF_USESHOWWINDOW;
+						if (bRunAsUser)
+						{
+							si.lpDesktop = L"winsta0\\default";
+							CreateProcessFlags |= CREATE_NEW_CONSOLE;
+						}
 
 						if (mp_LastLaunchOptions.m_bDisplayBusyCursor)
 							si.dwFlags |= STARTF_FORCEONFEEDBACK;
@@ -1150,32 +1428,34 @@ namespace NMib
 						NStr::CWStr Params = NStr::NPlatform::fg_StrToWindows(ProgramPathFull.f_EscapeStr().f_Replace("\\\\", "\\") + " " + mp_LastLaunchOptions.m_Parameters);
 						if (hToken)
 						{
-				
 							if (NLocal::g_fCreateProcessWithTokenW)
 							{
-								HANDLE hThreadToken = NULL;
-								ImpersonateSelf(SecurityImpersonation);
-								if (!OpenThreadToken(GetCurrentThread(), MAXIMUM_ALLOWED, false, &hThreadToken))
+								if (!bRunAsUser)
 								{
-									NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
-									_Errors += NStr::CStr::CFormat("OpenThreadToken failed with : {}" DMibNewLine) << Error;
-									RevertToSelf();
-									return false;
-								}
-								else
-								{
-									TOKEN_PRIVILEGES tkp;
-									tkp.PrivilegeCount = 1;
-									LookupPrivilegeValueW(NULL, SE_INCREASE_QUOTA_NAME, &tkp.Privileges[0].Luid);
-									tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-									AdjustTokenPrivileges(hThreadToken, FALSE, &tkp, 0, NULL, NULL);
-									HRESULT dwLastErr = GetLastError();
-									CloseHandle(hThreadToken);
-									if (dwLastErr != ERROR_SUCCESS)
+									HANDLE hThreadToken = NULL;
+									ImpersonateSelf(SecurityImpersonation);
+									if (!OpenThreadToken(GetCurrentThread(), MAXIMUM_ALLOWED, false, &hThreadToken))
 									{
 										NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
-										_Errors += NStr::CStr::CFormat("AdjustTokenPrivileges failed with : {}" DMibNewLine) << Error;
+										_Errors += NStr::CStr::CFormat("OpenThreadToken failed with : {}" DMibNewLine) << Error;
+										RevertToSelf();
 										return false;
+									}
+									else
+									{
+										TOKEN_PRIVILEGES tkp;
+										tkp.PrivilegeCount = 1;
+										LookupPrivilegeValueW(NULL, SE_INCREASE_QUOTA_NAME, &tkp.Privileges[0].Luid);
+										tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+										AdjustTokenPrivileges(hThreadToken, FALSE, &tkp, 0, NULL, NULL);
+										HRESULT dwLastErr = GetLastError();
+										CloseHandle(hThreadToken);
+										if (dwLastErr != ERROR_SUCCESS)
+										{
+											NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
+											_Errors += NStr::CStr::CFormat("AdjustTokenPrivileges failed with : {}" DMibNewLine) << Error;
+											return false;
+										}
 									}
 								}
 
@@ -1195,13 +1475,14 @@ namespace NMib
 										)
 									)
 								{
-									RevertToSelf();
-									CloseHandle(hToken);
+									if (!bRunAsUser)
+										RevertToSelf();
 									NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 									_Errors += NStr::CStr::CFormat("CreateProcessWithTokenW({}, {}) failed with : {}" DMibNewLine) << ProgramPathFull << Params << Error;
 									return false;
 								}
-								RevertToSelf();
+								if (!bRunAsUser)
+									RevertToSelf();
 							}
 							else
 							{
@@ -1223,13 +1504,39 @@ namespace NMib
 										)
 									)
 								{
-									CloseHandle(hToken);
 									NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 									_Errors += NStr::CStr::CFormat("CreateProcessW({}, {}) failed with : {}" DMibNewLine) << ProgramPathFull << Params << Error;
 									return false;
 								}
 							}
-							CloseHandle(hToken);
+						}
+						else if (!mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
+						{
+							using namespace NStr;
+							CWStr UserName = mp_LastLaunchOptions.m_RunAsUser;
+							CWStrSecure Password = mp_LastLaunchOptions.m_RunAsUserPassword;
+							if 
+								(
+									!::CreateProcessWithLogonW
+									(
+										UserName.f_GetStr()
+										, nullptr
+										, Password.f_GetStr()
+										, LOGON_WITH_PROFILE
+										, ProgramPathFull
+										, Params.f_GetStrUniqueWritable()
+										, CREATE_UNICODE_ENVIRONMENT | fg_Win32_TranslateProcessPriority(mp_LastLaunchOptions.m_LaunchPriority) | CreateProcessFlags
+										, nullptr //, !NewEnvStrs.f_IsEmpty() ? NewEnvStrs.f_GetArray() : nullptr
+										, !mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() ? NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_WorkingDirectory, true).f_GetStr() : nullptr
+										, &si
+										, &pi
+									)
+								)
+							{
+								NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
+								_Errors += NStr::CStr::CFormat("CreateProcessWithLogonW(\"{}\", {}) failed with : {}" DMibNewLine) << ProgramPathFull << Params << Error;
+								return false;
+							}
 						}
 						else
 						{
@@ -1487,6 +1794,7 @@ namespace NMib
 
 						if (!bFailedLaunch)
 						{
+							mp_CleanupLoadedProfiles = fg_Move(CleanupUserProfiles);
 							mp_hChildProcess = pi.hProcess;
 							mp_ProcessID = pi.dwProcessId;
 						}
@@ -1665,6 +1973,7 @@ namespace NMib
 						else if (Object == WAIT_OBJECT_0 || mp_hChildProcess == nullptr)
 						{
 							bExited = true;
+							mp_CleanupLoadedProfiles.f_Clear();
 							break;
 						}
 						else if (Object == WAIT_OBJECT_0 + 1)
@@ -1696,9 +2005,13 @@ namespace NMib
 								NStr::CStr TempRet;
 								if (mp_ProcessID)
 								{
-									if (!GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, mp_ProcessID))
+									try
 									{
-										TempRet = NMib::NPlatform::fg_Win32_GetLastErrorStr();
+										f_StopProcess();
+									}
+									catch (NException::CException const &_Exception)
+									{
+										TempRet = _Exception.f_GetErrorStr();
 										bNeedWait = false;
 									}
 								}
@@ -1711,7 +2024,12 @@ namespace NMib
 									fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_TerminateMessage, TempRet);
 							}
 							if (!bNeedWait)
+							{
+								for (auto &pProfile : mp_CleanupLoadedProfiles)
+									pProfile->f_Clear(); // Process still running, let the profile leak
+								mp_CleanupLoadedProfiles.f_Clear();
 								break;
+							}
 						}
 					}
 
@@ -2468,11 +2786,9 @@ mint NMib::NProcess::NPlatform::fg_ProcessLaunch_GetID(void *_pLaunch)
 void NMib::NProcess::NPlatform::fg_ProcessLaunch_Stop(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
-	if (!GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pLaunch->f_GetID()))
-	{
-		DMibTrace("GenerateConsoleCtrlEvent: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
-	}
-	//DMibError("Stopping process not implemented");
+
+	pLaunch->f_StopProcess();
+
 }
 
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetExecutionStatistics(void *_pLaunch)

@@ -172,6 +172,7 @@ namespace NMib
 			
 			EProcessLaunchElevation m_Elevation;
 			NStr::CStr m_RunAsUser;		// Only supported on unix and when running as root
+			NStr::CStrSecure m_RunAsUserPassword; // Only used for launches on Windows
 			NStr::CStr m_RunAsGroup;	// Only supported on unix and when running as root
 
 			NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
@@ -226,7 +227,7 @@ namespace NMib
 
 			enum : uint32
 			{
-				EProtocolVersion = 0x105
+				EProtocolVersion = 0x106
 			};
 			
 			template <typename tf_CStream>
@@ -281,6 +282,7 @@ namespace NMib
 				_Stream << m_Elevation;
 				
 				_Stream << m_RunAsUser;
+				_Stream << m_RunAsUserPassword;
 				_Stream << m_RunAsGroup;
 			}
 			
@@ -351,6 +353,8 @@ namespace NMib
 				if (Version >= 0x103)
 				{
 					_Stream >> m_RunAsUser;
+					if (Version >= 0x106)
+						_Stream >> m_RunAsUserPassword;
 					_Stream >> m_RunAsGroup;
 				}				
 			}
