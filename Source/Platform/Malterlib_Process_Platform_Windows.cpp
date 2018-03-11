@@ -515,15 +515,20 @@ void NMib::NProcess::NPlatform::fg_Process_Stop(mint _ProcessID)
 	}
 }
 
+static NMib::NAggregate::TCAggregate<NMib::NThread::CEvent> g_TerminationEvent = {DAggregateInit};
+
+void NMib::NProcess::NPlatform::fg_Process_AbortWaitForTermination()
+{
+	g_TerminationEvent->f_SetSignaled();
+}
+
 void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 {
-	static NAggregate::TCAggregate<NThread::CEvent> s_TerminationEvent = {DAggregateInit};
-
 	PHANDLER_ROUTINE fHandler = [](DWORD _CtrlType) -> BOOL
 		{
 			if (_CtrlType == CTRL_C_EVENT || _CtrlType == CTRL_BREAK_EVENT)
 			{
-				s_TerminationEvent->f_SetSignaled();
+				g_TerminationEvent->f_SetSignaled();
 				return true;
 			}
 			return false;
@@ -537,7 +542,7 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 		)
 	;
 
-	s_TerminationEvent->f_Wait();
+	g_TerminationEvent->f_Wait();
 
 	SetConsoleCtrlHandler
 		(
@@ -546,7 +551,7 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 		)
 	;
 
-	s_TerminationEvent.f_Destruct();
+	g_TerminationEvent.f_Destruct();
 }
 
 static NMib::NAggregate::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};

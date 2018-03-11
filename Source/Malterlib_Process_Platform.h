@@ -145,6 +145,7 @@ namespace NMib
 			void fg_ProcessLaunch_Stop(void *_pLaunch);
 			
 			void fg_Process_WaitForTermination();
+			void fg_Process_AbortWaitForTermination();
 
 			COnScopeExitShared fg_Process_WaitForTermination(NFunction::TCFunction<void ()> &&_fOnTerminate);
 

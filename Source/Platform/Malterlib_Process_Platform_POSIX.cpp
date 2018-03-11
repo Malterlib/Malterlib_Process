@@ -137,6 +137,11 @@ mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 	return getpid();
 }
 
+void NMib::NProcess::NPlatform::fg_Process_AbortWaitForTermination()
+{
+	kill(getpid(), SIGTERM);
+}
+
 void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 {
     sigset_t WaitSet;
