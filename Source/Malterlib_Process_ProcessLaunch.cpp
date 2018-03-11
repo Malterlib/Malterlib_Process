@@ -297,6 +297,97 @@ namespace NMib
 			return NPlatform::fg_ProcessLaunch_GetOverallMemoryStatistics(m_pProcessLaunch);
 		}
 
+		NContainer::TCVector<NStr::CStr> CProcessLaunchParams::fs_ParseCommandLineWindows(NStr::CStr const &_CommandLine, NStr::CStr &o_Executable)
+		{
+			ch8 const *pParse = _CommandLine.f_GetStr();
+
+			auto fIsWhitespace = [](ch8 _Char)
+				{
+					return _Char == ' ' || _Char == '\t';
+				}
+			;
+
+			while (*pParse && fIsWhitespace(*pParse))
+				++pParse;
+
+			if (*pParse == '\"')
+			{
+				++pParse;
+				auto pStart = pParse;
+				while (*pParse && *pParse != '\"')
+					++pParse;
+
+				o_Executable = NStr::CStr(pStart, pParse - pStart);
+
+				if (*pParse == '\"')
+					++pParse;
+			}
+			else
+			{
+				auto pStart = pParse;
+				while (*pParse && !fIsWhitespace(*pParse))
+					++pParse;
+
+				o_Executable = NStr::CStr(pStart, pParse - pStart);
+			}
+
+			NContainer::TCVector<NStr::CStr> Params;
+
+			bool bInQuotes = false;
+
+			while (*pParse)
+			{
+				while (*pParse && fIsWhitespace(*pParse))
+					++pParse;
+
+				if (!*pParse)
+					break;
+
+				NStr::CStr Param;
+				while (true)
+				{
+					bool bShouldCopy = true;
+					mint nSlashes = 0;
+
+					while (*pParse == '\\')
+					{
+						++pParse;
+						++nSlashes;
+					}
+
+					if (*pParse == '"')
+					{
+						if (nSlashes % 2 == 0)
+						{
+							if (bInQuotes && pParse[1] == '"')
+								pParse++;
+							else
+							{
+								bShouldCopy = false;
+								bInQuotes = !bInQuotes;
+							}
+						}
+
+						nSlashes /= 2;
+					}
+
+					while (nSlashes--)
+						Param.f_AddChar('\\');
+
+					if (!*pParse || (!bInQuotes && fIsWhitespace(*pParse)))
+						break;
+
+					if (bShouldCopy)
+						Param.f_AddChar(*pParse);
+
+					++pParse;
+				}
+				Params.f_Insert(Param);
+			}
+
+			return Params;
+		}
+
 		NStr::CStr CProcessLaunchParams::fs_GetParamsWindows(NContainer::TCVector<NStr::CStr> const &_Params)
 		{
 			// Rules:

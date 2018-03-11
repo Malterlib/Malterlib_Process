@@ -224,6 +224,7 @@ namespace NMib
 			static NStr::CStr fs_GetParamsUnix(NContainer::TCVector<NStr::CStr> const &_Params);
 			static NStr::CStr fs_GetParamsWindows(NContainer::TCVector<NStr::CStr> const &_Params);
 			static NStr::CStr fs_GetParams(NContainer::TCVector<NStr::CStr> const &_Params);
+			static NContainer::TCVector<NStr::CStr> fs_ParseCommandLineWindows(NStr::CStr const &_CommandLine, NStr::CStr &o_Executable);
 
 			enum : uint32
 			{
