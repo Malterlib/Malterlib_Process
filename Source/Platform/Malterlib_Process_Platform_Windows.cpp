@@ -496,7 +496,7 @@ void NMib::NProcess::NPlatform::fg_Process_Terminate(mint _ProcessID)
 	if (!hProcess)
 		DMibError(fg_Format("When terminating process Windows returned an error from OpenProcess: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
 
-	NMib::g_OnScopeExit > [&]
+	auto Cleanup = NMib::g_OnScopeExit > [&]
 		{
 			CloseHandle(hProcess);
 		}
