@@ -5,6 +5,8 @@
 #include <Mib/Core/PlatformSpecific/WindowsFilePath>
 #include <Mib/Core/PlatformSpecific/WindowsFile>
 #include <Mib/Core/PlatformSpecific/WindowsError>
+#include <Mib/Core/PlatformSpecific/WindowsUndocumented>
+#include <Mib/Core/PlatformSpecific/WindowsOptional>
 #include <Mib/Encoding/EJSON>
 #include "../Malterlib_Process_Platform.h"
 #include <Windows.h>
@@ -12,6 +14,7 @@
 
 #include <TlHelp32.h>
 #include <Psapi.h>
+#include <winternl.h>
 
 #pragma comment(lib, "Version.lib")
 namespace
@@ -209,40 +212,96 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	
 	CProcessEntry RootProcess;
 	HANDLE hProcessSnap;
-	PROCESSENTRY32 pe32;
+	PROCESSENTRY32 ProcessEntry;
 
 	// Take a snapshot of all processes in the system.
-	hProcessSnap = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 );
+	hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hProcessSnap != INVALID_HANDLE_VALUE)
 	{
-		pe32.dwSize = sizeof( PROCESSENTRY32 );
+		ProcessEntry.dwSize = sizeof( PROCESSENTRY32 );
 
-		if (Process32First( hProcessSnap, &pe32 ) )
+		if (Process32First(hProcessSnap, &ProcessEntry))
 		{
 			do
 			{
 				auto & NewProcess = Ret.f_Insert();
 				
-				NewProcess.m_ProcessID = pe32.th32ProcessID;
-				NewProcess.m_ParentProcessID = pe32.th32ParentProcessID;
-				
-				HANDLE pThisProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, pe32.th32ProcessID);
+				NewProcess.m_ProcessID = ProcessEntry.th32ProcessID;
+				if (_ToGet & EProcessInfoFlag_ParentProcessID)
+					NewProcess.m_ParentProcessID = ProcessEntry.th32ParentProcessID;
 
-				FILETIME CreateTime;
-				FILETIME ExitTime;
-				FILETIME KernelTime;
-				FILETIME UserTime;
+				if (!(_ToGet & (EProcessInfoFlag_StartTime | EProcessInfoFlag_FileName | EProcessInfoFlag_FullPath | EProcessInfoFlag_Args)))
+					continue;
 
-				if (GetProcessTimes(pThisProcess, &CreateTime, &ExitTime, &KernelTime, &UserTime))
-					NewProcess.m_StartTime = uint64(CreateTime.dwHighDateTime) << 32 | uint64(CreateTime.dwLowDateTime);
+				HANDLE pThisProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, ProcessEntry.th32ProcessID);
+
+				if (_ToGet & EProcessInfoFlag_StartTime)
+				{
+					FILETIME CreateTime;
+					FILETIME ExitTime;
+					FILETIME KernelTime;
+					FILETIME UserTime;
+					if (GetProcessTimes(pThisProcess, &CreateTime, &ExitTime, &KernelTime, &UserTime))
+						NewProcess.m_StartTime = uint64(CreateTime.dwHighDateTime) << 32 | uint64(CreateTime.dwLowDateTime);
+				}
+
+				NStr::CWStr ImageFileName;
+				NStr::CWStr CommandLine;
+
+				{
+					UndocumentedPEB Peb;
+					PROCESS_BASIC_INFORMATION BasicInfo;
+					ULONG RetLen = 0;
+					if (NLocal::g_fNtQueryInformationProcess && !NLocal::g_fNtQueryInformationProcess(pThisProcess, ProcessBasicInformation, &BasicInfo, sizeof(BasicInfo), &RetLen) && RetLen == sizeof(BasicInfo))
+					{
+						SIZE_T ReadBytes = 0;
+						if (ReadProcessMemory(pThisProcess, BasicInfo.PebBaseAddress, &Peb, sizeof(Peb), &ReadBytes) && ReadBytes == sizeof(Peb))
+						{
+							Uncodumented_RTL_USER_PROCESS_PARAMETERS ProcessParams;
+							if (ReadProcessMemory(pThisProcess, Peb.ProcessParameters, &ProcessParams, sizeof(ProcessParams), &ReadBytes) && ReadBytes == sizeof(ProcessParams))
+							{
+								if (_ToGet & (EProcessInfoFlag_FileName | EProcessInfoFlag_FullPath))
+								{
+									mint BufferStrLen = ProcessParams.ImagePathName.Length/sizeof(ch16);
+									auto pBuffer = ImageFileName.f_GetStr(BufferStrLen + 1);
+									if (ReadProcessMemory(pThisProcess, ProcessParams.ImagePathName.Buffer, pBuffer, ProcessParams.ImagePathName.Length, &ReadBytes) && ReadBytes == ProcessParams.ImagePathName.Length)
+										pBuffer[BufferStrLen] = 0;
+									else
+										ImageFileName.f_Clear();
+								}
+
+								if (_ToGet & EProcessInfoFlag_Args)
+								{
+									mint BufferStrLen = ProcessParams.CommandLine.Length/sizeof(ch16);
+									auto pBuffer = CommandLine.f_GetStr(BufferStrLen + 1);
+									if (ReadProcessMemory(pThisProcess, ProcessParams.CommandLine.Buffer, pBuffer, ProcessParams.CommandLine.Length, &ReadBytes) && ReadBytes == ProcessParams.CommandLine.Length)
+										pBuffer[BufferStrLen] = 0;
+									else
+										CommandLine.f_Clear();
+								}
+							}
+						}
+					}
+				}
+
+				if (_ToGet & EProcessInfoFlag_FullPath)
+					NewProcess.m_FullPath = NFile::NPlatform::fg_ConvertFromWindowsPath(ImageFileName);
+				if (_ToGet & EProcessInfoFlag_FileName)
+					NewProcess.m_FileName = NFile::CFile::fs_GetFile(NewProcess.m_FullPath);
+				if ((_ToGet & EProcessInfoFlag_Args) && !CommandLine.f_IsEmpty())
+				{
+					NStr::CStr ExecutableName;
+					NewProcess.m_Args = CProcessLaunchParams::fs_ParseCommandLineWindows(CommandLine, ExecutableName);
+				}
 
 				if (pThisProcess)
 					CloseHandle(pThisProcess);
 			} 
-			while( Process32Next( hProcessSnap, &pe32 ) );
+			while (Process32Next(hProcessSnap, &ProcessEntry))
+				;
 		}
 
-		CloseHandle( hProcessSnap );
+		CloseHandle(hProcessSnap);
 	}
 	return Ret;
 }		

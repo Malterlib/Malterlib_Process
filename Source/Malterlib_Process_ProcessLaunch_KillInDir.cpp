@@ -65,6 +65,9 @@ namespace NMib
 			if (!ProcessIDs.f_IsEmpty())
 			{
 				// Gracefully stop
+				NTime::CClock Clock;
+
+#ifndef DPlatformFamily_Windows
 				for (auto ProcessID : ProcessIDs)
 				{
 					try
@@ -78,7 +81,6 @@ namespace NMib
 				}
 
 				// Wait 30 seconds for stop to complete
-				NTime::CClock Clock;
 				Clock.f_Start();
 				while (Clock.f_GetTime() < _Timeout)
 				{
@@ -87,7 +89,7 @@ namespace NMib
 						break;
 					NSys::fg_Thread_Sleep(0.1f);
 				}
-
+#endif
 				// If we still have processes, terminate them
 				for (auto ProcessID : ProcessIDs)
 				{
