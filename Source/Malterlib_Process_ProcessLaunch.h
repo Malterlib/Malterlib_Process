@@ -394,6 +394,8 @@ namespace NMib
 			
 			static EProcessElevation fs_GetElevation();
 
+			static NStr::CStr fs_GetBashPath();
+
 			static void fs_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params);
 			static void fs_DeRegisterURLHandler(NMib::NStr::CStr const &_Protocol);
 

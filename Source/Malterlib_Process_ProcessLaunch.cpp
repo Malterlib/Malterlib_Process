@@ -47,6 +47,16 @@ namespace NMib
 			return NPlatform::fg_Process_GetElevation();
 		}
 
+		NStr::CStr CProcessLaunch::fs_GetBashPath()
+		{
+#ifdef DPlatformFamily_Windows
+			NStr::CStr GitBash = "C:/Program Files/Git/usr/bin/bash.exe";
+			if (NFile::CFile::fs_FileExists(GitBash))
+				return GitBash;
+#endif
+			return "bash";
+		}
+
 		void CProcessLaunch::fs_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params)
 		{
 			return NPlatform::fg_Process_RegisterURLHandler(_Protocol, _ExePath, _Params);
