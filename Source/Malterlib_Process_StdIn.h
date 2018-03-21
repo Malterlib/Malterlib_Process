@@ -56,16 +56,11 @@ namespace NMib::NProcess
 	struct CStdInReaderPromptParams
 	{
 	public:
-		CStdInReaderPromptParams()
-			: m_bPassword(false)
-		{
-		}
-
 		template <typename tf_CStream>
 		void f_Stream(tf_CStream &_Stream);
 
 		NStr::CStr m_Prompt;
-		bool m_bPassword;
+		bool m_bPassword = false;
 	};
 
 	class CStdInReader
