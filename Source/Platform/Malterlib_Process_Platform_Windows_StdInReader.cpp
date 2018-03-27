@@ -418,7 +418,7 @@ namespace NMib
 
 			void CWindowsStdInReaderImplementation::fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrSecure const &_String)
 			{
-				DMibRequire(_Type != EStdInReaderOutputType_StdIn);
+				DMibRequire(_Type != EStdInReaderOutputType_StdIn || !m_bIsPipe);
 				auto &SubSystem = *g_SubSystem_Process_Platform_Windows_StdInReader;
 				DMibLock(SubSystem.m_StdInReaderImpLock);
 				for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
