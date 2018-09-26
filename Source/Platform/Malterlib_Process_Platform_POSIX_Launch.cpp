@@ -428,10 +428,6 @@ namespace NMib
 
 					//DMibLock(m_ForkLock); // To protect 
 
-#ifdef DPlatformFamily_OSX
-					DMibLock(NMib::NPlatform::fg_ForkLock());
-#endif
-					
 #if !defined(DMibMemoryOverrideDll)
 					if (fg_GetSys()->f_IsDll()) // We need to prepare
 #endif
