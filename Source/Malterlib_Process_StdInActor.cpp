@@ -36,12 +36,6 @@ namespace NMib::NProcess
 
 		struct CPrompt
 		{
-			CStdInReaderPromptParams m_Params;
-			NStr::CUStrSecure m_Result;
-			mint m_iInsertPos = 0;
-			bool m_bOutputPrompt = false;
-			bool m_bInsert = true;
-
 			void f_CheckOutputPrompt()
 			{
 				if (m_bOutputPrompt)
@@ -49,19 +43,19 @@ namespace NMib::NProcess
 
 				m_bOutputPrompt = true;
 				if (!m_Params.m_Prompt.f_IsEmpty())
-					DMibConErrOutRaw(m_Params.m_Prompt);
+					fs_StdOutput(m_StdOutActor, m_Params.m_Prompt);
 			}
 
 			void f_ChangeInsertPos(mint _iInsertPos)
 			{
 				if (_iInsertPos > m_iInsertPos)
-					DMibConErrOut2("\x1B[{}C", _iInsertPos - m_iInsertPos);
+					fs_StdOutput(m_StdOutActor, "\x1B[{}C"_f << (_iInsertPos - m_iInsertPos));
 				else if (m_iInsertPos > _iInsertPos)
-					DMibConErrOut2("\x1B[{}D", m_iInsertPos - _iInsertPos);
+					fs_StdOutput(m_StdOutActor, "\x1B[{}D"_f << (m_iInsertPos - _iInsertPos));
 				else
-					DMibConErrOut2("\x7");
+					fs_StdOutput(m_StdOutActor, "\x7");
 
-				m_iInsertPos = _iInsertPos;
+				m_iRenderInsertPos = m_iInsertPos = _iInsertPos;
 			}
 
 			void f_Redraw(mint _OldLen, mint _NewInsertPos)
@@ -74,8 +68,8 @@ namespace NMib::NProcess
 
 				NStr::CStr OutputString;
 
-				if (m_iInsertPos)
-					OutputString += "\x1B[{}D"_f << m_iInsertPos;
+				if (m_iRenderInsertPos)
+					OutputString += "\x1B[{}D"_f << m_iRenderInsertPos;
 
 				if (m_Params.m_bPassword)
 					OutputString += "{sf*,sj*}"_f << "" << m_Result.f_GetLen();
@@ -88,16 +82,32 @@ namespace NMib::NProcess
 				if (InsertPosFromEnd)
 					OutputString += "\x1B[{}D"_f << InsertPosFromEnd;
 
-				DMibConErrOutRaw(OutputString);
+				fs_StdOutput(m_StdOutActor, OutputString);
 
-				m_iInsertPos = _NewInsertPos;
+				m_iRenderInsertPos = _NewInsertPos;
+			}
+
+			CPrompt(CStdInReaderPromptParams _Params, NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor)
+				: m_StdOutActor(_StdOutActor)
+				, m_Params(_Params)
+			{
 			}
 
 			~CPrompt()
 			{
 				if (m_bOutputPrompt && !m_Params.m_Prompt.f_IsEmpty())
-					DMibConErrOutRaw(DMibNewLine);
+					fs_StdOutput(m_StdOutActor, DMibNewLine);
 			}
+
+			NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> m_StdOutActor;
+
+			CStdInReaderPromptParams m_Params;
+			NStr::CUStrSecure m_Result;
+			mint m_iInsertPos = 0;
+			mint m_iRenderInsertPos = 0;
+			mint m_iDrawInsertPos = 0;
+			bool m_bOutputPrompt = false;
+			bool m_bInsert = true;
 		};
 
 		using CReadEntryInfo = NContainer::TCStreamableVariant<EReadEntry, void, EReadEntry_None, CLine, EReadEntry_Line, CPrompt, EReadEntry_Prompt>;
@@ -130,12 +140,14 @@ namespace NMib::NProcess
 		CInternal(CStdInActor *_pThis)
 			: m_pThis(_pThis)
 		{
+			m_StdOutActor = fg_Construct(fg_Construct(), "StdIn output actor");
 		}
 
 		void f_RegisterForRead();
 		void f_RegisterForReadBinary();
 		void f_HandleBufferedStdIn();
 		void f_HandleBufferedStdInBinary();
+		static void fs_StdOutput(NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor, NStr::CStr const &_String);
 
 		CStdInActor *m_pThis;
 		NContainer::TCSet<NPtr::TCSharedPointer<CSubscription, NPtr::CSupportWeakTag>> m_Subscriptions;
@@ -147,6 +159,8 @@ namespace NMib::NProcess
 		NPtr::TCSharedPointer<CSubscription, NPtr::CSupportWeakTag> m_pReadSubscriptionBinary;
 		NContainer::TCLinkedList<CReadEntryBinary> m_ReadEntriesBinary;
 		NContainer::TCLinkedList<CBufferedStdInBinary> m_BufferedStdInBinary;
+
+		NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> m_StdOutActor;
 	};
 	
 	CStdInActor::CStdInActor()
@@ -161,7 +175,15 @@ namespace NMib::NProcess
 	NConcurrency::TCContinuation<void> CStdInActor::fp_Destory()
 	{
 		f_AbortReads();
-		return fg_Explicit();
+		auto &Internal = *mp_pInternal;
+		NPtr::TCSharedPointer<NConcurrency::CCanDestroyTracker> pCanDestroy = fg_Construct();
+
+		NConcurrency::g_Dispatch(Internal.m_StdOutActor) > []
+			{
+			}
+			> pCanDestroy->f_Track()
+		;
+		return pCanDestroy->m_Continuation;
 	}
 
 	void CStdInActor::f_AbortReads()
@@ -229,6 +251,26 @@ namespace NMib::NProcess
 					bool bAborted = false;
 					bool bCompleted = false;
 
+					mint QueuedInsertPos = 0;
+					smint QueuedOldLen = -1;
+
+					auto fQueueRedraw = [&](mint _OldLen, mint _InsertPos)
+						{
+							QueuedInsertPos = _InsertPos;
+							if (QueuedOldLen < 0)
+								QueuedOldLen = _OldLen;
+							Prompt.m_iInsertPos = _InsertPos;
+						}
+					;
+					auto fFlushRedraw = [&]()
+						{
+							if (QueuedOldLen == -1)
+								return;
+							Prompt.f_Redraw(QueuedOldLen, QueuedInsertPos);
+							QueuedOldLen = -1;
+						}
+					;
+
 					while (iUTFChar && iUTFChar.f_IsWholeCodePoint())
 					{
 						auto NewChar = *iUTFChar;
@@ -271,6 +313,7 @@ namespace NMib::NProcess
 										{
 											mint nPlaces = Parameters.f_ToInt(mint(1));
 											auto NewPos = fg_Clamp(Prompt.m_iInsertPos + nPlaces, 0u, mint(Prompt.m_Result.f_GetLen()));
+											fFlushRedraw();
 											Prompt.f_ChangeInsertPos(NewPos);
 											break;
 										}
@@ -278,6 +321,7 @@ namespace NMib::NProcess
 										{
 											smint nPlaces = Parameters.f_ToInt(smint(1));
 											auto NewPos = fg_Clamp(smint(Prompt.m_iInsertPos) - nPlaces, smint(0), smint(Prompt.m_Result.f_GetLen()));
+											fFlushRedraw();
 											Prompt.f_ChangeInsertPos(NewPos);
 											break;
 										}
@@ -289,10 +333,10 @@ namespace NMib::NProcess
 												{
 													mint OldLen = Prompt.m_Result.f_GetLen();
 													Prompt.m_Result = Prompt.m_Result.f_Delete(Prompt.m_iInsertPos, 1);
-													Prompt.f_Redraw(OldLen, Prompt.m_iInsertPos);
+													fQueueRedraw(OldLen, Prompt.m_iInsertPos);
 												}
 												else
-													DMibConErrOut2("\x7");
+													fs_StdOutput(m_StdOutActor, "\x7");
 											}
 											else if (Parameters == "2")
 												Prompt.m_bInsert = !Prompt.m_bInsert;
@@ -392,10 +436,22 @@ namespace NMib::NProcess
 							{
 								mint OldLen = Prompt.m_Result.f_GetLen();
 								Prompt.m_Result = Prompt.m_Result.f_Delete(Prompt.m_Result.f_GetLen() - 1, 1);
-								Prompt.f_Redraw(OldLen, Prompt.m_iInsertPos - 1);
+								fQueueRedraw(OldLen, Prompt.m_iInsertPos - 1);
 							}
 							else
-								DMibConErrOut2("\x7");
+								fs_StdOutput(m_StdOutActor, "\x7");
+						}
+						else if (NewChar == 1) // Home
+						{
+							++iUTFChar;
+							mint OldLen = Prompt.m_Result.f_GetLen();
+							fQueueRedraw(OldLen, 0);
+						}
+						else if (NewChar == 5) // End
+						{
+							++iUTFChar;
+							mint OldLen = Prompt.m_Result.f_GetLen();
+							fQueueRedraw(OldLen, OldLen);
 						}
 						else if (NewChar >= 32)
 						{
@@ -404,7 +460,12 @@ namespace NMib::NProcess
 
 							mint OldLen = Prompt.m_Result.f_GetLen();
 							if (Prompt.m_bInsert)
-								fg_StrInsert(Prompt.m_Result, Prompt.m_iInsertPos, Temp);
+							{
+								if (Prompt.m_iInsertPos == OldLen)
+									Prompt.m_Result.f_AddChar(NewChar);
+								else
+									fg_StrInsert(Prompt.m_Result, Prompt.m_iInsertPos, Temp);
+							}
 							else
 							{
 								if (Prompt.m_iInsertPos < OldLen)
@@ -412,7 +473,7 @@ namespace NMib::NProcess
 								else
 									Prompt.m_Result.f_AddChar(NewChar);
 							}
-							Prompt.f_Redraw(OldLen, Prompt.m_iInsertPos + 1);
+							fQueueRedraw(OldLen, Prompt.m_iInsertPos + 1);
 						}
 						else
 						{
@@ -422,6 +483,8 @@ namespace NMib::NProcess
 							++iUTFChar; // Ignore all other control characters
 						}
 					}
+
+					fFlushRedraw();
 
 					BufferEntry.m_Input = BufferEntry.m_Input.f_Extract(iUTFChar.f_GetLastWholeCodePointPos());
 					if (BufferEntry.m_Input.f_IsEmpty())
@@ -461,6 +524,16 @@ namespace NMib::NProcess
 
 			break;
 		}
+	}
+
+	void CStdInActor::CInternal::fs_StdOutput(NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor, NStr::CStr const &_String)
+	{
+		NConcurrency::g_Dispatch(_StdOutActor) > [=]
+			{
+				DMibConErrOutRaw(_String);
+			}
+			> NConcurrency::fg_DiscardResult();
+		;
 	}
 
 	void CStdInActor::CInternal::f_HandleBufferedStdInBinary()
@@ -691,7 +764,7 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 
 		auto &Entry = Internal.m_ReadEntries.f_Insert();
-		Entry.m_EntryInfo = CInternal::CPrompt{_Params};
+		Entry.m_EntryInfo = CInternal::CPrompt{_Params, Internal.m_StdOutActor};
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
