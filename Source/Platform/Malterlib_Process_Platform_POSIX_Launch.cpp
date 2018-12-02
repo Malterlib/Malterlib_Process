@@ -299,28 +299,36 @@ namespace NMib
 					if (auto pPath = mp_LastLaunchOptions.m_Environment.f_FindEqual("PATH"))
 						LocalPaths = *pPath;
 
-#ifdef DPlatformFamily_OSX
-					NStr::CStr OriginalProgram = Program;
-					Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Directory, {}, LocalPaths);
-					if ( NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
+					try
 					{
-						if (NMib::NFile::CFile::fs_GetExtension(Program).f_CmpNoCase("app") == 0)
+#ifdef DPlatformFamily_OSX
+						NStr::CStr OriginalProgram = Program;
+						Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Directory, {}, LocalPaths);
+						if ( NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
 						{
-							if (mp_LastLaunchOptions.m_bSandboxed)
+							if (NMib::NFile::CFile::fs_GetExtension(Program).f_CmpNoCase("app") == 0)
 							{
-								_Errors += "Launching sandboxed not supported for app-bundle launches implemented\n";
-								return false;
+								if (mp_LastLaunchOptions.m_bSandboxed)
+								{
+									_Errors += "Launching sandboxed not supported for app-bundle launches implemented\n";
+									return false;
+								}
+								auto NewLaunchOptions = mp_LastLaunchOptions;
+								NewLaunchOptions.m_Target = Program;
+								return fg_MacOSX_LaunchUIExecutable(NewLaunchOptions, mp_ProcessID, _Errors);
 							}
-							auto NewLaunchOptions = mp_LastLaunchOptions;
-							NewLaunchOptions.m_Target = Program;
-							return fg_MacOSX_LaunchUIExecutable(NewLaunchOptions, mp_ProcessID, _Errors);
+							else
+								Program = fg_FindExecutable(OriginalProgram, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 						}
-						else
-							Program = fg_FindExecutable(OriginalProgram, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
-					}
 #else
-					Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
+						Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 #endif
+					}
+					catch (NException::CException const &_Exception)
+					{
+						_Errors += NMib::NStr::CStr::CFormat("Error finding executable: {}\n") << _Exception.f_GetErrorStr();
+						return false;
+					}
 
 					mp_ProcessID = -1;
 					
