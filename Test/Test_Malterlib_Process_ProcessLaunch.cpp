@@ -75,7 +75,7 @@ namespace
 		}
 		
 		NMib::NThread::CMutual m_ProxyClientLock;
-		NMib::NPtr::TCUniquePointer<NMib::NProcess::CProxiedLaunchClient> m_pProxyClient;
+		NMib::NStorage::TCUniquePointer<NMib::NProcess::CProxiedLaunchClient> m_pProxyClient;
 		
 		zbool m_bProxyElevation;
 		zbool m_bFailClient;
@@ -125,7 +125,7 @@ namespace
 		struct CProxiedProcessLaunch
 		{
 			CProcessLaunch_Tests *m_pThis;
-			NMib::NPtr::TCUniquePointer<NMib::NProcess::CVirtualProcessLaunch> m_pLaunch;
+			NMib::NStorage::TCUniquePointer<NMib::NProcess::CVirtualProcessLaunch> m_pLaunch;
 			CProxiedProcessLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag, CProcessLaunch_Tests *_pThis)
 				: m_pThis(_pThis)
 			{
@@ -181,13 +181,15 @@ namespace
 		};
 
 		template <bool t_bProxied>
-		typename NMib::TCEnableIf<!t_bProxied, NMib::NPtr::TCUniquePointer<NMib::NProcess::CProcessLaunch>>::CType f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
+		auto f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
+			-> typename NMib::TCEnableIf<!t_bProxied, NMib::NStorage::TCUniquePointer<NMib::NProcess::CProcessLaunch>>::CType
 		{
 			return NMib::fg_Construct(_Params, _Flag);
 		}
 
 		template <bool t_bProxied>
-		typename NMib::TCEnableIf<t_bProxied, NMib::NPtr::TCUniquePointer<CProxiedProcessLaunch>>::CType f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
+		auto f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
+			-> typename NMib::TCEnableIf<t_bProxied, NMib::NStorage::TCUniquePointer<CProxiedProcessLaunch>>::CType
 		{
 			return NMib::fg_Construct(_Params, _Flag, this);
 		}
@@ -462,7 +464,7 @@ namespace
 				else
 				{
 #ifdef DPlatformFamily_Windows
-					NMib::NStr::CStr URLTest = NMib::NDataProcessing::fg_GetHashedUuidString(fg_TestGetCurrentPath(), NMib::NDataProcessing::CUniversallyUniqueIdentifier("{3CD79DA2-0245-4662-A4E2-153B32B8FCE2}"));
+					NMib::NStr::CStr URLTest = NMib::NCryptography::fg_GetHashedUuidString(fg_TestGetCurrentPath(), NMib::NCryptography::CUniversallyUniqueIdentifier("{3CD79DA2-0245-4662-A4E2-153B32B8FCE2}"));
 #else
 					NMib::NStr::CStr URLTest;
 #endif
@@ -658,7 +660,7 @@ namespace
 					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
 					{
 						NMib::NProcess::CProcessLaunch *pLauncher = nullptr;
-						NMib::NStr::CStr RandomString = NMib::NDataProcessing::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
+						NMib::NStr::CStr RandomString = NMib::NCryptography::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
 						
 						EExitResult Exited = EExitResult_None;
 						uint32 ExitCode = 66;
@@ -1294,7 +1296,7 @@ namespace
 					;
 					{
 						mint nLaunches = NMib::fg_Min(nCores*16, 64u);
-						NMib::NContainer::TCVector<NMib::NPtr::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
+						NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
 						for (mint i = 0; i < nLaunches; ++i)
 							Launches.f_Insert(f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit));
 					}
@@ -1446,7 +1448,7 @@ namespace
 					)
 				;
 				
-				NMib::NContainer::TCVector<NMib::NPtr::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
+				NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
 				mint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
 				for (mint i = 0; i < nCores * 2; ++i)
 					Launches.f_Insert(f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone));
@@ -1501,7 +1503,7 @@ namespace
 				{
 					DMibTestPath("Success");
 					
-					Params.m_Target = "http://www.hansoft.com";
+					Params.m_Target = "http://www.malterlib.com";
 					Exited = EExitResult_None;
 					ExitCode = 66;
 					NMib::NAtomic::fg_MemoryFence();
@@ -1528,7 +1530,7 @@ namespace
 				{
 					DMibTestPath("Failed");
 
-					Params.m_Target = "failed://www.hansoft.com";
+					Params.m_Target = "failed://www.malterlib.com";
 					Exited = EExitResult_None;
 					ExitCode = 66;
 					FailedMessage.f_Clear();
@@ -1557,7 +1559,7 @@ namespace
 				{
 					DMibTestPath("Linger");
 					
-					Params.m_Target = "http://www.hansoft.com";
+					Params.m_Target = "http://www.malterlib.com";
 					Exited = EExitResult_None;
 					ExitCode = 66;
 					FailedMessage.f_Clear();
@@ -1595,7 +1597,7 @@ namespace
 					
 					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 					
-					Params.m_Target = "http://www.hansoft.com";
+					Params.m_Target = "http://www.malterlib.com";
 					Exited = EExitResult_None;
 					ExitCode = 66;
 					FailedMessage.f_Clear();
@@ -1835,7 +1837,7 @@ namespace
 
 					Params.m_bSandboxed = true;
 					
-					NMib::NStr::CStr TempDirectory = NMib::NFile::CFile::fs_GetTemporaryDirectory() + "/MalterlibProcessKill/" + NMib::NDataProcessing::fg_GetRandomUuidString();
+					NMib::NStr::CStr TempDirectory = NMib::NFile::CFile::fs_GetTemporaryDirectory() + "/MalterlibProcessKill/" + NMib::NCryptography::fg_GetRandomUuidString();
 					NMib::NFile::CFile::fs_CreateDirectory(TempDirectory);
 					Params.m_Environment["LockFileDir"] = TempDirectory;
 					Params.m_Environment["MalterlibOriginalUser"] = NMib::NSys::fg_UserManagement_GetProcessRealUserName();

@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Test/Exception>
@@ -214,9 +214,9 @@ namespace
 						NMib::NProcess::CProcessLaunchParams Params = fs_GetLaunchParams("Level2");
 						NMib::NProcess::CProcessLaunch *pLauncher = nullptr;
 
-						NMib::NStr::CStr RandomString = NMib::NDataProcessing::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
+						NMib::NStr::CStr RandomString = NMib::NCryptography::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
 
-						NMib::NPtr::TCUniquePointer<NMib::NThread::CThreadObject> pThreadObject;
+						NMib::NStorage::TCUniquePointer<NMib::NThread::CThreadObject> pThreadObject;
 
 						Params.m_fOnStateChange
 							= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)

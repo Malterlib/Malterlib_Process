@@ -15,354 +15,347 @@
 #include <fcntl.h>
 #include <errno.h>
 
-namespace NMib
+namespace NMib::NProcess::NPlatform
 {
-	namespace NProcess
+	struct CPOSIXStdInReader
 	{
-		namespace NPlatform
+		NMib::NStorage::TCSharedPointer<NMib::NProcess::CStdInReaderParams> m_pParams;
+		DMibListLinkDS_Link(CPOSIXStdInReader, m_Link);
+
+		CPOSIXStdInReader(NMib::NProcess::CStdInReaderParams &&_Params)
+			: m_pParams(fg_Construct(fg_Move(_Params)))
 		{
+		}
+		CPOSIXStdInReader()
+		{
+		}
+		~CPOSIXStdInReader();
+	};
 
-			struct CPOSIXStdInReader
+	struct CPOSIXStdInReaderImplementation : NMib::NThread::CThread
+	{
+		DMibListLinkDS_List(CPOSIXStdInReader, m_Link) m_Readers;
+
+
+		CPOSIXStdInReaderImplementation(bool _bForcePolling)
+			: mp_WakeupPipeRead(-1)
+			, mp_WakeupPipeWrite(-1)
+			, m_OldFlags(-1)
+		{
+		}
+		~CPOSIXStdInReaderImplementation()
+		{
+			f_Stop(false);
+
+			if (mp_WakeupPipeWrite != -1)
 			{
-				NMib::NPtr::TCSharedPointer<NMib::NProcess::CStdInReaderParams> m_pParams;
-				DMibListLinkDS_Link(CPOSIXStdInReader, m_Link);	
+				ch8 Temp = 0;
+				write(mp_WakeupPipeWrite, &Temp, sizeof(Temp));
+			}
 
-				CPOSIXStdInReader(NMib::NProcess::CStdInReaderParams &&_Params)
-					: m_pParams(fg_Construct(fg_Move(_Params)))
-				{
-				}
-				CPOSIXStdInReader()
-				{
-				}
-				~CPOSIXStdInReader();
-			};
+			f_Stop(true);
 
-			struct CPOSIXStdInReaderImplementation : NMib::NThread::CThread
+			fp_DestroyPipe(mp_WakeupPipeRead);
+			fp_DestroyPipe(mp_WakeupPipeWrite);
+
+			fcntl(0, F_SETFL, m_OldFlags);
+
+			if (m_bOldSettingsSet)
+				tcsetattr(0, TCSANOW, &m_OldSettings);
+		}
+
+		void f_Init()
+		{
+			m_OldFlags = fcntl(0, F_GETFL);
+
+			if (m_OldFlags == -1)
+				return;
+
+			if (fcntl(0, F_SETFL, m_OldFlags | O_NONBLOCK) == -1)
 			{
-				DMibListLinkDS_List(CPOSIXStdInReader, m_Link) m_Readers;
-				
+				m_OldFlags = -1;
+				return;
+			}
 
-				CPOSIXStdInReaderImplementation(bool _bForcePolling)
-					: mp_WakeupPipeRead(-1)
-					, mp_WakeupPipeWrite(-1)
-					, m_OldFlags(-1)
-				{
-				}
-				~CPOSIXStdInReaderImplementation()
-				{
-					f_Stop(false);
+			if (tcgetattr (0, &m_OldSettings) >= 0)
+			{
+				auto NewSettings = m_OldSettings;
+				// Emulate the behaviour of cfmakeraw() but without breaking NL
+				NewSettings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
+//				NewSettings.c_oflag &= ~OPOST;
+				NewSettings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+				NewSettings.c_cflag &= ~(CSIZE | PARENB);
+				NewSettings.c_cflag |= CS8;
+				tcsetattr(0, TCSANOW, &NewSettings);
+				m_bOldSettingsSet = true;
+			}
 
-					if (mp_WakeupPipeWrite != -1)
+			fs_CreatePipe(mp_WakeupPipeRead, mp_WakeupPipeWrite);
+			fcntl(mp_WakeupPipeRead, F_SETFL, O_NONBLOCK);
+
+			f_Start();
+		}
+
+	private:
+
+		struct termios m_OldSettings;
+		zbint m_bOldSettingsSet;
+		int m_OldFlags;
+		int mp_WakeupPipeRead;
+		int mp_WakeupPipeWrite;
+
+		void fp_DestroyPipe(int &_Handle)
+		{
+			if (_Handle != -1)
+			{
+				close(_Handle);
+				_Handle = -1;
+			}
+		}
+		static bool fs_CreatePipe(int &_Read, int &_Write)
+		{
+			DMibFastCheck(_Read == -1);
+			DMibFastCheck(_Write == -1);
+			int Pipes[2];
+#ifdef DPlatformFamily_Linux
+			if (NLocal::g_f_pipe2)
+			{
+				if (NLocal::g_f_pipe2(Pipes, O_CLOEXEC))
+					return false;
+			}
+			else
+#elif defined(DPlatformFamily_Emscripten)
+			if (pipe2(Pipes, O_CLOEXEC))
+				return false;
+			else
+#endif
+			{
+				// We need to make sure that we protect the pipes against being included in other processes
+				DMibLock(NMib::NPlatform::fg_ForkLock());
+				if (pipe(Pipes))
+					return false;
+
+				fcntl(Pipes[0], F_SETFD, fcntl(Pipes[0], F_GETFD) | FD_CLOEXEC);
+				fcntl(Pipes[1], F_SETFD, fcntl(Pipes[1], F_GETFD) | FD_CLOEXEC);
+			}
+
+#ifdef F_SETNOSIGPIPE
+			fcntl(Pipes[0], F_SETNOSIGPIPE, 1);
+			fcntl(Pipes[1], F_SETNOSIGPIPE, 1);
+#endif
+
+			_Read = Pipes[0];
+			_Write = Pipes[1];
+			return true;
+		}
+
+		NMib::NStr::CStr f_GetThreadName()
+		{
+			return "Stdin reader";
+		}
+		aint f_Main()
+		{
+			while (f_GetState() != NMib::NThread::EThreadState_EventWantQuit)
+			{
+				if (!fp_Read())
+					break;
+
+				pollfd ToPoll[2] = {0};
+				int nPoll = 0;
+				ToPoll[nPoll].fd = mp_WakeupPipeRead;
+				ToPoll[nPoll].events = POLLRDNORM;
+				ToPoll[nPoll].revents = 0;
+				++nPoll;
+
+				ToPoll[nPoll].fd = 0; // Std-in
+				ToPoll[nPoll].events = POLLRDNORM | POLLIN;
+				ToPoll[nPoll].revents = 0;
+				++nPoll;
+
+				int PollReturn = poll(ToPoll, nPoll, -1);
+
+				if (PollReturn == -1)
+				{
+					int ErrNo = errno;
+					if (ErrNo != EINTR)
 					{
-						ch8 Temp = 0;
-						write(mp_WakeupPipeWrite, &Temp, sizeof(Temp));
+						fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_GeneralError, NMib::NPlatform::fg_FormatErrno("poll (stdin reader)", ErrNo) + "\n");
+						break;
 					}
-
-					f_Stop(true);
-
-					fp_DestroyPipe(mp_WakeupPipeRead);
-					fp_DestroyPipe(mp_WakeupPipeWrite);
-					
-					fcntl(0, F_SETFL, m_OldFlags);
-					
-					if (m_bOldSettingsSet)
-						tcsetattr(0, TCSANOW, &m_OldSettings);
 				}
+			}
 
-				void f_Init()
+			fp_Read();
+
+			return 0;
+		}
+
+		NContainer::CSecureByteVector mp_StdInReadBuffer;
+
+
+		bool fp_Read()
+		{
+			bool bRet = true;
+
+			if (mp_StdInReadBuffer.f_IsEmpty())
+				mp_StdInReadBuffer.f_SetLen(4096);
+
+			auto ReadBytes = read(0, mp_StdInReadBuffer.f_GetArray(), 4096);
+
+			if (ReadBytes > 0)
+				fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_StdIn, NContainer::CSecureByteVector(mp_StdInReadBuffer.f_GetArray(), ReadBytes));
+			else if (ReadBytes < 0)
+			{
+				int ErrNo = errno;
+
+				if (ErrNo == EAGAIN || ErrNo == EWOULDBLOCK)
 				{
-					m_OldFlags = fcntl(0, F_GETFL);
-					
-					if (m_OldFlags == -1)
-						return;
-					
-					if (fcntl(0, F_SETFL, m_OldFlags | O_NONBLOCK) == -1)
-					{
-						m_OldFlags = -1;
-						return;
-					}
-					
-					if (tcgetattr (0, &m_OldSettings) >= 0)
-					{
-						auto NewSettings = m_OldSettings;
-						// Emulate the behaviour of cfmakeraw() but without breaking NL
-						NewSettings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
-		//				NewSettings.c_oflag &= ~OPOST;
-						NewSettings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-						NewSettings.c_cflag &= ~(CSIZE | PARENB);
-						NewSettings.c_cflag |= CS8;
-						tcsetattr(0, TCSANOW, &NewSettings);
-						m_bOldSettingsSet = true;
-					}
-					
-					fs_CreatePipe(mp_WakeupPipeRead, mp_WakeupPipeWrite);
-					fcntl(mp_WakeupPipeRead, F_SETFL, O_NONBLOCK);
-					
-					f_Start();
+					// Normal
 				}
-
-			private:
-
-				struct termios m_OldSettings;
-				zbint m_bOldSettingsSet;
-				int m_OldFlags;
-				int mp_WakeupPipeRead;
-				int mp_WakeupPipeWrite;
-				
-				void fp_DestroyPipe(int &_Handle)
+				else
 				{
-					if (_Handle != -1)
-					{
-						close(_Handle);
-						_Handle = -1;
-					}
+					fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_GeneralError, NMib::NPlatform::fg_FormatErrno("read (stdin reader)", ErrNo) + "\n");
+					bRet = false;
 				}
-				static bool fs_CreatePipe(int &_Read, int &_Write)
-				{
-					DMibFastCheck(_Read == -1);
-					DMibFastCheck(_Write == -1);
-					int Pipes[2];
-		#ifdef DPlatformFamily_Linux
-					if (NLocal::g_f_pipe2)
-					{
-						if (NLocal::g_f_pipe2(Pipes, O_CLOEXEC))
-							return false;
-					}
-					else
-		#elif defined(DPlatformFamily_Emscripten)
-					if (pipe2(Pipes, O_CLOEXEC))
-						return false;
-					else
-		#endif
-					{
-						// We need to make sure that we protect the pipes against being included in other processes
-						DMibLock(NMib::NPlatform::fg_ForkLock());
-						if (pipe(Pipes))
-							return false;
-						
-						fcntl(Pipes[0], F_SETFD, fcntl(Pipes[0], F_GETFD) | FD_CLOEXEC);
-						fcntl(Pipes[1], F_SETFD, fcntl(Pipes[1], F_GETFD) | FD_CLOEXEC);
-					}
-					
-		#ifdef F_SETNOSIGPIPE
-					fcntl(Pipes[0], F_SETNOSIGPIPE, 1);
-					fcntl(Pipes[1], F_SETNOSIGPIPE, 1);
-		#endif
-					
-					_Read = Pipes[0];
-					_Write = Pipes[1];
-					return true;
-				}
-				
-				NMib::NStr::CStr f_GetThreadName()
-				{
-					return "Stdin reader";
-				}
-				aint f_Main()
-				{
-					while (f_GetState() != NMib::NThread::EThreadState_EventWantQuit)
-					{
-						if (!fp_Read())
-							break;
-						
-						pollfd ToPoll[2] = {0};
-						int nPoll = 0;
-						ToPoll[nPoll].fd = mp_WakeupPipeRead;
-						ToPoll[nPoll].events = POLLRDNORM;
-						ToPoll[nPoll].revents = 0;
-						++nPoll;
+			}
+			else
+			{
+				fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_EndOfFile, "End of file");
+				bRet = false;
+			}
 
-						ToPoll[nPoll].fd = 0; // Std-in
-						ToPoll[nPoll].events = POLLRDNORM | POLLIN;
-						ToPoll[nPoll].revents = 0;
-						++nPoll;
-						
-						int PollReturn = poll(ToPoll, nPoll, -1);
+			return bRet;
+		}
 
-						if (PollReturn == -1)
-						{
-							int ErrNo = errno;
-							if (ErrNo != EINTR)
+		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer);
+		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure const &_String);
+	};
+
+	struct CSubSystem_Process_Platform_POSIX_StdInReader : public CSubSystem
+	{
+		NThread::CMutual m_StdInReaderImpLock;
+		NMib::NStorage::TCUniquePointer<CPOSIXStdInReaderImplementation> m_pStdInReaderImp;
+
+		void f_DestroyThreadSpecific() override
+		{
+			{
+				DMibLock(m_StdInReaderImpLock);
+				DMibFastCheck(m_pStdInReaderImp.f_IsEmpty()); // Should have been deleted when the last std in reader was closed
+				m_pStdInReaderImp.f_Clear();
+			}
+		}
+
+		~CSubSystem_Process_Platform_POSIX_StdInReader()
+		{
+			{
+				DMibLock(m_StdInReaderImpLock);
+				DMibFastCheck(m_pStdInReaderImp.f_IsEmpty());
+			}
+		}
+	};
+
+	TCSubSystem<CSubSystem_Process_Platform_POSIX_StdInReader, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_StdInReader = {DAggregateInit};
+
+	CPOSIXStdInReader::~CPOSIXStdInReader()
+	{
+		if (m_Link.f_IsInList())
+		{
+			auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
+			NMib::NStorage::TCUniquePointer<CPOSIXStdInReaderImplementation> pToDelete;
+			{
+				DMibLock(SubSystem.m_StdInReaderImpLock);
+				NMib::NStorage::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
+				m_Link.f_Unlink();
+				if (pImp->m_Readers.f_IsEmpty())
+					pToDelete = fg_Move(SubSystem.m_pStdInReaderImp);
+			}
+		}
+	}
+	void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer)
+	{
+		DMibRequire(_Type == EStdInReaderOutputType_StdIn);
+
+		auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
+		DMibLock(SubSystem.m_StdInReaderImpLock);
+		for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
+		{
+			auto pParams = iReader->m_pParams;
+			if (pParams->m_fDispatcher)
+			{
+				if (pParams->m_fOnReceiveInput)
+				{
+					pParams->m_fDispatcher
+						(
+							[_Type, String = NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()), pParams]()
 							{
-								fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_GeneralError, NMib::NPlatform::fg_FormatErrno("poll (stdin reader)", ErrNo) + "\n");
-								break;
+								pParams->m_fOnReceiveInput(_Type, String);
 							}
-						}
-					}
-
-					fp_Read();
-
-					return 0;
+						)
+					;
 				}
-
-				NContainer::CSecureByteVector mp_StdInReadBuffer;
-
-
-				bool fp_Read()
+				else
 				{
-					bool bRet = true;
-					
-					if (mp_StdInReadBuffer.f_IsEmpty())
-						mp_StdInReadBuffer.f_SetLen(4096);
-					
-					auto ReadBytes = read(0, mp_StdInReadBuffer.f_GetArray(), 4096);
-
-					if (ReadBytes > 0)
-						fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_StdIn, NContainer::CSecureByteVector(mp_StdInReadBuffer.f_GetArray(), ReadBytes));
-					else if (ReadBytes < 0)
-					{
-						int ErrNo = errno;
-						
-						if (ErrNo == EAGAIN || ErrNo == EWOULDBLOCK)
-						{
-							// Normal
-						}
-						else
-						{
-							fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_GeneralError, NMib::NPlatform::fg_FormatErrno("read (stdin reader)", ErrNo) + "\n");
-							bRet = false;
-						}
-					}
-					else
-					{
-						fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_EndOfFile, "End of file");
-						bRet = false;
-					}
-
-					return bRet;
+					pParams->m_fDispatcher
+						(
+							[_Type, _Buffer, pParams]()
+							{
+								pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
+							}
+						)
+					;
 				}
 
-				void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer);
-				void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure const &_String);
-			};
-
-			struct CSubSystem_Process_Platform_POSIX_StdInReader : public CSubSystem
+			}
+			else
 			{
-				NThread::CMutual m_StdInReaderImpLock;
-				NMib::NPtr::TCUniquePointer<CPOSIXStdInReaderImplementation> m_pStdInReaderImp;
-				
-				void f_DestroyThreadSpecific() override
-				{
-					{
-						DMibLock(m_StdInReaderImpLock);
-						DMibFastCheck(m_pStdInReaderImp.f_IsEmpty()); // Should have been deleted when the last std in reader was closed
-						m_pStdInReaderImp.f_Clear();
-					}
-				}
-				
-				~CSubSystem_Process_Platform_POSIX_StdInReader()
-				{
-					{
-						DMibLock(m_StdInReaderImpLock);
-						DMibFastCheck(m_pStdInReaderImp.f_IsEmpty());
-					}
-				}
-			};
-			
-			TCSubSystem<CSubSystem_Process_Platform_POSIX_StdInReader, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_StdInReader = {DAggregateInit};
-			
-			CPOSIXStdInReader::~CPOSIXStdInReader()
+				if (pParams->m_fOnReceiveInput)
+					pParams->m_fOnReceiveInput(_Type, NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()));
+				else
+					pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
+			}
+		}
+	}
+
+	void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure const &_String)
+	{
+		DMibRequire(_Type != EStdInReaderOutputType_StdIn);
+
+		auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
+		DMibLock(SubSystem.m_StdInReaderImpLock);
+		for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
+		{
+			auto pParams = iReader->m_pParams;
+			if (pParams->m_fDispatcher)
 			{
-				if (m_Link.f_IsInList())
+				if (pParams->m_fOnReceiveInput)
 				{
-					auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
-					NMib::NPtr::TCUniquePointer<CPOSIXStdInReaderImplementation> pToDelete;
-					{
-						DMibLock(SubSystem.m_StdInReaderImpLock);
-						NMib::NPtr::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
-						m_Link.f_Unlink();
-						if (pImp->m_Readers.f_IsEmpty())
-							pToDelete = fg_Move(SubSystem.m_pStdInReaderImp);
-					}
+					pParams->m_fDispatcher
+						(
+							[_Type, _String, pParams]()
+							{
+								pParams->m_fOnReceiveInput(_Type, _String);
+							}
+						)
+					;
+				}
+				else
+				{
+					pParams->m_fDispatcher
+						(
+							[_Type, _String, pParams]()
+							{
+								pParams->m_fOnReceiveBinaryInput(_Type, {}, _String);
+							}
+						)
+					;
 				}
 			}
-			void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer)
+			else
 			{
-				DMibRequire(_Type == EStdInReaderOutputType_StdIn);
-
-				auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
-				DMibLock(SubSystem.m_StdInReaderImpLock);
-				for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
-				{
-					auto pParams = iReader->m_pParams;
-					if (pParams->m_fDispatcher)
-					{
-						if (pParams->m_fOnReceiveInput)
-						{
-							pParams->m_fDispatcher
-								(
-									[_Type, String = NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()), pParams]()
-									{
-										pParams->m_fOnReceiveInput(_Type, String);
-									}
-								)
-							;
-						}
-						else
-						{
-							pParams->m_fDispatcher
-								(
-									[_Type, _Buffer, pParams]()
-									{
-										pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
-									}
-								)
-							;
-						}
-
-					}
-					else
-					{
-						if (pParams->m_fOnReceiveInput)
-							pParams->m_fOnReceiveInput(_Type, NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()));
-						else
-							pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
-					}
-				}
-			}
-
-			void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure const &_String)
-			{
-				DMibRequire(_Type != EStdInReaderOutputType_StdIn);
-
-				auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
-				DMibLock(SubSystem.m_StdInReaderImpLock);
-				for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
-				{
-					auto pParams = iReader->m_pParams;
-					if (pParams->m_fDispatcher)
-					{
-						if (pParams->m_fOnReceiveInput)
-						{
-							pParams->m_fDispatcher
-								(
-									[_Type, _String, pParams]()
-									{
-										pParams->m_fOnReceiveInput(_Type, _String);
-									}
-								)
-							;
-						}
-						else
-						{
-							pParams->m_fDispatcher
-								(
-									[_Type, _String, pParams]()
-									{
-										pParams->m_fOnReceiveBinaryInput(_Type, {}, _String);
-									}
-								)
-							;
-						}
-					}
-					else
-					{
-						if (pParams->m_fOnReceiveInput)
-							pParams->m_fOnReceiveInput(_Type, _String);
-						else
-							pParams->m_fOnReceiveBinaryInput(_Type, {}, _String);
-					}
-				}
+				if (pParams->m_fOnReceiveInput)
+					pParams->m_fOnReceiveInput(_Type, _String);
+				else
+					pParams->m_fOnReceiveBinaryInput(_Type, {}, _String);
 			}
 		}
 	}
@@ -370,8 +363,8 @@ namespace NMib
 
 void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CStdInReaderParams &&_Params)
 {
-	NPtr::TCUniquePointer<CPOSIXStdInReaderImplementation> pNew; // First because we want it to be destroyed after pReader in case of exception in f_Init
-	NPtr::TCUniquePointer<CPOSIXStdInReader> pReader = fg_Construct(fg_Move(_Params));
+	NStorage::TCUniquePointer<CPOSIXStdInReaderImplementation> pNew; // First because we want it to be destroyed after pReader in case of exception in f_Init
+	NStorage::TCUniquePointer<CPOSIXStdInReader> pReader = fg_Construct(fg_Move(_Params));
 	
 	auto &Params = *pReader->m_pParams;
 
@@ -386,7 +379,7 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 	{
 		DMibLock(SubSystem.m_StdInReaderImpLock);
 
-		NPtr::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
+		NStorage::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
 
 		if (Params.m_Flags & EStdInReaderFlag_Exclusive)
 		{
@@ -421,5 +414,5 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 
 void NMib::NProcess::NPlatform::fg_Process_StdInReader_Close(void *_pStdInReader)
 {
-	NPtr::TCUniquePointer<CPOSIXStdInReader> pReader = fg_Explicit((CPOSIXStdInReader *)_pStdInReader);
+	NStorage::TCUniquePointer<CPOSIXStdInReader> pReader = fg_Explicit((CPOSIXStdInReader *)_pStdInReader);
 }

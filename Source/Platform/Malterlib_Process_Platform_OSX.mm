@@ -8,28 +8,23 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-namespace NMib
+namespace NMib::NProcess::NPlatform
 {
-	namespace NProcess
+	namespace
 	{
-		namespace NPlatform
+		NStr::CStr fg_GetDictionaryValue(NSDictionary *_pDict, NStr::CStr const &_Key, NStr::CStr const &_Default)
 		{
-			namespace
+			NSString *pObjectForKey = [_pDict objectForKey: NMib::NPlatform::fg_MaxOSX_GetString(_Key)];
+			if (pObjectForKey)
 			{
-				NStr::CStr fg_GetDictionaryValue(NSDictionary *_pDict, NStr::CStr const &_Key, NStr::CStr const &_Default)
-				{
-					NSString *pObjectForKey = [_pDict objectForKey: NMib::NPlatform::fg_MaxOSX_GetString(_Key)];
-					if (pObjectForKey)
-					{
-						return NMib::NPlatform::fg_MaxOSX_GetString(pObjectForKey);
-					}
-						
-					return _Default;
-				}
+				return NMib::NPlatform::fg_MaxOSX_GetString(pObjectForKey);
 			}
+
+			return _Default;
 		}
 	}
 }
+
 void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const &_File, NMib::NProcess::CVersionInfo &_VersionInfo)
 {
 	NStr::CStr CanonicalFile = _File;

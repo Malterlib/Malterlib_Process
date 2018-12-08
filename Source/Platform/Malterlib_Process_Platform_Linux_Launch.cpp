@@ -64,7 +64,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 			_StdInWrite = -1;
 		}
 		
-		NStr::CStr RandomString = NMib::NDataProcessing::fg_GetSecureUuidString();
+		NStr::CStr RandomString = NMib::NCryptography::fg_GetSecureUuidString();
 		
 		NStr::CStr ReadPipeName = NMib::NFile::CFile::fs_GetUserLocalProgramDirectory() + "/NamePipeStdErr_" + RandomString;
 		InPipeName = NMib::NFile::CFile::fs_GetUserLocalProgramDirectory() + "/NamePipeStdIn_" + RandomString;
@@ -171,7 +171,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 		void * m_pLaunchedProcess;
 	};
 	
-	NPtr::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
+	NStorage::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
 	pLaunchData->m_bReceivedPID = !_Params.m_bStdOutPID;
 	pLaunchData->m_fOnOutput = fg_Move(_Params.m_fOnOutput);
 	pLaunchData->m_fOnStateChange = fg_Move(_Params.m_fOnStateChange);
@@ -444,12 +444,12 @@ namespace NMib
 
 bool NMib::NProcess::NPlatform::fg_Linux_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params)
 {
-	NMib::NStr::CStr DesktopFile = NStr::CStr::CFormat("{}_{}") << NMib::NSys::g_LinuxProgramIdentifier << NMib::NDataProcessing::fg_GetHashedUuidString(_ExePath, NMib::NDataProcessing::CUniversallyUniqueIdentifier("{4860363c-8bf6-4cb8-a22c-2b7b71c18264}"));
+	NMib::NStr::CStr DesktopFile = NStr::CStr::CFormat("{}_{}") << NMib::NSys::g_LinuxProgramIdentifier << NMib::NCryptography::fg_GetHashedUuidString(_ExePath, NMib::NCryptography::CUniversallyUniqueIdentifier("{4860363c-8bf6-4cb8-a22c-2b7b71c18264}"));
 	NMib::NStr::CStr MimeAppsFile = NMib::NFile::CFile::fs_GetUserHomeDirectory() + "/.local/share/applications/mimeapps.list";
 	
 	if (NMib::NFile::CFile::fs_FileExists(MimeAppsFile))
 	{
-		using namespace NMib::NDesktopIntegration;
+		using namespace NMib::NDesktop;
 		
 		CDesktopFileParser Parser(NStr::CStr(), MimeAppsFile);
 		
@@ -502,7 +502,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_DeRegisterURLHandler(NMib::NStr::CStr c
 	
 	if (NMib::NFile::CFile::fs_FileExists(MimeAppsFile))
 	{
-		using namespace NMib::NDesktopIntegration;
+		using namespace NMib::NDesktop;
 		
 		CDesktopFileParser Parser(NStr::CStr(), MimeAppsFile);
 		
@@ -619,7 +619,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 		void * m_pLaunchedProcess;
 	};
 	
-	NPtr::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
+	NStorage::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
 	
 	
 	_Params.m_fOnStateChange =

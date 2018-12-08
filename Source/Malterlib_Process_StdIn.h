@@ -65,7 +65,9 @@ namespace NMib::NProcess
 
 	class CStdInReader
 	{
-		DMibClassNoCopyAllowed(CStdInReader);
+		CStdInReader(CStdInReader const &) = delete;
+		CStdInReader &operator = (CStdInReader const &) = delete;
+
 		void *m_pStdInReader;
 		void fp_CheckOpen() const;
 	public:
@@ -84,7 +86,7 @@ namespace NMib::NProcess
 		NStr::CStr m_Buffer;
 		NStr::CStr m_Errors;
 		NThread::CEventAutoReset m_Event;
-		NPtr::TCUniquePointer<CStdInReader> m_pStdInReader;
+		NStorage::TCUniquePointer<CStdInReader> m_pStdInReader;
 
 	public:
 
@@ -101,4 +103,3 @@ namespace NMib::NProcess
 #ifndef DMibPNoShortCuts
 	using namespace NMib::NProcess;	
 #endif
-

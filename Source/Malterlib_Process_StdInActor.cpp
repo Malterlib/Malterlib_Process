@@ -110,7 +110,7 @@ namespace NMib::NProcess
 			bool m_bInsert = true;
 		};
 
-		using CReadEntryInfo = NContainer::TCStreamableVariant<EReadEntry, void, EReadEntry_None, CLine, EReadEntry_Line, CPrompt, EReadEntry_Prompt>;
+		using CReadEntryInfo = NStorage::TCStreamableVariant<EReadEntry, void, EReadEntry_None, CLine, EReadEntry_Line, CPrompt, EReadEntry_Prompt>;
 
 		struct CReadEntry
 		{
@@ -150,13 +150,13 @@ namespace NMib::NProcess
 		static void fs_StdOutput(NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor, NStr::CStr const &_String);
 
 		CStdInActor *m_pThis;
-		NContainer::TCSet<NPtr::TCSharedPointer<CSubscription, NPtr::CSupportWeakTag>> m_Subscriptions;
+		NContainer::TCSet<NStorage::TCSharedPointer<CSubscription, NStorage::CSupportWeakTag>> m_Subscriptions;
 
-		NPtr::TCSharedPointer<CSubscription, NPtr::CSupportWeakTag> m_pReadSubscription;
+		NStorage::TCSharedPointer<CSubscription, NStorage::CSupportWeakTag> m_pReadSubscription;
 		NContainer::TCLinkedList<CReadEntry> m_ReadEntries;
 		NContainer::TCLinkedList<CBufferedStdIn> m_BufferedStdIn;
 
-		NPtr::TCSharedPointer<CSubscription, NPtr::CSupportWeakTag> m_pReadSubscriptionBinary;
+		NStorage::TCSharedPointer<CSubscription, NStorage::CSupportWeakTag> m_pReadSubscriptionBinary;
 		NContainer::TCLinkedList<CReadEntryBinary> m_ReadEntriesBinary;
 		NContainer::TCLinkedList<CBufferedStdInBinary> m_BufferedStdInBinary;
 
@@ -176,7 +176,7 @@ namespace NMib::NProcess
 	{
 		f_AbortReads();
 		auto &Internal = *mp_pInternal;
-		NPtr::TCSharedPointer<NConcurrency::CCanDestroyTracker> pCanDestroy = fg_Construct();
+		NStorage::TCSharedPointer<NConcurrency::CCanDestroyTracker> pCanDestroy = fg_Construct();
 
 		NConcurrency::g_Dispatch(Internal.m_StdOutActor) > []
 			{
@@ -666,7 +666,7 @@ namespace NMib::NProcess
 		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
 		try
 		{
-			NPtr::TCSharedPointer<CInternal::CSubscription, NPtr::CSupportWeakTag> pSubscription = fg_Construct
+			NStorage::TCSharedPointer<CInternal::CSubscription, NStorage::CSupportWeakTag> pSubscription = fg_Construct
 				(
 					CStdInReaderParams::fs_Create
 					(
@@ -704,7 +704,7 @@ namespace NMib::NProcess
 		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
 		try
 		{
-			NPtr::TCSharedPointer<CInternal::CSubscription, NPtr::CSupportWeakTag> pSubscription = fg_Construct
+			NStorage::TCSharedPointer<CInternal::CSubscription, NStorage::CSupportWeakTag> pSubscription = fg_Construct
 				(
 					CStdInReaderParams::fs_CreateBinary
 					(

@@ -256,7 +256,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 		}
 	}
 	
-	NContainer::TCVector<uint8> Data;
+	NContainer::CByteVector Data;
 	
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
 	auto Processes = fg_MacOSX_Process_GetAllRunning();

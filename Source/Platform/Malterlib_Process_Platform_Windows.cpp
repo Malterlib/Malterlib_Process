@@ -117,7 +117,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		if (Size == 0)
 			break;
 
-		NContainer::TCVector<uint8> Data;
+		NContainer::CByteVector Data;
 		Data.f_SetLen(Size);
 		if (!GetFileVersionInfoW(File, 0, Size, Data.f_GetArray()))
 			break;
@@ -372,7 +372,7 @@ bint NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _Proce
 void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
 	PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
-	NMem::fg_MemClear(MemoryInfo);
+	NMemory::fg_MemClear(MemoryInfo);
 
 	if (GetProcessMemoryInfo(_pProcess, (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
 	{
@@ -387,7 +387,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pPr
 void NMib::NProcess::NPlatform::fg_Process_GetMemoryOverallStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
 	PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
-	NMem::fg_MemClear(MemoryInfo);
+	NMemory::fg_MemClear(MemoryInfo);
 
 	if (GetProcessMemoryInfo(_pProcess, (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
 	{
@@ -468,7 +468,7 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int
 NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescription()
 {
 	OSVERSIONINFOEXW VersionInfo;
-	NMem::fg_MemClear(VersionInfo);
+	NMemory::fg_MemClear(VersionInfo);
 	VersionInfo.dwOSVersionInfoSize = sizeof(VersionInfo);
 	if (!GetVersionExW((OSVERSIONINFO *)&VersionInfo))
 		return "";
@@ -511,7 +511,7 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 		else if (VersionInfo.dwMinorVersion == 2)
 		{
 			SYSTEM_INFO SystemInfo;
-			NMem::fg_MemClear(SystemInfo);
+			NMemory::fg_MemClear(SystemInfo);
 			GetNativeSystemInfo(&SystemInfo);
 
 			if (GetSystemMetrics(SM_SERVERR2) != 0)
@@ -574,7 +574,7 @@ void NMib::NProcess::NPlatform::fg_Process_Stop(mint _ProcessID)
 	}
 }
 
-static NMib::NAggregate::TCAggregate<NMib::NThread::CEvent> g_TerminationEvent = {DAggregateInit};
+static NMib::NStorage::TCAggregate<NMib::NThread::CEvent> g_TerminationEvent = {DAggregateInit};
 
 void NMib::NProcess::NPlatform::fg_Process_AbortWaitForTermination()
 {
@@ -613,7 +613,7 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 	g_TerminationEvent.f_Destruct();
 }
 
-static NMib::NAggregate::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};
+static NMib::NStorage::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};
 
 NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTermination(NFunction::TCFunction<void ()> &&_fOnTerminate)
 {

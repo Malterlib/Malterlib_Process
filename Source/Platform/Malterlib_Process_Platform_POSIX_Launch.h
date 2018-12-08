@@ -15,115 +15,108 @@
 
 #include <Mib/Process/ProcessLaunch>
 
-namespace NMib
+namespace NMib::NProcess::NPlatform
 {
-	namespace NProcess
+	static_assert(sizeof(pid_t) <= sizeof(mint));
+	class CProcessLaunchLink
 	{
-		static_assert(sizeof(pid_t) <= sizeof(mint));
-		
-		namespace NPlatform
-		{
-			class CProcessLaunchLink
-			{
-			public:
-				DMibListLinkDS_Link(CProcessLaunchLink, m_Link);
-			};
-			
-			NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths = {}, NStr::CStr const &_LocalPaths = {});
-			
-			class CPOSIXLaunchContext : public NThread::CThread, public NPtr::TCSharedPointerIntrusiveBase<>, public CProcessLaunchLink
-			{
-				using NThread::CThread::f_Start;
-			public:
-				CPOSIXLaunchContext();
-				~CPOSIXLaunchContext();
+	public:
+		DMibListLinkDS_Link(CProcessLaunchLink, m_Link);
+	};
 
-				bint f_Open(CProcessLaunchParams const &_Params);
-				
-				bool f_RedirectStdInWrite(int &_Pipe, NMib::NStr::CStr &_Errors);
-				
-				bint f_Start(EProcessLaunchCloseFlag _Flags);
-				void f_Close(EProcessLaunchCloseFlag _Flags);
+	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths = {}, NStr::CStr const &_LocalPaths = {});
 
-				bint f_IsRunning();
-				void f_SendText(NStr::CStrSecure const &_Text);
-				void f_CloseStdIn();
-				void f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data);
-				fp64 f_GetRunningTime();
-				mint f_GetID();
+	class CPOSIXLaunchContext : public NThread::CThread, public NStorage::TCSharedPointerIntrusiveBase<>, public CProcessLaunchLink
+	{
+		using NThread::CThread::f_Start;
+	public:
+		CPOSIXLaunchContext();
+		~CPOSIXLaunchContext();
+
+		bint f_Open(CProcessLaunchParams const &_Params);
+
+		bool f_RedirectStdInWrite(int &_Pipe, NMib::NStr::CStr &_Errors);
+
+		bint f_Start(EProcessLaunchCloseFlag _Flags);
+		void f_Close(EProcessLaunchCloseFlag _Flags);
+
+		bint f_IsRunning();
+		void f_SendText(NStr::CStrSecure const &_Text);
+		void f_CloseStdIn();
+		void f_SendBinary(NContainer::CSecureByteVector const &_Data);
+		fp64 f_GetRunningTime();
+		mint f_GetID();
 #ifdef DPlatformFamily_OSX
-				task_t f_MachTask();
+		task_t f_MachTask();
 #endif
-				void f_Cancel();
+		void f_Cancel();
 
-				virtual NStr::CStr f_GetThreadName() override;
-				virtual aint f_Main() override;
+		virtual NStr::CStr f_GetThreadName() override;
+		virtual aint f_Main() override;
 
-				CProcessStatistics f_OverallMemoryStatistics() const;
-				CProcessStatistics f_OverallExecutionStatistics() const;
-				bool f_OverallStatsAvailable() const;
+		CProcessStatistics f_OverallMemoryStatistics() const;
+		CProcessStatistics f_OverallExecutionStatistics() const;
+		bool f_OverallStatsAvailable() const;
 
-				DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference m_DebugSelfRef);
-				DMibRefcountDebuggingOnly(NPtr::CRefCountDebugReference m_DebugSelfThreadRef);
+		DMibRefcountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfRef);
+		DMibRefcountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
-			private:
-				void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
-				void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
-				void fp_OnExit(uint32 _ExitCode);
-				bint fp_DoStart(NStr::CStr &_Errors);
-				bint fp_LaunchChild
-					(
-						int &_hStdOutRead
-						, int &_hStdOutWrite
-						, int &_hStdInRead
-						, int &_hStdInWrite
-						, int &_hStdErrRead
-						, int &_hStdErrWrite
-						, NStr::CStr &_Errors
-					)
-				;
-				
-				void fp_Close();
-				virtual bool f_DestroyThread() override;
-				void fp_DestroyPipe(int &_Handle);
-				void fp_RedirectOutput(bool _bWaitForEOF);
-				void fp_UpdateOverallStats
-					(
-						rusage const &_RUsage
+	private:
+		void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
+		void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
+		void fp_OnExit(uint32 _ExitCode);
+		bint fp_DoStart(NStr::CStr &_Errors);
+		bint fp_LaunchChild
+			(
+				int &_hStdOutRead
+				, int &_hStdOutWrite
+				, int &_hStdInRead
+				, int &_hStdInWrite
+				, int &_hStdErrRead
+				, int &_hStdErrWrite
+				, NStr::CStr &_Errors
+			)
+		;
+
+		void fp_Close();
+		virtual bool f_DestroyThread() override;
+		void fp_DestroyPipe(int &_Handle);
+		void fp_RedirectOutput(bool _bWaitForEOF);
+		void fp_UpdateOverallStats
+			(
+				rusage const &_RUsage
 #ifdef DPlatformFamily_OSX
-						, proc_taskallinfo const &_TaskInfo
+				, proc_taskallinfo const &_TaskInfo
 #endif
-					)
-				;
-				
-				NThread::CMutual m_ExitTimeLock;
-				fp64 m_ExitTime;
-				NTime::CClock m_TimeSinceStart;
+			)
+		;
 
-				NMib::NProcess::CProcessLaunchParams mp_LastLaunchOptions;
-				uint32 mp_ReturnValue;
-				pid_t mp_ProcessID;
-				NThread::CMutual mp_NeedTerminationLock;
-				NMib::NProcess::EProcessLaunchCloseFlag mp_NeedTermination;
-				bint mp_bNeedWait;
-				bint mp_bClosed;
-				bint mp_bStarted;
-				NAtomic::TCAtomic<uint32> mp_bOverallStatsAvailable;
-				
-				CSharedLimiter mp_pCPULimiter;
-				
-				mutable NThread::CMutual mp_OverallStatsLock;
-				
-				CProcessStatistics mp_OverallMemoryStatistics;
-				CProcessStatistics mp_OverallExecutionStatistics;
+		NThread::CMutual m_ExitTimeLock;
+		fp64 m_ExitTime;
+		NTime::CClock m_TimeSinceStart;
 
-				int mp_hStdinWrite;	// write end of child's stdin pipe
-				int mp_hStdoutRead;	// read end of child's stdout pipe
-				int mp_hStderrRead;	// read end of child's stderr pipe
-				
-				int mp_WakeupPipeRead;
-				int mp_WakeupPipeWrite;
-			};
-		}
-	}
+		NMib::NProcess::CProcessLaunchParams mp_LastLaunchOptions;
+		uint32 mp_ReturnValue;
+		pid_t mp_ProcessID;
+		NThread::CMutual mp_NeedTerminationLock;
+		NMib::NProcess::EProcessLaunchCloseFlag mp_NeedTermination;
+		bint mp_bNeedWait;
+		bint mp_bClosed;
+		bint mp_bStarted;
+		NAtomic::TCAtomic<uint32> mp_bOverallStatsAvailable;
+
+		CSharedLimiter mp_pCPULimiter;
+
+		mutable NThread::CMutual mp_OverallStatsLock;
+
+		CProcessStatistics mp_OverallMemoryStatistics;
+		CProcessStatistics mp_OverallExecutionStatistics;
+
+		int mp_hStdinWrite;	// write end of child's stdin pipe
+		int mp_hStdoutRead;	// read end of child's stdout pipe
+		int mp_hStderrRead;	// read end of child's stderr pipe
+
+		int mp_WakeupPipeRead;
+		int mp_WakeupPipeWrite;
+	};
 }

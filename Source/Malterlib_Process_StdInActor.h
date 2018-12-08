@@ -37,7 +37,7 @@ namespace NMib::NProcess
 
 		struct CInternal;
 
-		NPtr::TCUniquePointer<CInternal> mp_pInternal;
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 }
 
