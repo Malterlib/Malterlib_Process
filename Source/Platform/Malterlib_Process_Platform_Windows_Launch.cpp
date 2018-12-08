@@ -411,7 +411,7 @@ namespace NMib::NProcess::NPlatform
 			bint f_IsRunning();
 			bint f_SendText(NStr::CStrSecure const &_Data);
 			void f_CloseStdIn();
-			void f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data);
+			void f_SendBinary(NContainer::CSecureByteVector const &_Data);
 			void f_StopProcess();
 			mint f_GetID() const;
 			HANDLE f_GetChildProcess() const
@@ -511,7 +511,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			bool bFailedLaunch = false;
 			JOBOBJECT_BASIC_LIMIT_INFORMATION LimitInfo;
-			NMem::fg_MemClear(LimitInfo);
+			NMemory::fg_MemClear(LimitInfo);
 
 			DWORD ReturnLength;
 			QueryInformationJobObject(_hJob, JobObjectBasicLimitInformation, &LimitInfo, sizeof(LimitInfo), &ReturnLength);
@@ -800,8 +800,8 @@ namespace NMib::NProcess::NPlatform
 				{
 					PROCESS_INFORMATION ProcessInfo;
 					STARTUPINFOW StartupInfo;
-					NMem::fg_MemClear(ProcessInfo);
-					NMem::fg_MemClear(StartupInfo);
+					NMemory::fg_MemClear(ProcessInfo);
+					NMemory::fg_MemClear(StartupInfo);
 
 					StartupInfo.cb = sizeof(STARTUPINFOW);
 					StartupInfo.wShowWindow = mp_LastLaunchOptions.m_bShowLaunched ? SW_SHOWNORMAL : SW_HIDE;
@@ -852,7 +852,7 @@ namespace NMib::NProcess::NPlatform
 
 					//DDTrace("FileLen: {}\n", File.f_GetLen());
 
-					NMem::fg_MemClear(ExecInfo);
+					NMemory::fg_MemClear(ExecInfo);
 					ExecInfo.cbSize = sizeof(ExecInfo);
 					ExecInfo.lpVerb = !Operation.f_IsEmpty() ? Operation.f_GetStr() : nullptr;
 					ExecInfo.lpFile = !File.f_IsEmpty() ? File.f_GetStr() : nullptr;
@@ -903,7 +903,7 @@ namespace NMib::NProcess::NPlatform
 
 				//DDTrace("FileLen: {}\n", File.f_GetLen());
 
-				NMem::fg_MemClear(ExecInfo);
+				NMemory::fg_MemClear(ExecInfo);
 				ExecInfo.cbSize = sizeof(ExecInfo);
 				ExecInfo.lpVerb = str_utf16("runas");
 				ExecInfo.lpFile = !File.f_IsEmpty() ? File.f_GetStr() : nullptr;
@@ -1107,7 +1107,7 @@ namespace NMib::NProcess::NPlatform
 
 
 					PROFILEINFOW ProfileInfo;
-					NMem::fg_MemClear(ProfileInfo);
+					NMemory::fg_MemClear(ProfileInfo);
 					ProfileInfo.dwSize = sizeof(ProfileInfo);
 					ProfileInfo.dwFlags = PI_NOUI;
 					ProfileInfo.lpUserName = UserName.f_GetStrWritable();
@@ -1392,7 +1392,7 @@ namespace NMib::NProcess::NPlatform
 				NewEnvStrs.f_Insert(ch16(0));
 
 				// Set up the start up info struct.
-				NMem::fg_MemClear(si);
+				NMemory::fg_MemClear(si);
 				si.cb = sizeof(STARTUPINFOW);
 				si.hStdOutput = _hStdOut;
 				si.hStdInput = _hStdIn;
@@ -1634,7 +1634,7 @@ namespace NMib::NProcess::NPlatform
 								if (!bFailedLaunch && mp_LastLaunchOptions.m_bSandboxed)
 								{
 									JOBOBJECT_EXTENDED_LIMIT_INFORMATION LimitInfo;
-									NMem::fg_MemClear(LimitInfo);
+									NMemory::fg_MemClear(LimitInfo);
 
 									DWORD ReturnLength;
 									QueryInformationJobObject(Job, JobObjectExtendedLimitInformation, &LimitInfo, sizeof(LimitInfo), &ReturnLength);
@@ -1901,7 +1901,7 @@ namespace NMib::NProcess::NPlatform
 			if (mp_StdOutReadBuffer.f_IsEmpty())
 			{
 				mp_StdOutReadBuffer.f_SetLen(4096);
-				NMem::fg_MemClear(mp_StdOutRead);
+				NMemory::fg_MemClear(mp_StdOutRead);
 				mp_StdOutRead.hEvent = (void *)this;
 				mp_StdOutRead.Pointer = mp_StdOutReadBuffer.f_GetArray();
 			}
@@ -1918,7 +1918,7 @@ namespace NMib::NProcess::NPlatform
 			if (mp_StdErrReadBuffer.f_IsEmpty())
 			{
 				mp_StdErrReadBuffer.f_SetLen(4096);
-				NMem::fg_MemClear(mp_StdErrRead);
+				NMemory::fg_MemClear(mp_StdErrRead);
 				mp_StdErrRead.hEvent = (void *)this;
 				mp_StdErrRead.Pointer = mp_StdErrReadBuffer.f_GetArray();
 			}
@@ -2646,7 +2646,7 @@ namespace NMib::NProcess::NPlatform
 			fp_DestroyHandle(mp_hStdinWrite);
 		}
 
-		void CConsoleRedirector::f_SendBinary(NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
+		void CConsoleRedirector::f_SendBinary(NContainer::CSecureByteVector const &_Data)
 		{
 			if (!mp_hStdinWrite)
 				return;
@@ -2757,7 +2757,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_CloseStdIn(void *_pLaunch)
 	pLaunch->f_CloseStdIn();
 }
 
-void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> const &_Data)
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::CSecureByteVector const &_Data)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_SendBinary(_Data);
@@ -2819,7 +2819,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	if (pLaunch->f_GetChildProcess())
 	{
 		PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
-		NMem::fg_MemClear(MemoryInfo);
+		NMemory::fg_MemClear(MemoryInfo);
 
 		if (GetProcessMemoryInfo(pLaunch->f_GetChildProcess(), (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
 		{
@@ -2873,7 +2873,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	if (pLaunch->f_GetChildProcess())
 	{
 		PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
-		NMem::fg_MemClear(MemoryInfo);
+		NMemory::fg_MemClear(MemoryInfo);
 
 		if (GetProcessMemoryInfo(pLaunch->f_GetChildProcess(), (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
 		{
