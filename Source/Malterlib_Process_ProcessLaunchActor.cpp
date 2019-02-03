@@ -333,7 +333,7 @@ namespace NMib::NProcess
 							}
 						}
 
-						Internal.m_OnOutput(_OutputType, Output);
+						Internal.m_OnOutput(_OutputType, Output) > NConcurrency::fg_DiscardResult();
 					}
 					> NConcurrency::fg_DiscardResult()
 				;
@@ -392,7 +392,7 @@ namespace NMib::NProcess
 								auto &Internal = *mp_pInternal;
 
 								if (bOnStateChangeRegistered)
-									Internal.m_fOnStateChange(State, _TimeSinceStart);
+									Internal.m_fOnStateChange(State, _TimeSinceStart) > NConcurrency::fg_DiscardResult();
 
 								switch (State.f_GetTypeID())
 								{
