@@ -8,7 +8,7 @@
 
 namespace NMib::NProcess
 {
-	DMibImpErrorClass(CExceptionProcessProxyProtocol, NException::CException);
+	DMibImpErrorClassDefine(CExceptionProcessProxyProtocol, NException::CException);
 
 #	define DMibErrorProcessProxyProtocol(_Description) DMibImpError(NMib::NProcess::CExceptionProcessProxyProtocol, _Description)
 

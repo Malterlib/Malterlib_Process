@@ -582,6 +582,8 @@ namespace NMib::NProcess::NPrivate
 
 namespace NMib::NProcess
 {
+	DMibImpErrorClassImplement(CExceptionProcessProxyProtocol);
+
 	struct CProxiedLaunchClient::CInternal
 	{
 		NStorage::TCUniquePointer<NMib::NProcess::CProcessLaunch> m_pServer;
