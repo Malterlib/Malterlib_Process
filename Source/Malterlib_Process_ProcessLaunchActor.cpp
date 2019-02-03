@@ -68,7 +68,7 @@ namespace NMib::NProcess
 			Internal.m_fOnStateChange.f_Clear();
 			Internal.m_OnOutput.f_Clear();
 			Internal.m_PendingProcessStops.f_Clear();
-			return NConcurrency::TCContinuation<void>::fs_Finished();
+			return fg_Explicit();
 		}
 
 		NConcurrency::TCContinuation<void> Continuation;
@@ -605,7 +605,7 @@ namespace NMib::NProcess
 	{
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch)
-			return NConcurrency::TCContinuation<uint32>::fs_Finished(0);
+			return fg_Explicit(0);
 
 		NConcurrency::TCContinuation<uint32> Continuation;
 
