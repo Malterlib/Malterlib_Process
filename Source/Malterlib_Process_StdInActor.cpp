@@ -178,7 +178,7 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 		NStorage::TCSharedPointer<NConcurrency::CCanDestroyTracker> pCanDestroy = fg_Construct();
 
-		NConcurrency::g_Dispatch(Internal.m_StdOutActor) > []
+		NConcurrency::g_Dispatch(Internal.m_StdOutActor) / []
 			{
 			}
 			> pCanDestroy->f_Track()
@@ -528,7 +528,7 @@ namespace NMib::NProcess
 
 	void CStdInActor::CInternal::fs_StdOutput(NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor, NStr::CStr const &_String)
 	{
-		NConcurrency::g_Dispatch(_StdOutActor) > [=]
+		NConcurrency::g_Dispatch(_StdOutActor) / [=]
 			{
 				DMibConErrOutRaw(_String);
 			}
@@ -582,7 +582,7 @@ namespace NMib::NProcess
 						if (!pThis)
 							return;
 
-						NConcurrency::g_Dispatch(pThis) > [=]
+						NConcurrency::g_Dispatch(pThis) / [=]
 							{
 								auto HandleInput = g_OnScopeExit > [&]
 									{
@@ -627,7 +627,7 @@ namespace NMib::NProcess
 						if (!pThis)
 							return;
 
-						NConcurrency::g_Dispatch(pThis) > [=]
+						NConcurrency::g_Dispatch(pThis) / [=]
 							{
 								auto HandleInput = g_OnScopeExit > [&]
 									{
@@ -683,7 +683,7 @@ namespace NMib::NProcess
 
 			Continuation.f_SetResult
 				(
-					NConcurrency::g_ActorSubscription > [this, pSubscriptionWeak = pSubscription.f_Weak()]
+					NConcurrency::g_ActorSubscription / [this, pSubscriptionWeak = pSubscription.f_Weak()]
 					{
 						auto &Internal = *mp_pInternal;
 						Internal.m_Subscriptions.f_Remove(pSubscriptionWeak);
@@ -721,7 +721,7 @@ namespace NMib::NProcess
 
 			Continuation.f_SetResult
 				(
-					NConcurrency::g_ActorSubscription > [this, pSubscriptionWeak = pSubscription.f_Weak()]
+					NConcurrency::g_ActorSubscription / [this, pSubscriptionWeak = pSubscription.f_Weak()]
 					{
 						auto &Internal = *mp_pInternal;
 						Internal.m_Subscriptions.f_Remove(pSubscriptionWeak);

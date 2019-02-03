@@ -274,7 +274,7 @@ namespace NMib::NProcess
 				if (!ThisActor)
 					return; // Already deleted
 
-				NConcurrency::g_Dispatch(ThisActor) > [pThis = m_pThis, _OutputType, Output = fg_Move(Output), ToLog = m_ToLog, LogName = m_LogName]() mutable
+				NConcurrency::g_Dispatch(ThisActor) / [pThis = m_pThis, _OutputType, Output = fg_Move(Output), ToLog = m_ToLog, LogName = m_LogName]() mutable
 					{
 						auto &Internal = *pThis->mp_pInternal;
 						pThis->fp_FilterOutput(_OutputType, Output);
