@@ -115,13 +115,13 @@ namespace NMib::NProcess
 		struct CReadEntry
 		{
 			CReadEntryInfo m_EntryInfo;
-			NConcurrency::TCContinuation<NStr::CStrSecure> m_Continuation;
+			NConcurrency::TCPromise<NStr::CStrSecure> m_Promise;
 		};
 
 		struct CReadEntryBinary
 		{
 			NContainer::CSecureByteVector m_Buffer;
-			NConcurrency::TCContinuation<NContainer::CSecureByteVector> m_Continuation;
+			NConcurrency::TCPromise<NContainer::CSecureByteVector> m_Promise;
 		};
 
 		struct CBufferedStdIn
@@ -172,7 +172,7 @@ namespace NMib::NProcess
 	{
 	}
 
-	NConcurrency::TCContinuation<void> CStdInActor::fp_Destory()
+	NConcurrency::TCFuture<void> CStdInActor::fp_Destory()
 	{
 		f_AbortReads();
 		auto &Internal = *mp_pInternal;
@@ -183,16 +183,16 @@ namespace NMib::NProcess
 			}
 			> pCanDestroy->f_Track()
 		;
-		return pCanDestroy->m_Continuation;
+		return pCanDestroy->f_Future();
 	}
 
 	void CStdInActor::f_AbortReads()
 	{
 		auto &Internal = *mp_pInternal;
 		for (auto &Entry : Internal.m_ReadEntries)
-			Entry.m_Continuation.f_SetException(DMibErrorInstance("Abandoned"));
+			Entry.m_Promise.f_SetException(DMibErrorInstance("Abandoned"));
 		for (auto &Entry : Internal.m_ReadEntriesBinary)
-			Entry.m_Continuation.f_SetException(DMibErrorInstance("Abandoned"));
+			Entry.m_Promise.f_SetException(DMibErrorInstance("Abandoned"));
 
 		Internal.m_ReadEntries.f_Clear();
 		Internal.m_ReadEntriesBinary.f_Clear();
@@ -222,7 +222,7 @@ namespace NMib::NProcess
 
 			if (BufferEntry.m_Type == EStdInReaderOutputType_GeneralError)
 			{
-				ReadEntry.m_Continuation.f_SetException(DMibErrorInstance(BufferEntry.m_Input));
+				ReadEntry.m_Promise.f_SetException(DMibErrorInstance(BufferEntry.m_Input));
 				m_ReadEntries.f_Remove(ReadEntry);
 				continue;
 			}
@@ -234,7 +234,7 @@ namespace NMib::NProcess
 					aint iNewLine = BufferEntry.m_Input.f_FindChar('\n');
 					if (iNewLine >= 0)
 					{
-						ReadEntry.m_Continuation.f_SetResult(NStr::fg_GetStrLineSep(BufferEntry.m_Input));
+						ReadEntry.m_Promise.f_SetResult(NStr::fg_GetStrLineSep(BufferEntry.m_Input));
 						m_ReadEntries.f_Remove(ReadEntry);
 						continue;
 					}
@@ -492,13 +492,13 @@ namespace NMib::NProcess
 
 					if (bCompleted)
 					{
-						ReadEntry.m_Continuation.f_SetResult(Prompt.m_Result);
+						ReadEntry.m_Promise.f_SetResult(Prompt.m_Result);
 						m_ReadEntries.f_Remove(ReadEntry);
 						continue;
 					}
 					else if (bAborted)
 					{
-						ReadEntry.m_Continuation.f_SetException(DMibErrorInstance("Aborted"));
+						ReadEntry.m_Promise.f_SetException(DMibErrorInstance("Aborted"));
 						m_ReadEntries.f_Remove(ReadEntry);
 						continue;
 					}
@@ -508,7 +508,7 @@ namespace NMib::NProcess
 						{
 							if (BufferEntry.m_Type == EStdInReaderOutputType_GeneralError)
 							{
-								ReadEntry.m_Continuation.f_SetException(DMibErrorInstance(BufferEntry.m_Input));
+								ReadEntry.m_Promise.f_SetException(DMibErrorInstance(BufferEntry.m_Input));
 								m_ReadEntries.f_Remove(ReadEntry);
 								while (m_BufferedStdIn.f_Pop().m_Type != EStdInReaderOutputType_GeneralError)
 									;
@@ -551,13 +551,13 @@ namespace NMib::NProcess
 
 			if (BufferEntry.m_Type == EStdInReaderOutputType_GeneralError)
 			{
-				ReadEntry.m_Continuation.f_SetException(DMibErrorInstance(BufferEntry.m_Error));
+				ReadEntry.m_Promise.f_SetException(DMibErrorInstance(BufferEntry.m_Error));
 				m_ReadEntriesBinary.f_Remove(ReadEntry);
 				continue;
 			}
 			if (BufferEntry.m_Type == EStdInReaderOutputType_EndOfFile)
 			{
-				ReadEntry.m_Continuation.f_SetResult(fg_Move(ReadEntry.m_Buffer));
+				ReadEntry.m_Promise.f_SetResult(fg_Move(ReadEntry.m_Buffer));
 				m_ReadEntriesBinary.f_Remove(ReadEntry);
 				continue;
 			}
@@ -660,10 +660,10 @@ namespace NMib::NProcess
 		;
 	}
 
-	NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags)
 	{
 		auto &Internal = *mp_pInternal;
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
+		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
 		try
 		{
 			NStorage::TCSharedPointer<CInternal::CSubscription, NStorage::CSupportWeakTag> pSubscription = fg_Construct
@@ -681,7 +681,7 @@ namespace NMib::NProcess
 
 			Internal.m_Subscriptions[pSubscription];
 
-			Continuation.f_SetResult
+			Promise.f_SetResult
 				(
 					NConcurrency::g_ActorSubscription / [this, pSubscriptionWeak = pSubscription.f_Weak()]
 					{
@@ -693,15 +693,15 @@ namespace NMib::NProcess
 		}
 		catch (NException::CException const &)
 		{
-			Continuation.f_SetCurrentException();
+			Promise.f_SetCurrentException();
 		}
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags)
 	{
 		auto &Internal = *mp_pInternal;
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
+		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
 		try
 		{
 			NStorage::TCSharedPointer<CInternal::CSubscription, NStorage::CSupportWeakTag> pSubscription = fg_Construct
@@ -719,7 +719,7 @@ namespace NMib::NProcess
 
 			Internal.m_Subscriptions[pSubscription];
 
-			Continuation.f_SetResult
+			Promise.f_SetResult
 				(
 					NConcurrency::g_ActorSubscription / [this, pSubscriptionWeak = pSubscription.f_Weak()]
 					{
@@ -731,12 +731,12 @@ namespace NMib::NProcess
 		}
 		catch (NException::CException const &)
 		{
-			Continuation.f_SetCurrentException();
+			Promise.f_SetCurrentException();
 		}
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<NStr::CStrSecure> CStdInActor::f_ReadLine()
+	NConcurrency::TCFuture<NStr::CStrSecure> CStdInActor::f_ReadLine()
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -745,10 +745,10 @@ namespace NMib::NProcess
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
-		return Entry.m_Continuation;
+		return Entry.m_Promise;
 	}
 
-	NConcurrency::TCContinuation<NContainer::CSecureByteVector> CStdInActor::f_ReadBinary()
+	NConcurrency::TCFuture<NContainer::CSecureByteVector> CStdInActor::f_ReadBinary()
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -756,10 +756,10 @@ namespace NMib::NProcess
 		Internal.f_RegisterForReadBinary();
 		Internal.f_HandleBufferedStdInBinary();
 
-		return Entry.m_Continuation;
+		return Entry.m_Promise;
 	}
 
-	NConcurrency::TCContinuation<NStr::CStrSecure> CStdInActor::f_ReadPrompt(CStdInReaderPromptParams const &_Params)
+	NConcurrency::TCFuture<NStr::CStrSecure> CStdInActor::f_ReadPrompt(CStdInReaderPromptParams const &_Params)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -768,6 +768,6 @@ namespace NMib::NProcess
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
-		return Entry.m_Continuation;
+		return Entry.m_Promise;
 	}
 }

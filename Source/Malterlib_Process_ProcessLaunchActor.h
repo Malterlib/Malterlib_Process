@@ -74,30 +74,30 @@ namespace NMib::NProcess
 		CProcessLaunchActor();
 		~CProcessLaunchActor();
 
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_Launch
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Launch
 			(
 				CLaunch const &_Launch
 				, NConcurrency::TCActor<NConcurrency::CActor> &&_CallbackActor
 			)
 		;
 
-		NConcurrency::TCContinuation<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch);
+		NConcurrency::TCFuture<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch);
 
-		NConcurrency::TCContinuation<void> f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const;
-		NConcurrency::TCContinuation<void> f_CloseStdIn() const;
-		NConcurrency::TCContinuation<void> f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const;
-		NConcurrency::TCContinuation<uint32> f_StopProcess() const; // Soft termination
+		NConcurrency::TCFuture<void> f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const;
+		NConcurrency::TCFuture<void> f_CloseStdIn() const;
+		NConcurrency::TCFuture<void> f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const;
+		NConcurrency::TCFuture<uint32> f_StopProcess() const; // Soft termination
 
-		NConcurrency::TCContinuation<fp64> f_GetRunningTime() const;
+		NConcurrency::TCFuture<fp64> f_GetRunningTime() const;
 
-		NConcurrency::TCContinuation<CProcessStatistics> f_GetExecutionStatistics() const;
-		NConcurrency::TCContinuation<CProcessStatistics> f_GetMemoryStatistics() const;
-		NConcurrency::TCContinuation<CProcessStatistics> f_GetOverallExecutionStatistics() const;
-		NConcurrency::TCContinuation<CProcessStatistics> f_GetOverallMemoryStatistics() const;
+		NConcurrency::TCFuture<CProcessStatistics> f_GetExecutionStatistics() const;
+		NConcurrency::TCFuture<CProcessStatistics> f_GetMemoryStatistics() const;
+		NConcurrency::TCFuture<CProcessStatistics> f_GetOverallExecutionStatistics() const;
+		NConcurrency::TCFuture<CProcessStatistics> f_GetOverallMemoryStatistics() const;
 
 
 	protected:
-		NConcurrency::TCContinuation<void> fp_Destroy() override;
+		NConcurrency::TCFuture<void> fp_Destroy() override;
 		virtual bool fp_WillFilterOutput();
 		virtual void fp_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output);
 		virtual void fp_ModifyLaunch(CLaunch &o_Launch);

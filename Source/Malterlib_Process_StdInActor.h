@@ -18,22 +18,22 @@ namespace NMib::NProcess
 		CStdInActor();
 		~CStdInActor();
 
-		using FOnInput = NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<void> (EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)>;
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags);
+		using FOnInput = NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)>;
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags);
 
 		using FOnBinaryInput
-			= NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<void> (EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, NStr::CStr const &_Error)>
+			= NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, NStr::CStr const &_Error)>
 		;
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags);
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags);
 
-		NConcurrency::TCContinuation<NContainer::CSecureByteVector> f_ReadBinary();
-		NConcurrency::TCContinuation<NStr::CStrSecure> f_ReadLine();
-		NConcurrency::TCContinuation<NStr::CStrSecure> f_ReadPrompt(CStdInReaderPromptParams const &_Params);
+		NConcurrency::TCFuture<NContainer::CSecureByteVector> f_ReadBinary();
+		NConcurrency::TCFuture<NStr::CStrSecure> f_ReadLine();
+		NConcurrency::TCFuture<NStr::CStrSecure> f_ReadPrompt(CStdInReaderPromptParams const &_Params);
 
 		void f_AbortReads();
 
 	private:
-		NConcurrency::TCContinuation<void> fp_Destory();
+		NConcurrency::TCFuture<void> fp_Destory();
 
 		struct CInternal;
 
