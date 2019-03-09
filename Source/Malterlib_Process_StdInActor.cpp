@@ -11,7 +11,7 @@
 namespace NMib::NProcess
 {
 	using namespace NMib::NStr;
-	struct CStdInActor::CInternal
+	struct CStdInActor::CInternal : public NConcurrency::CActorInternal
 	{
 		struct CSubscription
 		{

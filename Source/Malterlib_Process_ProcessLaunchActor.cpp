@@ -8,7 +8,7 @@
 namespace NMib::NProcess
 {
 	static NThread::CMutual g_StdOutLogLock;
-	struct CProcessLaunchActor::CInternal
+	struct CProcessLaunchActor::CInternal : public NConcurrency::CActorInternal
 	{
 		NStorage::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
 		NConcurrency::TCActorSubscriptionManager<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
