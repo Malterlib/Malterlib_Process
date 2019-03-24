@@ -16,8 +16,8 @@ namespace NMib::NProcess
 
 		struct CPendingStop
 		{
-			NFunction::TCFunction<void (uint32 _ExitCode)> m_fOnStop;
-			NFunction::TCFunction<void ()> m_fOnException;
+			NFunction::TCFunctionMovable<void (uint32 _ExitCode)> m_fOnStop;
+			NFunction::TCFunctionMovable<void ()> m_fOnException;
 			bool m_bStopRun;
 		};
 
@@ -36,7 +36,7 @@ namespace NMib::NProcess
 		{
 		}
 
-		NConcurrency::TCFuture<void> f_RunBlocking(NFunction::TCFunction<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> const &_fSend);
+		NConcurrency::TCFuture<void> f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> &&_fSend);
 	};
 
 	CProcessLaunchActor::CProcessLaunchActor()
@@ -384,7 +384,7 @@ namespace NMib::NProcess
 				ThisActor
 					(
 						&CActor::f_Dispatch
-						, NFunction::TCFunction<void ()>
+						, NFunction::TCFunctionMovable<void ()>
 						(
 							//[this, _State, _TimeSinceStart, bOnStateChangeRegistered]
 							[this, _TimeSinceStart, bOnStateChangeRegistered, State = _State, pState]
@@ -534,7 +534,7 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<void> CProcessLaunchActor::CInternal::f_RunBlocking
 		(
-			NFunction::TCFunction<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> const &_fSend
+			NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> &&_fSend
 		)
 	{
 		if (!m_pProcessLaunch)
@@ -548,9 +548,9 @@ namespace NMib::NProcess
 		fg_Dispatch
 			(
 				m_BlockingActor
-				, [_fSend, pProcessLaunch = m_pProcessLaunch]()
+				, [fSend = fg_Move(_fSend), pProcessLaunch = m_pProcessLaunch]() mutable
 				{
-					_fSend(pProcessLaunch);
+					fSend(pProcessLaunch);
 				}
 			)
 			> [Promise](NConcurrency::TCAsyncResult<void> &&_Result)
