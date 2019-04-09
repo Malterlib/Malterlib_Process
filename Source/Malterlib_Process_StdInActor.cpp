@@ -110,7 +110,14 @@ namespace NMib::NProcess
 			bool m_bInsert = true;
 		};
 
-		using CReadEntryInfo = NStorage::TCStreamableVariant<EReadEntry, void, EReadEntry_None, CLine, EReadEntry_Line, CPrompt, EReadEntry_Prompt>;
+		using CReadEntryInfo = NStorage::TCStreamableVariant
+			<
+				EReadEntry
+				, NStorage::TCMember<void, EReadEntry_None>
+				, NStorage::TCMember<CLine, EReadEntry_Line>
+				, NStorage::TCMember<CPrompt, EReadEntry_Prompt>
+			>
+		;
 
 		struct CReadEntry
 		{

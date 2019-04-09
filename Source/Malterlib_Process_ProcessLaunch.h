@@ -117,7 +117,15 @@ namespace NMib::NProcess
 		}
 	};
 
-	typedef NStorage::TCStreamableVariant<EProcessLaunchState, void *, EProcessLaunchState_Launched, NMib::NStr::CStr, EProcessLaunchState_LaunchFailed, uint32, EProcessLaunchState_Exited> CProcessLaunchStateChangeVariant;
+	typedef NStorage::TCStreamableVariant
+		<
+			EProcessLaunchState
+			, NStorage::TCMember<void *, EProcessLaunchState_Launched>
+			, NStorage::TCMember<NMib::NStr::CStr, EProcessLaunchState_LaunchFailed>
+			, NStorage::TCMember<uint32, EProcessLaunchState_Exited>
+		> 
+		CProcessLaunchStateChangeVariant
+	;
 
 	struct CProcessLaunchParams
 	{

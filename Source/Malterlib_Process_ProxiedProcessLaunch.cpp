@@ -223,7 +223,15 @@ namespace NMib::NProcess::NPrivate
 	class CProcessLaunch_StateChange
 	{
 		uint64 m_LaunchID;
-		NStorage::TCStreamableVariant<EProcessLaunchState, uint8, EProcessLaunchState_Launched, NMib::NStr::CStr, EProcessLaunchState_LaunchFailed, uint32, EProcessLaunchState_Exited> m_State;
+		NStorage::TCStreamableVariant
+			<
+				EProcessLaunchState
+				, NStorage::TCMember<uint8, EProcessLaunchState_Launched>
+				, NStorage::TCMember<NMib::NStr::CStr, EProcessLaunchState_LaunchFailed>
+				, NStorage::TCMember<uint32, EProcessLaunchState_Exited>
+			>
+			m_State
+		;
 		fp64 m_TimeSinceStart;
 	public:
 		CProcessLaunch_StateChange(uint64 _LaunchID, CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
