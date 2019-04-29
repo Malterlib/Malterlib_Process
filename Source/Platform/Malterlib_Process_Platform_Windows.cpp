@@ -284,10 +284,11 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 					}
 				}
 
+				NStr::CStr FullPath = NFile::NPlatform::fg_ConvertFromWindowsPath(NFile::NPlatform::fg_ConvertToLongWindowsPath<NStr::CWStr, NStr::CWStr>(ImageFileName, false));
 				if (_ToGet & EProcessInfoFlag_FullPath)
-					NewProcess.m_FullPath = NFile::NPlatform::fg_ConvertFromWindowsPath(ImageFileName);
+					NewProcess.m_FullPath = FullPath;
 				if (_ToGet & EProcessInfoFlag_FileName)
-					NewProcess.m_FileName = NFile::CFile::fs_GetFile(NewProcess.m_FullPath);
+					NewProcess.m_FileName = NFile::CFile::fs_GetFile(FullPath);
 				if ((_ToGet & EProcessInfoFlag_Args) && !CommandLine.f_IsEmpty())
 				{
 					NStr::CStr ExecutableName;
@@ -655,3 +656,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 	;
 }
 
+mint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
+{
+	return 0;
+}

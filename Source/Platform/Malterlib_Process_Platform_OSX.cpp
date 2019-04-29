@@ -461,3 +461,19 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 	return (NStr::CStr::CFormat("Mac OSX {}.{}") << Major << Minor).f_GetStr();
 }
 
+mint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
+{
+	int SysCtl[2];
+	SysCtl[0] = CTL_KERN;
+	SysCtl[1] = KERN_MAXFILESPERPROC;
+	size_t Size = sizeof(int);
+	int MaxFilesPerProc = 0;
+	sysctl(SysCtl, sizeof(SysCtl) / sizeof(*SysCtl), (void *)&MaxFilesPerProc, &Size, NULL, 0);
+
+	Size = sizeof(int);
+	SysCtl[1] = KERN_MAXFILES;
+	int MaxFiles = 0;
+	sysctl(SysCtl, sizeof(SysCtl) / sizeof(*SysCtl), (void *)&MaxFiles, &Size, NULL, 0);
+
+	return fg_Min(MaxFilesPerProc, MaxFiles);
+}

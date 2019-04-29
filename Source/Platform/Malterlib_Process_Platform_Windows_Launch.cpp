@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -38,8 +38,10 @@ namespace NMib::NProcess::NPlatform
 
 	struct CSubSystem_Process_Platform_Windows_Launch : public CSubSystem
 	{
-		NThread::CMutual m_LaunchesLock;
+		align_cacheline NThread::CMutual m_LaunchesLock;
 		DMibListLinkDS_List(CProcessLaunchLink, m_Link) m_Launches;
+
+		align_cacheline NThread::CMutual m_UserLaunchLock;
 
 		~CSubSystem_Process_Platform_Windows_Launch()
 		{
@@ -911,7 +913,7 @@ namespace NMib::NProcess::NPlatform
 				ExecInfo.nShow = mp_LastLaunchOptions.m_bShowLaunched ? SW_SHOWNORMAL : SW_HIDE;
 				ExecInfo.lpParameters = !Params.f_IsEmpty() ? Params.f_GetStr() : nullptr;
 				if (!Directory.f_IsEmpty())
-				ExecInfo.lpDirectory = Directory;
+					ExecInfo.lpDirectory = Directory;
 				ExecInfo.fMask = SEE_MASK_UNICODE | SEE_MASK_FLAG_NO_UI | SEE_MASK_NOASYNC; // SEE_MASK_ASYNCOK
 				ExecInfo.fMask |= SEE_MASK_NOCLOSEPROCESS;
 
@@ -1065,6 +1067,9 @@ namespace NMib::NProcess::NPlatform
 				}
 				else if (!mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
 				{
+					auto &SubSystem = *g_SubSystem_Process_Platform_Windows_Launch;
+					DMibLock(SubSystem.m_UserLaunchLock);
+
 					using namespace NStr;
 					CWStr UserName = mp_LastLaunchOptions.m_RunAsUser;
 					CWStrSecure Password = mp_LastLaunchOptions.m_RunAsUserPassword;
@@ -1087,7 +1092,7 @@ namespace NMib::NProcess::NPlatform
 							)
 						)
 					{
-						_Errors += "When launching as user, failed to login as user: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
+						_Errors += "When launching as user, failed to login as user '{}': {}{\n}"_f << UserName << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
 					}
 
@@ -1104,7 +1109,6 @@ namespace NMib::NProcess::NPlatform
 								LocalFree(pLogonSid);
 						}
 					;
-
 
 					PROFILEINFOW ProfileInfo;
 					NMemory::fg_MemClear(ProfileInfo);
@@ -1207,7 +1211,6 @@ namespace NMib::NProcess::NPlatform
 					;
 
 					bool bAddedToWindowStation = false;
-
 					if (!fg_ChangeAceToWindowStation(hWindowStation, pLogonSid, false, bAddedToWindowStation))
 					{
 						_Errors += "When launching as user, failed to add access to window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
@@ -1261,7 +1264,6 @@ namespace NMib::NProcess::NPlatform
 
 				if (mp_LastLaunchOptions.m_bSandboxed)
 				{
-
 					if (!mp_LastLaunchOptions.m_SandboxRoots.f_IsEmpty())
 					{
 						if (GetBinaryTypeW(ProgramPathFull, &BinaryType))
@@ -1455,6 +1457,9 @@ namespace NMib::NProcess::NPlatform
 							}
 						}
 
+						ProgramPathFull = NFile::NPlatform::fg_ConvertToWindowsPath(ProgramPathFull, false, 250, true);
+						NStr::CWStr WorkingDir = NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_WorkingDirectory, true, 250, true);
+
 						if
 							(
 								!NLocal::g_fCreateProcessWithTokenW
@@ -1465,7 +1470,7 @@ namespace NMib::NProcess::NPlatform
 									, Params.f_GetStrUniqueWritable()
 									, CREATE_UNICODE_ENVIRONMENT | fg_Win32_TranslateProcessPriority(mp_LastLaunchOptions.m_LaunchPriority) | CreateProcessFlags
 									, !NewEnvStrs.f_IsEmpty() ? NewEnvStrs.f_GetArray() : nullptr
-									, !mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() ? NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_WorkingDirectory, true).f_GetStr() : nullptr
+									, !WorkingDir.f_IsEmpty() ? WorkingDir.f_GetStr() : nullptr
 									, &si
 									, &pi
 								)
@@ -2774,7 +2779,7 @@ mint NMib::NProcess::NPlatform::fg_ProcessLaunch_GetID(void *_pLaunch)
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_GetID();
 }
-		
+
 void NMib::NProcess::NPlatform::fg_ProcessLaunch_Stop(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
@@ -2799,11 +2804,11 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 			NTime::CTimeSpan KernelTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(KernelTime1);
 			NTime::CTimeSpan UserTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(UserTime1);
 			NTime::CTimeSpan RunTime = NTime::CTime::fs_NowUTC() - CreateTime;
-		
+
 			fp64 KernelSeconds = KernelTime.f_GetSecondsFraction();
 			fp64 UserSeconds = UserTime.f_GetSecondsFraction();
 			fp64 RunSeconds = RunTime.f_GetSecondsFraction();
-		
+
 			Return.m_Statistics("CPU utilization Total", CProcessStat(EProcessStatUnit_Fraction, (KernelSeconds + UserSeconds) / RunSeconds));
 			Return.m_Statistics("CPU utilization User", CProcessStat(EProcessStatUnit_Fraction, UserSeconds / RunSeconds));
 			Return.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, KernelSeconds / RunSeconds));
@@ -2811,7 +2816,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	}
 	return Return;
 }
-		
+
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetMemoryStatistics(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
@@ -2829,12 +2834,12 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 			Return.m_Statistics("Page file usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.PagefileUsage, 1024 * 1024));
 			Return.m_Statistics("Private usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.PrivateUsage, 1024 * 1024));
 			Return.m_Statistics("Page faults", CProcessStat(EProcessStatUnit_GeneralNumber, MemoryInfo.PageFaultCount, 1, "faults"));
-					
+
 		}
 	}
 	return Return;
 }
-		
+
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetOverallExecutionStatistics(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
@@ -2865,7 +2870,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	}
 	return Return;
 }
-		
+
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetOverallMemoryStatistics(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
@@ -2940,7 +2945,7 @@ void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr co
 	NStr::CStr Name = _Name;
 	if (Name.f_IsEmpty())
 		Name = fg_GetSys()->f_GetProgramName();
-			
+
 	NStr::CStr NamePrefix = Name + "_";
 	NStr::CStr CommandLine = _ExePath.f_ReplaceChar('/', '\\') + " " + _Params;
 
@@ -2960,7 +2965,7 @@ void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr co
 	{
 		if (!Registry.f_ValueExists("", ValueName))
 		{
-					
+
 			Registry.f_Write("", ValueName, CommandLine);
 
 			break;

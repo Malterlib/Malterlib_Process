@@ -386,3 +386,11 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	}
 	return Ret;
 }		
+
+mint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
+{
+	auto FileData = NMib::NPlatform::fg_ReadProcFSNonTracked("/proc/sys/fs/file-max");
+	NMib::NStr::CStrPtr Data;
+	Data.f_SetConstPtr(FileData.f_GetArray(), FileData.f_GetLen());
+	return Data.f_ToInt(mint(0));
+}

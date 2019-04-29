@@ -142,6 +142,8 @@ namespace NMib::NProcess
 		mint fg_ProcessLaunch_GetID(void *_pLaunch);
 		void fg_ProcessLaunch_Stop(void *_pLaunch);
 
+		mint fg_Process_GetMaxFilesPerProc();
+
 		void fg_Process_WaitForTermination();
 		void fg_Process_AbortWaitForTermination();
 
