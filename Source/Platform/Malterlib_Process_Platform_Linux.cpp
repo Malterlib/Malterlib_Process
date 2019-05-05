@@ -383,6 +383,49 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			{
 			}
 		}
+		if (_ToGet & NProcess::EProcessInfoFlag_User)
+		{
+			try
+			{
+				auto FileData = NMib::NPlatform::fg_ReadProcFS(NMib::NStr::CFStr256::CFormat("/proc/{}/status") << Process.m_ProcessID);
+				ch8 const *pParse = FileData.f_GetArray();
+				ch8 const *pEnd = pParse + FileData.f_GetLen() - 1;
+				while (pParse < pEnd)
+				{
+					auto *pStart = pParse;
+					NStr::fg_ParseToEndOfLine(pParse);
+					if (NStr::fg_StrStartsWith(pStart, "Uid:"))
+					{
+						NStr::CStr Line(pStart, pParse - pStart);
+						auto *pParse = Line.f_GetStr();
+						auto *pStart = pParse;
+						NStr::fg_ParseNonWhiteSpaceAndSeparators(pParse, "");
+						New.m_RealUID = NStr::CStr(pStart, pParse - pStart);
+						NStr::fg_ParseWhiteSpace(pParse);
+						pStart = pParse;
+						NStr::fg_ParseNonWhiteSpaceAndSeparators(pParse, "");
+						New.m_EffectiveUID = NStr::CStr(pStart, pParse - pStart);
+					}
+					else if (NStr::fg_StrStartsWith(pStart, "Gid:"))
+					{
+						NStr::CStr Line(pStart, pParse - pStart);
+						auto *pParse = Line.f_GetStr();
+						auto *pStart = pParse;
+						NStr::fg_ParseNonWhiteSpaceAndSeparators(pParse, "");
+						New.m_RealGID = NStr::CStr(pStart, pParse - pStart);
+						NStr::fg_ParseWhiteSpace(pParse);
+						pStart = pParse;
+						NStr::fg_ParseNonWhiteSpaceAndSeparators(pParse, "");
+						New.m_EffectiveGID = NStr::CStr(pStart, pParse - pStart);
+					}
+
+					NStr::fg_ParseEndOfLine(pParse);
+				}
+			}
+			catch (NFile::CExceptionFile const &)
+			{
+			}
+		}
 	}
 	return Ret;
 }		

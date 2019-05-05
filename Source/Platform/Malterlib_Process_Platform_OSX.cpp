@@ -280,6 +280,15 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 		New.m_StartTime = StartTime;
 		if (_ToGet & NProcess::EProcessInfoFlag_FileName)
 			New.m_FileName.f_AddStr(Process.kp_proc.p_comm);
+
+		if (_ToGet & NProcess::EProcessInfoFlag_User)
+		{
+			New.m_RealUID = NStr::CStr::fs_ToStr(Process.kp_eproc.e_pcred.p_ruid);
+			New.m_RealGID = NStr::CStr::fs_ToStr(Process.kp_eproc.e_pcred.p_rgid);
+			New.m_EffectiveUID = NStr::CStr::fs_ToStr(Process.kp_eproc.e_ucred.cr_uid);
+			New.m_EffectiveGID = NStr::CStr::fs_ToStr(Process.kp_eproc.e_ucred.cr_groups[0]);
+		}
+
 		if ((_ToGet & NProcess::EProcessInfoFlag_FullPath) || (_ToGet & NProcess::EProcessInfoFlag_Args))
 		{
 			mib[1] = KERN_PROCARGS2;

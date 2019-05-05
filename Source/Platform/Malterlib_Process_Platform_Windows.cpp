@@ -230,7 +230,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 				if (_ToGet & EProcessInfoFlag_ParentProcessID)
 					NewProcess.m_ParentProcessID = ProcessEntry.th32ParentProcessID;
 
-				if (!(_ToGet & (EProcessInfoFlag_StartTime | EProcessInfoFlag_FileName | EProcessInfoFlag_FullPath | EProcessInfoFlag_Args)))
+				if (!(_ToGet & (EProcessInfoFlag_StartTime | EProcessInfoFlag_FileName | EProcessInfoFlag_FullPath | EProcessInfoFlag_Args | EProcessInfoFlag_User)))
 					continue;
 
 				HANDLE pThisProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, ProcessEntry.th32ProcessID);
@@ -243,6 +243,49 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 					FILETIME UserTime;
 					if (GetProcessTimes(pThisProcess, &CreateTime, &ExitTime, &KernelTime, &UserTime))
 						NewProcess.m_StartTime = uint64(CreateTime.dwHighDateTime) << 32 | uint64(CreateTime.dwLowDateTime);
+				}
+
+				if (_ToGet & EProcessInfoFlag_User)
+				{
+					do
+					{
+						HANDLE ProcessToken;
+						if (!OpenProcessToken(pThisProcess, TOKEN_READ, &ProcessToken))
+							break;
+
+						auto Cleanup = g_OnScopeExit > [&]
+							{
+								CloseHandle(ProcessToken);
+							}
+						;
+
+						uint32 NeededLength = 0;
+						GetTokenInformation(ProcessToken, TokenUser, nullptr, 0, &NeededLength);
+
+						NContainer::CByteVector TokenData;
+						if (!GetTokenInformation(ProcessToken, TokenUser, TokenData.f_GetArray(NeededLength), NeededLength, &NeededLength))
+							break;
+
+						TOKEN_USER &TokenUserInfo = *((TOKEN_USER *)TokenData.f_GetArray());
+
+						SID_NAME_USE AccountType;
+						NMib::NStr::CWStr ReferencedDomainName;
+						uint32 ReferencedDomainNameSize = 8192;
+
+						NMib::NStr::CWStr UserName;
+						uint32 UserNameSize = 8192;
+
+						if (!LookupAccountSid(nullptr, TokenUserInfo.User.Sid, UserName.f_GetStr(8192 + 1), &UserNameSize, ReferencedDomainName.f_GetStr(8192+1), &ReferencedDomainNameSize, &AccountType))
+							break;
+
+						using namespace ::NMib::NStr;
+						if (ReferencedDomainName.f_IsEmpty())
+							NewProcess.m_RealUID = NewProcess.m_EffectiveUID = UserName;
+						else
+							NewProcess.m_RealUID = NewProcess.m_EffectiveUID = "{}\\{}"_f << ReferencedDomainName << UserName;
+					}
+					while (false)
+						;
 				}
 
 				NStr::CWStr ImageFileName;

@@ -86,6 +86,7 @@ namespace NMib::NProcess
 		, EProcessInfoFlag_FileName = DMibBit(2)
 		, EProcessInfoFlag_FullPath = DMibBit(3)
 		, EProcessInfoFlag_Args = DMibBit(4)
+		, EProcessInfoFlag_User = DMibBit(5)
 	};
 
 	struct CProcessInfo
@@ -96,6 +97,10 @@ namespace NMib::NProcess
 		NMib::NStr::CStr m_FileName;					// Returned for EProcessInfoFlag_FileName
 		NMib::NStr::CStr m_FullPath;					// Returned for EProcessInfoFlag_FullPath
 		NContainer::TCVector<NMib::NStr::CStr> m_Args;	// Returned for EProcessInfoFlag_Args
+		NMib::NStr::CStr m_RealUID;						// Returned for EProcessInfoFlag_User
+		NMib::NStr::CStr m_EffectiveUID;				// Returned for EProcessInfoFlag_User
+		NMib::NStr::CStr m_RealGID;						// Returned for EProcessInfoFlag_User
+		NMib::NStr::CStr m_EffectiveGID;				// Returned for EProcessInfoFlag_User
 	};
 
 	namespace NPlatform
