@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Process/StdIn>
@@ -57,9 +57,9 @@ namespace NMib::NProcess::NPlatform
 				SetConsoleMode(mp_hStdInFile, m_OldConsoleMode);
 		}
 
-		zbool m_bIsPipe;
-		zbool m_bIsChar;
-		zbool m_bDoPolling;
+		bool m_bIsPipe = false;
+		bool m_bIsChar = false;
+		bool m_bDoPolling = false;
 		DWORD m_OldConsoleMode;
 
 		void f_Init()
@@ -459,7 +459,7 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 {
 	NStorage::TCUniquePointer<CWindowsStdInReaderImplementation> pNew; // First because we want it to be destroyed after pReader in case of exception in f_Init
 	NStorage::TCUniquePointer<CWindowsStdInReader> pReader = fg_Construct(fg_Move(_Params));
-	
+
 	auto &Params = *pReader->m_pParams;
 
 	if (Params.m_fOnReceiveInput.f_IsEmpty() && Params.m_fOnReceiveBinaryInput.f_IsEmpty())

@@ -61,7 +61,7 @@ namespace NMib::NProcess::NPlatform
 
 	TCSubSystem<CSubSystem_Process_Platform_POSIX_Launch, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_Launch = {DAggregateInit};
 
-	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths, NStr::CStr const &_LocalPaths)
+	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths, NStr::CStr const &_LocalPaths)
 	{
 		// First look in current dir
 		NStr::CStr FullPath = NFile::NPlatform::fg_ConvertToPOSIXPath(_Path, true);
@@ -184,7 +184,7 @@ namespace NMib::NProcess::NPlatform
 		return false;
 	}
 
-	bint CPOSIXLaunchContext::fp_LaunchChild
+	bool CPOSIXLaunchContext::fp_LaunchChild
 		(
 			int &_hStdOutRead
 			, int &_hStdOutWrite
@@ -237,7 +237,7 @@ namespace NMib::NProcess::NPlatform
 				return fg_MacOSX_LaunchFinder(mp_LastLaunchOptions, mp_ProcessID, _Errors);
 			}
 
-			bint bRet = fg_MacOSX_LaunchDocument(mp_LastLaunchOptions, mp_ProcessID, _Errors);
+			bool bRet = fg_MacOSX_LaunchDocument(mp_LastLaunchOptions, mp_ProcessID, _Errors);
 			return bRet;
 
 			_Errors += "Launching document is not implemented\n";
@@ -259,7 +259,7 @@ namespace NMib::NProcess::NPlatform
 			fp_DestroyPipe(_hStdErrWrite);
 			fp_DestroyPipe(_hStdErrRead);
 
-			bint bRetVal = fg_MacOSX_LaunchExecutableWithRoot(mp_LastLaunchOptions, mp_ProcessID, _hStdOutRead, _hStdInWrite, _Errors);
+			bool bRetVal = fg_MacOSX_LaunchExecutableWithRoot(mp_LastLaunchOptions, mp_ProcessID, _hStdOutRead, _hStdInWrite, _Errors);
 
 			if (bRetVal)
 			{
@@ -699,7 +699,7 @@ namespace NMib::NProcess::NPlatform
 		return true;
 	}
 
-	bint CPOSIXLaunchContext::fp_DoStart(NStr::CStr &_Errors)
+	bool CPOSIXLaunchContext::fp_DoStart(NStr::CStr &_Errors)
 	{
 
 		fp_Close();
@@ -1082,7 +1082,7 @@ namespace NMib::NProcess::NPlatform
 					else if (WIFSIGNALED(Status))
 					{
 						int Signal = WTERMSIG(Status);
-						bint bCoreDumped = WCOREDUMP(Status);
+						bool bCoreDumped = WCOREDUMP(Status);
 						bExited = true;
 						fp_OnOutput
 							(
@@ -1125,8 +1125,8 @@ namespace NMib::NProcess::NPlatform
 						}
 					}
 					EProcessLaunchCloseFlag NeedTermination = EProcessLaunchCloseFlag_None;
-					bint bNeedWait = false;
-					bint bClosed = false;
+					bool bNeedWait = false;
+					bool bClosed = false;
 					{
 						DMibLock(mp_NeedTerminationLock);
 						NeedTermination = mp_NeedTermination;
@@ -1288,13 +1288,13 @@ namespace NMib::NProcess::NPlatform
 		}
 	}
 
-	bint CPOSIXLaunchContext::f_Open(CProcessLaunchParams const &_Options)
+	bool CPOSIXLaunchContext::f_Open(CProcessLaunchParams const &_Options)
 	{
 		mp_LastLaunchOptions = _Options;
 		return true;
 	}
 
-	bint CPOSIXLaunchContext::f_Start(EProcessLaunchCloseFlag _Flags)
+	bool CPOSIXLaunchContext::f_Start(EProcessLaunchCloseFlag _Flags)
 	{
 		if (mp_bStarted)
 			DMibError(NStr::CStrNonTracked("Launch has already been started"));
@@ -1357,7 +1357,7 @@ namespace NMib::NProcess::NPlatform
 			f_Stop(true);
 	}
 
-	bint CPOSIXLaunchContext::f_IsRunning()
+	bool CPOSIXLaunchContext::f_IsRunning()
 	{
 		return (f_GetState() == NThread::EThreadState_Running);
 	}
@@ -1619,7 +1619,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessL
 		delete pLaunch;
 }
 
-bint NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
+bool NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_IsRunning();

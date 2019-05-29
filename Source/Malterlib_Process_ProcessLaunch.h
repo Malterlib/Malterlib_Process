@@ -385,8 +385,8 @@ namespace NMib::NProcess
 
 		void f_Close(EProcessLaunchCloseFlag _CloseFlags);
 		void f_Start(); // Has to be called if _Params.m_bThreaded is not true
-		bint f_IsOpen() const;
-		bint f_IsRunning() const;
+		bool f_IsOpen() const;
+		bool f_IsRunning() const;
 		void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const;
 		void f_CloseStdIn() const;
 		void f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const;

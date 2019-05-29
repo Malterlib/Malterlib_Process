@@ -17,8 +17,8 @@ namespace NMib::NProcess
 		virtual EProcessLaunchCloseFlag f_GetCloseFlags() const = 0;
 		virtual void f_Close(EProcessLaunchCloseFlag _CloseFlags) = 0;
 		virtual void f_StopProcess() const = 0;
-		virtual bint f_IsOpen() const = 0;
-		virtual bint f_IsRunning() const = 0;
+		virtual bool f_IsOpen() const = 0;
+		virtual bool f_IsRunning() const = 0;
 		virtual void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const = 0;
 		virtual void f_CloseStdIn() const = 0;
 		virtual fp64 f_GetRunningTime() const = 0;
@@ -54,8 +54,8 @@ namespace NMib::NProcess
 		EProcessLaunchCloseFlag f_GetCloseFlags() const override;
 		void f_Close(EProcessLaunchCloseFlag _CloseFlags) override;
 		void f_StopProcess() const override;
-		bint f_IsOpen() const override;
-		bint f_IsRunning() const override;
+		bool f_IsOpen() const override;
+		bool f_IsRunning() const override;
 		void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const override;
 		void f_CloseStdIn() const override;
 		fp64 f_GetRunningTime() const override;
@@ -120,12 +120,12 @@ namespace NMib::NProcess
 		CProcessLaunchHandler();
 		~CProcessLaunchHandler();
 
-		CLaunchInfo *f_AddLaunch(CProcessLaunchParams const &_Params, bint _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory = FVirtualProcessLaunchFactory());
+		CLaunchInfo *f_AddLaunch(CProcessLaunchParams const &_Params, bool _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory = FVirtualProcessLaunchFactory());
 
 		void f_TerminateAll(bool _bBlock = false);
 		void f_StopAll();
-		bint f_BlockOnExit(fp32 _Timeout = 0.0f);
-		bint f_WaitForChange(fp32 _Timeout = 0.0f);
+		bool f_BlockOnExit(fp32 _Timeout = 0.0f);
+		bool f_WaitForChange(fp32 _Timeout = 0.0f);
 		CLaunchInfo *f_GetFirstNotDone();
 
 	};

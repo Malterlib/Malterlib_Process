@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -30,8 +30,8 @@ namespace NMib::NProcess::NPlatform
 			zmint m_StartPause;
 
 			void *m_pPausedToken = nullptr;
-			zbool m_bTouched;
-			zbool m_bTriedTask;
+			bool m_bTouched = false;
+			bool m_bTriedTask = false;
 
 			pid_t f_GetID() const
 			{

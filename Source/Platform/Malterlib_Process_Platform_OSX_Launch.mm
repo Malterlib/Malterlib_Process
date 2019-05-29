@@ -13,13 +13,13 @@
 
 DMibDeprecatedSupressStart;
 
-bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
+bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
 {
 	CAutoReleasePool ARPool;
 	
 	NStr::CStr const &UTF8Target = _Params.m_Target;
 
-	bint bReturn = true;
+	bool bReturn = true;
 	
 	ProcessSerialNumber PSN;
 	
@@ -113,7 +113,7 @@ bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchUIExecutable(NMib::NProcess::CPr
 	return bReturn;
 }
 
-bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
+bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
 {
 	CAutoReleasePool ARPool;
 	
@@ -147,7 +147,7 @@ bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessL
 	return true;
 }
 
-bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchDocument(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
+bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchDocument(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
 {
 	NMib::CAutoReleasePool ARPool;
 	
@@ -164,7 +164,7 @@ bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchDocument(NMib::NProcess::CProces
 	else if (_Params.m_LaunchType == NMib::NProcess::EProcessLaunchType_URL)
 	{
 		// Make sure the scheme is added if not already present
-		bint bSchemeExist = false;
+		bool bSchemeExist = false;
 		aint Pos = Document.f_Find(":");
 		if (Pos > -1)
 		{
@@ -209,7 +209,7 @@ bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchDocument(NMib::NProcess::CProces
 	if (!pURL)
 		return false;
 	
-	bint bReturn = true;
+	bool bReturn = true;
 	
 	NSArray *pURLArray = [NSArray arrayWithObject:pURL];
 
@@ -273,7 +273,7 @@ bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchDocument(NMib::NProcess::CProces
 	return bReturn;
 }
 
-bint NMib::NProcess::NPlatform::fg_MacOSX_RegisterURLHandler(NStr::CStr const &_Protocol, NStr::CStr const& _ExePath, NStr::CStr const &_Params)
+bool NMib::NProcess::NPlatform::fg_MacOSX_RegisterURLHandler(NStr::CStr const &_Protocol, NStr::CStr const& _ExePath, NStr::CStr const &_Params)
 {		
 	if (_ExePath != NMib::NFile::CFile::fs_GetProgramPath())
 		return false;
@@ -311,7 +311,7 @@ bint NMib::NProcess::NPlatform::fg_MacOSX_RegisterURLHandler(NStr::CStr const &_
 	return Result >= 0;
 }
 
-bint NMib::NProcess::NPlatform::fg_MacOSX_DeRegisterURLHandler(NStr::CStr const &_Protocol)
+bool NMib::NProcess::NPlatform::fg_MacOSX_DeRegisterURLHandler(NStr::CStr const &_Protocol)
 {
 	NStr::CStr const &Scheme = _Protocol;
 
@@ -356,7 +356,7 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_Process_RegisterAtStartup(NStr::CStr c
 	CFArrayRef LoginItemsArray = LSSharedFileListCopySnapshot(LoginItems, &SeedValue);
 
 	NSString* BundlePath = NMib::NPlatform::fg_MaxOSX_GetString(ExePath);
-	bint bFound = false;
+	bool bFound = false;
 
 	for (id Item in (NSArray*)LoginItemsArray)
 	{		

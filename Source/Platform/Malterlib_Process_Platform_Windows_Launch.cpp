@@ -61,7 +61,7 @@ namespace NMib::NProcess::NPlatform
 	{
 		m_AllProcess.f_DeleteAllDefiniteType();
 	}
-	bint CProcessEntry::operator == (uint32 _Process) const
+	bool CProcessEntry::operator == (uint32 _Process) const
 	{
 		return m_Process == _Process;
 	}
@@ -168,7 +168,7 @@ namespace NMib::NProcess::NPlatform
 		NStr::CStr fg_GetProcessName(void *_pProcess)
 		{
 			NStr::CWStr NameW;
-			bint bFailed = false;
+			bool bFailed = false;
 			if (GetProcessImageFileName(_pProcess, NameW.f_GetStr(1024), 1024))
 			{
 				return NMib::NFile::CFile::fs_GetFile(NFile::NPlatform::fg_ConvertFromWindowsPath(NameW));
@@ -385,17 +385,17 @@ namespace NMib::NProcess::NPlatform
 			uint32 mp_ProcessID;
 			NThread::CMutual mp_NeedTerminationLock;
 			NMib::NProcess::EProcessLaunchCloseFlag mp_NeedTermination;
-			bint mp_bNeedWait;
-			bint mp_bStarted;
+			bool mp_bNeedWait;
+			bool mp_bStarted;
 
-			bint fp_LaunchChild(HANDLE _hStdOut, HANDLE _hStdIn, HANDLE _hStdErr, NStr::CStr &_Errors);
+			bool fp_LaunchChild(HANDLE _hStdOut, HANDLE _hStdIn, HANDLE _hStdErr, NStr::CStr &_Errors);
 			int fp_RedirectStdout();
 			int fp_RedirectStderr();
 			void fp_DestroyHandle(HANDLE &_Handle);
 			void fp_ClearSandbox();
 			void fp_TerminateSandbox(NStr::CStr &_Output);
 			void fp_Close();
-			bint fp_DoStart(NStr::CStr &_Errors);
+			bool fp_DoStart(NStr::CStr &_Errors);
 
 		protected:
 			void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
@@ -404,14 +404,14 @@ namespace NMib::NProcess::NPlatform
 			virtual bool f_DestroyThread() override;
 
 		public:
-			bint f_Open(NMib::NProcess::CProcessLaunchParams const &_Options);
-			bint f_Start(EProcessLaunchCloseFlag _Flags);
+			bool f_Open(NMib::NProcess::CProcessLaunchParams const &_Options);
+			bool f_Start(EProcessLaunchCloseFlag _Flags);
 			void f_Close(NMib::NProcess::EProcessLaunchCloseFlag _Flags);
 			void f_Cancel();
 			fp64 f_GetRunningTime();
 			uint32 f_GetExitCode();
-			bint f_IsRunning();
-			bint f_SendText(NStr::CStrSecure const &_Data);
+			bool f_IsRunning();
+			bool f_SendText(NStr::CStrSecure const &_Data);
 			void f_CloseStdIn();
 			void f_SendBinary(NContainer::CSecureByteVector const &_Data);
 			void f_StopProcess();
@@ -490,7 +490,7 @@ namespace NMib::NProcess::NPlatform
 			return "CConsoleRedirector";
 		}
 
-		NStr::CWStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate)
+		NStr::CWStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate)
 		{
 			// First look in current dir
 			NStr::CWStr FullPathW = NFile::NPlatform::fg_ConvertToWindowsPath(_Path, true);
@@ -648,7 +648,7 @@ namespace NMib::NProcess::NPlatform
 				DMibError("Failed to launch self to signal stop for process (Exit status {}): {}{}"_f << ExitCode << StdOut << StdErr);
 		}
 
-		bint CConsoleRedirector::fp_LaunchChild(HANDLE _hStdOut, HANDLE _hStdIn, HANDLE _hStdErr, NStr::CStr &_Errors)
+		bool CConsoleRedirector::fp_LaunchChild(HANDLE _hStdOut, HANDLE _hStdIn, HANDLE _hStdErr, NStr::CStr &_Errors)
 		{
 			void *pOldvalue = nullptr;
 
@@ -709,7 +709,7 @@ namespace NMib::NProcess::NPlatform
 				NStr::CStr Program;
 				NStr::CStr Params;
 				NStr::CWStr ParamsW = NStr::NPlatform::fg_StrToWindows(mp_LastLaunchOptions.m_Parameters);
-				bint bTryCreateProcess = false;
+				bool bTryCreateProcess = false;
 				aint MaxLen = _MAX_PATH;
 				NStr::CWStr FileW = NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_Target, false, MaxLen);
 				if ((mp_LastLaunchOptions.m_Operation == "open" || mp_LastLaunchOptions.m_Operation == "") && NFile::CFile::fs_GetExtension(mp_LastLaunchOptions.m_Target).f_CmpNoCase("exe") == 0)
@@ -719,7 +719,7 @@ namespace NMib::NProcess::NPlatform
 					bTryCreateProcess = true;
 				}
 
-				bint bIsURL = false;
+				bool bIsURL = false;
 
 				try
 				{
@@ -1956,7 +1956,7 @@ namespace NMib::NProcess::NPlatform
 			WaitForHandles[0] = mp_hChildProcess;
 			WaitForHandles[1] = mp_Event.m_pSemaphore;
 
-			bint bExited = false;
+			bool bExited = false;
 
 			// Kickstart IO
 			if (mp_hStdoutRead)
@@ -1980,7 +1980,7 @@ namespace NMib::NProcess::NPlatform
 				else if (Object == WAIT_OBJECT_0 + 1)
 				{
 					NMib::NProcess::EProcessLaunchCloseFlag NeedTermination = NMib::NProcess::EProcessLaunchCloseFlag_None;
-					bint bNeedWait = false;
+					bool bNeedWait = false;
 					{
 						DMibLock(mp_NeedTerminationLock);
 						fg_Swap(NeedTermination, mp_NeedTermination);
@@ -2352,7 +2352,7 @@ namespace NMib::NProcess::NPlatform
 			return TRUE;
 		}
 
-		bint CConsoleRedirector::fp_DoStart(NStr::CStr &_Errors)
+		bool CConsoleRedirector::fp_DoStart(NStr::CStr &_Errors)
 		{
 			HANDLE hStdoutReadTmp;				// parent stdout read handle
 			HANDLE hStdoutWrite;	// child stdout write handle
@@ -2511,13 +2511,13 @@ namespace NMib::NProcess::NPlatform
 			return bOK;
 		}
 
-		bint CConsoleRedirector::f_Open(NMib::NProcess::CProcessLaunchParams const &_Options)
+		bool CConsoleRedirector::f_Open(NMib::NProcess::CProcessLaunchParams const &_Options)
 		{
 			mp_LastLaunchOptions = _Options;
 			return true;
 		}
 
-		bint CConsoleRedirector::f_Start(EProcessLaunchCloseFlag _Flags)
+		bool CConsoleRedirector::f_Start(EProcessLaunchCloseFlag _Flags)
 		{
 			if (mp_bStarted)
 				DMibError(NStr::CStrNonTracked("Launch has already been started"));
@@ -2619,12 +2619,12 @@ namespace NMib::NProcess::NPlatform
 			return mp_ReturnValue;
 		}
 
-		bint CConsoleRedirector::f_IsRunning()
+		bool CConsoleRedirector::f_IsRunning()
 		{
 			return (f_GetState() == NThread::EThreadState_Running);
 		}
 
-		bint CConsoleRedirector::f_SendText(NStr::CStrSecure const &_Data)
+		bool CConsoleRedirector::f_SendText(NStr::CStrSecure const &_Data)
 		{
 			if (!mp_hStdinWrite)
 				return FALSE;
@@ -2744,7 +2744,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessL
 		delete pLaunch;
 }
 
-bint NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
+bool NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_IsRunning();

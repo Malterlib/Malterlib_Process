@@ -647,7 +647,7 @@ namespace NMib::NProcess
 		NThread::CMutual m_MessageHandlerLock;
 		NContainer::TCMap<uint32, NFunction::TCFunction<void (NStream::CBinaryStreamMemoryPtr<> &_Stream)>> m_MessageHandlers;
 
-		zbool m_bLaunched;
+		bool m_bLaunched = false;
 		NStr::CStr m_BufferedSendData;
 		NContainer::TCVector<NFunction::TCFunction<void (NStr::CStr const &_Error)>> m_BufferedSendErrors;
 
@@ -798,8 +798,8 @@ namespace NMib::NProcess
 			virtual EProcessLaunchCloseFlag f_GetCloseFlags() const override;
 			virtual void f_Close(EProcessLaunchCloseFlag _CloseFlags) override;
 			virtual void f_StopProcess() const override;
-			virtual bint f_IsOpen() const override;
-			virtual bint f_IsRunning() const override;
+			virtual bool f_IsOpen() const override;
+			virtual bool f_IsRunning() const override;
 			virtual void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const override;
 			virtual void f_CloseStdIn() const override;
 			virtual fp64 f_GetRunningTime() const override;
@@ -1644,12 +1644,12 @@ namespace NMib::NProcess
 		}
 	}
 
-	bint CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_IsOpen() const
+	bool CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_IsOpen() const
 	{
 		return m_pState->m_bOpen.f_Load();
 	}
 
-	bint CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_IsRunning() const
+	bool CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_IsRunning() const
 	{
 		return m_pState->m_bIsRunning.f_Load();
 	}

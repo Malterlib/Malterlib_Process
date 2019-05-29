@@ -61,7 +61,7 @@ namespace NMib::NProcess
 		m_LaunchParams.m_fOnOutput.f_Clear();
 		m_LaunchParams.m_fOnStateChange.f_Clear();
 	}
-	CProcessLaunchHandler::CLaunchInfo *CProcessLaunchHandler::f_AddLaunch(CProcessLaunchParams const &_Params, bint _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory)
+	CProcessLaunchHandler::CLaunchInfo *CProcessLaunchHandler::f_AddLaunch(CProcessLaunchParams const &_Params, bool _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory)
 	{
 		auto pInfo = &m_Launches.f_Insert(fg_Construct(_Params, _LaunchFactory));
 
@@ -158,7 +158,7 @@ namespace NMib::NProcess
 		}
 	}
 
-	bint CProcessLaunchHandler::f_WaitForChange(fp32 _Timeout)
+	bool CProcessLaunchHandler::f_WaitForChange(fp32 _Timeout)
 	{
 		if (_Timeout == 0.0)
 		{
@@ -169,13 +169,13 @@ namespace NMib::NProcess
 			return m_LaunchChanged.f_WaitTimeout(_Timeout);
 	}
 
-	bint CProcessLaunchHandler::f_BlockOnExit(fp32 _Timeout)
+	bool CProcessLaunchHandler::f_BlockOnExit(fp32 _Timeout)
 	{
 		NTime::CClock BlockTime;
 		BlockTime.f_Start();
 		while (1)
 		{
-			bint bDone = true;
+			bool bDone = true;
 			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 			{
 				if (!Iter->m_Done.f_Load() && Iter->fp_Lingering())
@@ -240,12 +240,12 @@ namespace NMib::NProcess
 		return m_Launch.f_StopProcess();
 	}
 
-	bint CVirtualProcessLaunch_Default::f_IsOpen() const
+	bool CVirtualProcessLaunch_Default::f_IsOpen() const
 	{
 		return m_Launch.f_IsOpen();
 	}
 
-	bint CVirtualProcessLaunch_Default::f_IsRunning() const
+	bool CVirtualProcessLaunch_Default::f_IsRunning() const
 	{
 		return m_Launch.f_IsRunning();
 	}

@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Process/StdIn>
@@ -99,7 +99,7 @@ namespace NMib::NProcess::NPlatform
 	private:
 
 		struct termios m_OldSettings;
-		zbint m_bOldSettingsSet;
+		bool m_bOldSettingsSet = false;
 		int m_OldFlags;
 		int mp_WakeupPipeRead;
 		int mp_WakeupPipeWrite;
@@ -365,7 +365,7 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 {
 	NStorage::TCUniquePointer<CPOSIXStdInReaderImplementation> pNew; // First because we want it to be destroyed after pReader in case of exception in f_Init
 	NStorage::TCUniquePointer<CPOSIXStdInReader> pReader = fg_Construct(fg_Move(_Params));
-	
+
 	auto &Params = *pReader->m_pParams;
 
 	if (Params.m_fOnReceiveInput.f_IsEmpty() && Params.m_fOnReceiveBinaryInput.f_IsEmpty())

@@ -10,7 +10,7 @@
 
 #include "Malterlib_Process_Platform_POSIX_PlatformSpecific.h"
 
-bint NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, int& _hStdOutRead, int& _hStdInWrite, NMib::NStr::CStr& _Errors)
+bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, int& _hStdOutRead, int& _hStdInWrite, NMib::NStr::CStr& _Errors)
 {
 	NStr::CStr Executable = _Params.m_Target;
 	

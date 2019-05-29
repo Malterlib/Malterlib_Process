@@ -229,12 +229,12 @@ namespace NMib::NProcess
 		return m_DestructFlags;
 	}
 
-	bint CProcessLaunch::f_IsOpen() const
+	bool CProcessLaunch::f_IsOpen() const
 	{
 		return m_pProcessLaunch != nullptr;
 	}
 
-	bint CProcessLaunch::f_IsRunning() const
+	bool CProcessLaunch::f_IsRunning() const
 	{
 		fp_CheckOpen();
 		return NPlatform::fg_ProcessLaunch_IsRunning(m_pProcessLaunch);

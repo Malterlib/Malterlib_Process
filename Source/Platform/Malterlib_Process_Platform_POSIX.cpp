@@ -195,7 +195,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 	;
 }
 
-bint NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
+bool NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
 {
 	return getppid() == _ProcessID;
 }

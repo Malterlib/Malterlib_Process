@@ -114,7 +114,7 @@ namespace NMib::NProcess
 		void fg_Process_Terminate(mint _ProcessID);
 
 		mint fg_Process_GetCurrentUID();
-		bint fg_Process_GetProcessIsParentProcess(mint _ProcessID);
+		bool fg_Process_GetProcessIsParentProcess(mint _ProcessID);
 		bool fg_Process_IsRunning(mint _ProcessID);
 
 		NMib::NStr::CStr fg_Process_GetUserName();
@@ -138,7 +138,7 @@ namespace NMib::NProcess
 		void *fg_ProcessLaunch_Open(NMib::NProcess::CProcessLaunchParams const &_Params);
 		void fg_ProcessLaunch_Start(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _DestructFlags);
 		void fg_ProcessLaunch_Close(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _Flags);
-		bint fg_ProcessLaunch_IsRunning(void *_pLaunch);
+		bool fg_ProcessLaunch_IsRunning(void *_pLaunch);
 		void fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrSecure const &_Data);
 		void fg_ProcessLaunch_CloseStdIn(void *_pLaunch);
 		void fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::CSecureByteVector const &_Data);

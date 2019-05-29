@@ -405,7 +405,7 @@ mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 	return GetCurrentProcessId();
 }
 
-bint NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
+bool NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
 {
 	// Not implemented yet
 	return false;

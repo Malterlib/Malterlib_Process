@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -18,13 +18,13 @@
 
 bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess::NPlatform::CPOSIXLaunchContext *_pLaunchContext, NMib::NProcess::CProcessLaunchParams &_Params, NMib::NStr::CStr &_Program, int& _StdErrRead, int& _StdErrWrite, int &_StdInRead, int &_StdInWrite, NMib::NStr::CStr &_Errors)
 {
-	bint bGKSUAvailable = fg_FindExecutable("gksu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gksu";
+	bool bGKSUAvailable = fg_FindExecutable("gksu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gksu";
 	if (bGKSUAvailable)
 		_Program = "gksu";
 	else
 	{
 		// Fall back to gnomesu.
-		bint bGNomeSUAvailable = fg_FindExecutable("gnomesu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gnomesu";
+		bool bGNomeSUAvailable = fg_FindExecutable("gnomesu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gnomesu";
 		if (bGNomeSUAvailable)
 			_Program = "gnomesu";
 		else
@@ -33,10 +33,10 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 			return false;
 		}
 	}
-			
+
 	NStr::CStr Executable = _Params.m_Target;
 	NStr::CStr InPipeName;
-	
+
 	NStr::CStr Parameters;
 	if (_Params.m_bStdOutPID)
 	{
@@ -45,36 +45,36 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 			close(_StdErrWrite);
 			_StdErrWrite = -1;
 		}
-		
+
 		if (_StdErrRead != -1)
 		{
 			close(_StdErrRead);
 			_StdErrRead = -1;
 		}
-		
+
 		if (_StdInRead != -1)
 		{
 			close(_StdInRead);
 			_StdInRead = -1;
 		}
-		
+
 		if (_StdInWrite != -1)
 		{
 			close(_StdInWrite);
 			_StdInWrite = -1;
 		}
-		
+
 		NStr::CStr RandomString = NMib::NCryptography::fg_GetSecureUuidString();
-		
+
 		NStr::CStr ReadPipeName = NMib::NFile::CFile::fs_GetUserLocalProgramDirectory() + "/NamePipeStdErr_" + RandomString;
 		InPipeName = NMib::NFile::CFile::fs_GetUserLocalProgramDirectory() + "/NamePipeStdIn_" + RandomString;
-		
+
 		NMib::NFile::CFile::fs_CreateDirectory(NMib::NFile::CFile::fs_GetUserLocalProgramDirectory());
-					
+
 		if (mkfifo(ReadPipeName.f_GetStr(), S_IRUSR|S_IWUSR) == 0)
 		{
 			_StdErrRead = open(ReadPipeName.f_GetStr(), O_CLOEXEC|O_NONBLOCK|O_RDONLY, S_IRUSR);
-							
+
 			if (_StdErrRead == -1)
 			{
 				_Errors += NMib::NPlatform::fg_FormatErrno("open (elevate stderr pipe)", errno);
@@ -86,24 +86,24 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 			_Errors += NMib::NPlatform::fg_FormatErrno("mkfifo (elevate stderr pipe)", errno);
 			return false;
 		}
-		
+
 		if (mkfifo(InPipeName.f_GetStr(), S_IRUSR|S_IWUSR) != 0)
 		{
 			_Errors += NMib::NPlatform::fg_FormatErrno("mkfifo (elevate stdin pipe)", errno);
 			return false;
 		}
-					
+
 		Parameters = NStr::CStr::CFormat("\"--OutputPID {}/{}\" ") << NMib::NFile::CFile::fs_GetUserLocalProgramDirectory() << RandomString;
 	}
-	
+
 	Parameters += _Params.m_Parameters;
-	
+
 	if (_Program == "gnomesu")
 	{
 		_Params.m_Parameters = "--";
 
 		fg_AddStrSepEscaped(_Params.m_Parameters, Executable, ' ');
-		
+
 		if (!Parameters.f_IsEmpty())
 		{
 			_Params.m_Parameters += " ";
@@ -117,7 +117,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 			NStr::CStr Target = _Params.m_Target;
 			if (Target.f_StartsWith("/"))
 				Target = (NStr::CStr::CFormat(" {}") << Target).f_GetStr();
-		
+
 			_Params.m_Parameters = "--description " + Target.f_EscapeStr();
 		}
 		else
@@ -125,52 +125,52 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 			NStr::CStr Prompt = _Params.m_Prompt;
 			if (Prompt.f_StartsWith("/"))
 				Prompt = (NStr::CStr::CFormat(" {}") << Prompt).f_GetStr();
-			
+
 			_Params.m_Parameters = "--message " + Prompt.f_EscapeStr();
 		}
 
 		_Params.m_Parameters += " --";
 		fg_AddStrSepEscaped(_Params.m_Parameters, Executable, ' ');
-				
+
 		if (!Parameters.f_IsEmpty())
 			_Params.m_Parameters += " " + Parameters;
 	}
-				
+
 	_Params.m_bAllowExecutableLocate = true;
 	_Params.m_Elevation = NProcess::EProcessLaunchElevation_None;
 	_Params.m_bSeparateStdErr = true;
-				
+
 	struct CLaunchOutput
 	{
 		EProcessLaunchOutputType m_OutputType;
 		NMib::NStr::CStr m_Output;
 	};
-	
+
 	struct CLaunchData
 	{
 		CLaunchData()
 			: m_pLaunchedProcess(nullptr)
 		{
 		}
-		
+
 		NMib::NProcess::NPlatform::CPOSIXLaunchContext *m_pLaunchContext;
 		NContainer::TCVector<CLaunchOutput> m_LaunchOutputs;
 		NStr::CStr m_QueuedStdOut;
 		NStr::CStr m_StdInPipeName;
-		zbint m_bReceivedPID;
-		zbint m_bFailedStateChange;
-		zbint m_bFailed;
+		bool m_bReceivedPID = false;
+		bool m_bFailedStateChange = false;
+		bool m_bFailed = false;
 		NStr::CStr m_Executable;
 		NStr::CStr m_SavedError;
-		
+
 		NFunction::TCFunctionMovable<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
 		NFunction::TCFunctionMovable<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_fOnOutput;
-		
+
 		NMib::NThread::CMutual m_Lock;
-		
+
 		void * m_pLaunchedProcess;
 	};
-	
+
 	NStorage::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
 	pLaunchData->m_bReceivedPID = !_Params.m_bStdOutPID;
 	pLaunchData->m_fOnOutput = fg_Move(_Params.m_fOnOutput);
@@ -178,29 +178,29 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 	pLaunchData->m_StdInPipeName = fg_Move(InPipeName);
 	pLaunchData->m_pLaunchContext = _pLaunchContext;
 	pLaunchData->m_Executable = Executable;
-	
+
 	_Params.m_fOnStateChange =
 		[pLaunchData](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 		{
 			DMibLock(pLaunchData->m_Lock);
-								
+
 			if (pLaunchData->m_bFailedStateChange)
 				return;
-							
+
 			switch (_State.f_GetTypeID())
 			{
 			case NMib::NProcess::EProcessLaunchState_Exited:
-				{						
+				{
 					if (pLaunchData->m_bFailed || !pLaunchData->m_bReceivedPID)
 					{
 						NStr::CStr ErrorStr;
-						
+
 						for(auto iOutput = pLaunchData->m_LaunchOutputs.f_GetIterator(); iOutput; ++iOutput)
 						{
 							if (iOutput->m_OutputType != EProcessLaunchOutputType_StdOut)
 								ErrorStr += iOutput->m_Output;
 						}
-						
+
 						if (ErrorStr.f_IsEmpty())
 						{
 							if (_State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>() == 1)
@@ -213,7 +213,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 								ErrorStr = "User aborted launch";
 							else
 								ErrorStr = NStr::CStr::CFormat("Unknown error ({})") << _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-							
+
 							pLaunchData->m_SavedError = pLaunchData->m_SavedError.f_Trim();
 							if (!pLaunchData->m_SavedError.f_IsEmpty())
 							{
@@ -221,22 +221,22 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 								ErrorStr += pLaunchData->m_SavedError;
 							}
 						}
-													
+
 						pLaunchData->m_bFailedStateChange = true;
-						
+
 						if (pLaunchData->m_fOnStateChange)
 							pLaunchData->m_fOnStateChange(ErrorStr, _TimeSinceStart);
 					}
 					else
-					{							
+					{
 						if (pLaunchData->m_fOnStateChange)
 							pLaunchData->m_fOnStateChange(_State, _TimeSinceStart);
 					}
 				}
 				break;
-					
+
 			case NMib::NProcess::EProcessLaunchState_Launched:
-				{							
+				{
 					if (pLaunchData->m_bReceivedPID)
 					{
 						if (pLaunchData->m_fOnStateChange)
@@ -248,11 +248,11 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 					}
 				}
 				break;
-					
+
 			case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 				{
 					pLaunchData->m_bFailedStateChange = true;
-					
+
 					if (pLaunchData->m_fOnStateChange)
 						pLaunchData->m_fOnStateChange(_State, _TimeSinceStart);
 				}
@@ -260,7 +260,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 			}
 		}
 	;
-			
+
 	_Params.m_fOnOutput =
 		[pLaunchData](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 		{
@@ -268,7 +268,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 
 			if (pLaunchData->m_bFailedStateChange)
 				return;
-			
+
 			if (pLaunchData->m_bReceivedPID)
 			{
 				if (pLaunchData->m_fOnOutput)
@@ -279,14 +279,14 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 				if (_OutputType != EProcessLaunchOutputType_StdOut || pLaunchData->m_bFailed)
 				{
 					auto & Output = pLaunchData->m_LaunchOutputs.f_Insert();
-					
+
 					Output.m_OutputType = _OutputType;
 					Output.m_Output = _Output;
 				}
 				else
 				{
 					pLaunchData->m_QueuedStdOut += _Output;
-					
+
 					while (true)
 					{
 						aint iLine = pLaunchData->m_QueuedStdOut.f_FindChar('\n');
@@ -294,10 +294,10 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 						{
 							return;
 						}
-						
+
 						NStr::CStr Line = pLaunchData->m_QueuedStdOut.f_Left(iLine);
 						pLaunchData->m_QueuedStdOut = pLaunchData->m_QueuedStdOut.f_Extract(iLine + 1);
-						
+
 						if (Line.f_StartsWith("bdda0079-b6eb-41ac-88d0-01b50e8be939 "))
 						//if (pLaunchData->m_QueuedStdOut.f_GetLen() >= ExpectedLength + 17)
 						{
@@ -306,7 +306,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 							NStr::CStr Error = Line.f_ReplaceChar('\r', '\n').f_Trim();
 							//CStr ToParse = pLaunchData->m_QueuedStdOut.f_Left(ExpectedLength + 17);
 							pLaunchData->m_bReceivedPID = true;
-							
+
 							if (!Error.f_IsEmpty() && !pLaunchData->m_bFailedStateChange)
 							{
 								if (pLaunchData->m_fOnStateChange)
@@ -314,16 +314,16 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 								pLaunchData->m_bFailedStateChange = true;
 								return ;
 							}
-							
-														
+
+
 							if (!pLaunchData->m_StdInPipeName.f_IsEmpty())
-							{								
+							{
 								int Pipe = open(pLaunchData->m_StdInPipeName.f_GetStr(), O_CLOEXEC|O_WRONLY, S_IWUSR);
-															
+
 								if (Pipe == -1)
-								{									
+								{
 									if (!pLaunchData->m_bFailedStateChange)
-									{	
+									{
 										if (pLaunchData->m_fOnStateChange)
 											pLaunchData->m_fOnStateChange(NMib::NPlatform::fg_FormatErrno("open (elevate stdin pipe)", errno), 0.0);
 										pLaunchData->m_bFailedStateChange = true;
@@ -331,7 +331,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 									}
 								}
 								else
-								{									
+								{
 									NMib::NStr::CStr Errors;
 									if (!pLaunchData->m_pLaunchContext->f_RedirectStdInWrite(Pipe, Errors))
 									{
@@ -345,10 +345,10 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 									}
 								}
 							}
-							
+
 							if (pLaunchData->m_fOnStateChange)
 								pLaunchData->m_fOnStateChange(pLaunchData->m_pLaunchedProcess, 0.0);
-							
+
 							if (!pLaunchData->m_QueuedStdOut.f_IsEmpty() && pLaunchData->m_fOnOutput)
 							{
 								pLaunchData->m_fOnOutput(_OutputType, pLaunchData->m_QueuedStdOut);
@@ -362,7 +362,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 									pLaunchData->m_fOnOutput(iOutput->m_OutputType, iOutput->m_Output);
 								}
 							}
-							
+
 							return ;
 						}
 						else
@@ -380,7 +380,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 			}
 		}
 	;
-	
+
 	return true;
 }
 
@@ -390,7 +390,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_Process_RegisterAtStartup(NMib::NStr::C
 	if (XdgConfigHomeDir.f_IsEmpty())
 		XdgConfigHomeDir = NMib::NFile::CFile::fs_AppendPath(NSys::NFile::fg_GetUserHomeDirectory(), ".config");
 	NMib::NStr::CStr AutoStartFile = NMib::NFile::CFile::fs_AppendPath(XdgConfigHomeDir, "autostart/" + _Name + ".desktop");
-	
+
 	try
 	{
 		NStr::CStr Content =
@@ -402,7 +402,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_Process_RegisterAtStartup(NMib::NStr::C
 			"Icon=\n"
 			"Comment=\n"
 			"NoDisplay=true;\n";
-		
+
 		NMib::NFile::CFile::fs_CreateDirectory(NMib::NFile::CFile::fs_GetPath(AutoStartFile));
 		NMib::NFile::CFile::fs_WriteStringToFile(AutoStartFile, Content, false);
 	}
@@ -419,7 +419,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_Process_DeRegisterAtStartup(NMib::NStr:
 	if (XdgConfigHomeDir.f_IsEmpty())
 		XdgConfigHomeDir = NMib::NFile::CFile::fs_AppendPath(NSys::NFile::fg_GetUserHomeDirectory(), ".config");
 	NMib::NStr::CStr AutoStartFile = NMib::NFile::CFile::fs_AppendPath(XdgConfigHomeDir, "autostart/" + _Name + ".desktop");
-	
+
 	if (NMib::NFile::CFile::fs_FileExists(AutoStartFile))
 	{
 		try
@@ -446,19 +446,19 @@ bool NMib::NProcess::NPlatform::fg_Linux_RegisterURLHandler(NMib::NStr::CStr con
 {
 	NMib::NStr::CStr DesktopFile = NStr::CStr::CFormat("{}_{}") << NMib::NSys::g_LinuxProgramIdentifier << NMib::NCryptography::fg_GetHashedUuidString(_ExePath, NMib::NCryptography::CUniversallyUniqueIdentifier("{4860363c-8bf6-4cb8-a22c-2b7b71c18264}"));
 	NMib::NStr::CStr MimeAppsFile = NMib::NFile::CFile::fs_GetUserHomeDirectory() + "/.local/share/applications/mimeapps.list";
-	
+
 	if (NMib::NFile::CFile::fs_FileExists(MimeAppsFile))
 	{
 		using namespace NMib::NDesktop;
-		
+
 		CDesktopFileParser Parser(NStr::CStr(), MimeAppsFile);
-		
+
 		NMib::NContainer::TCVector<CDesktopFileParser::CDesktopGroup> lDesktopGroups;
 		Parser.f_Parse(lDesktopGroups);
-		
-		bint bSetAddedAssociations = false;
-		bint bSetDefaultApplications = false;
-		
+
+		bool bSetAddedAssociations = false;
+		bool bSetDefaultApplications = false;
+
 		for (CDesktopFileParser::CDesktopGroup &Group : lDesktopGroups)
 		{
 			if (Group.m_Name == "Added Associations" || Group.m_Name == "Default Applications")
@@ -468,14 +468,14 @@ bool NMib::NProcess::NPlatform::fg_Linux_RegisterURLHandler(NMib::NStr::CStr con
 				bSetDefaultApplications |= Group.m_Name == "Default Applications";
 			}
 		}
-		
+
 		if (!bSetAddedAssociations && !bSetDefaultApplications)
 		{
 			CDesktopFileParser::CDesktopGroup& Group = lDesktopGroups.f_Insert();
 			Group.m_Name = "Added Associations";
 			Group.m_KeyValueMap[_Protocol] = DesktopFile + ".desktop";
 		}
-		
+
 		Parser.f_Write(lDesktopGroups, false);
 	}
 	else
@@ -492,23 +492,23 @@ bool NMib::NProcess::NPlatform::fg_Linux_RegisterURLHandler(NMib::NStr::CStr con
 			return false;
 		}
 	}
-	
+
 	return false;
 }
 
 bool NMib::NProcess::NPlatform::fg_Linux_DeRegisterURLHandler(NMib::NStr::CStr const &_Protocol)
 {
 	NMib::NStr::CStr MimeAppsFile = NMib::NFile::CFile::fs_GetUserHomeDirectory() + "/.local/share/applications/mimeapps.list";
-	
+
 	if (NMib::NFile::CFile::fs_FileExists(MimeAppsFile))
 	{
 		using namespace NMib::NDesktop;
-		
+
 		CDesktopFileParser Parser(NStr::CStr(), MimeAppsFile);
-		
+
 		NMib::NContainer::TCVector<CDesktopFileParser::CDesktopGroup> lDesktopGroups;
 		Parser.f_Parse(lDesktopGroups);
-		
+
 		for (CDesktopFileParser::CDesktopGroup &Group : lDesktopGroups)
 		{
 			if (Group.m_Name == "Added Associations" || Group.m_Name == "Default Applications")
@@ -517,21 +517,21 @@ bool NMib::NProcess::NPlatform::fg_Linux_DeRegisterURLHandler(NMib::NStr::CStr c
 					Group.m_KeyValueMap.f_Remove(_Protocol);
 			}
 		}
-					
+
 		Parser.f_Write(lDesktopGroups, false);
 	}
-	
+
 	return true;
 }
 
 bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CProcessLaunchParams &_Params, NMib::NStr::CStr &_Program, NMib::NStr::CStr &_oErrors)
 {
-	if 
+	if
 		(
 			_Params.m_Elevation != NProcess::EProcessLaunchElevation_DeElevate
-			&& 
+			&&
 			(
-				NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsRoot 
+				NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsRoot
 				|| NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsElevated
 			)
 		)
@@ -546,14 +546,14 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 		return false;
 	}
 
-	_Program = "xdg-open";				
+	_Program = "xdg-open";
 
 	NStr::CStr Document = _Params.m_Target;
-	
+
 	if (_Params.m_LaunchType == NProcess::EProcessLaunchType_URL)
 	{
 		// Make sure the scheme is added if not already present
-		bint bSchemeExist = false;
+		bool bSchemeExist = false;
 		aint Pos = Document.f_Find(":");
 		if (Pos > -1)
 		{
@@ -576,7 +576,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 					bSchemeExist = false;
 					break;
 				}
-				
+
 			}
 		}
 		if (!bSchemeExist)
@@ -586,62 +586,62 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 	{
 		Document = Document.f_Replace("select,", "");
 		Document = Document.f_Replace("\"", "");
-		
+
 		if (NMib::NFile::CFile::fs_FileExists(Document, NMib::NFile::EFileAttrib_File))
 			Document = NMib::NFile::CFile::fs_GetPath(Document);
 	}
-	
+
 	_Params.m_Parameters = Document.f_EscapeStr();
 	_Params.m_bAllowExecutableLocate = true;
 	_Params.m_LaunchType = NProcess::EProcessLaunchType_Executable;
 	_Params.m_bSeparateStdErr = true;
-	
+
 	auto SavedOnStateChange = fg_Move(_Params.m_fOnStateChange);
 	auto SavedOnOutput = fg_Move(_Params.m_fOnOutput);
-	
+
 	struct CLaunchOutput
 	{
 		EProcessLaunchOutputType m_OutputType;
 		NMib::NStr::CStr m_Output;
 	};
-	
+
 	struct CLaunchData
 	{
 		CLaunchData()
 			: m_pLaunchedProcess(nullptr)
 		{
 		}
-		
+
 		NContainer::TCVector<CLaunchOutput> m_LaunchOutputs;
-		
+
 		NMib::NThread::CMutual m_Lock;
-		
+
 		void * m_pLaunchedProcess;
 	};
-	
+
 	NStorage::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
-	
-	
+
+
 	_Params.m_fOnStateChange =
 		[SavedOnStateChange, SavedOnOutput, pLaunchData](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 		{
-			
+
 			switch (_State.f_GetTypeID())
 			{
 			case NMib::NProcess::EProcessLaunchState_Exited:
 				{
 					DMibLock(pLaunchData->m_Lock);
-					
+
 					if (_State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>() != 0)
 					{
 						NStr::CStr ErrorStr;
-						
+
 						for(auto iOutput = pLaunchData->m_LaunchOutputs.f_GetIterator(); iOutput; ++iOutput)
 						{
 							if (iOutput->m_OutputType != EProcessLaunchOutputType_StdOut)
 								ErrorStr += iOutput->m_Output;
 						}
-						
+
 						if (SavedOnStateChange)
 							SavedOnStateChange(ErrorStr, _TimeSinceStart);
 					}
@@ -649,7 +649,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 					{
 						if (SavedOnStateChange)
 							SavedOnStateChange((void*)pLaunchData->m_pLaunchedProcess, _TimeSinceStart);
-						
+
 						if (SavedOnOutput)
 						{
 							for(auto iOutput = pLaunchData->m_LaunchOutputs.f_GetIterator(); iOutput; ++iOutput)
@@ -663,15 +663,15 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 					}
 				}
 				break;
-					
+
 			case NMib::NProcess::EProcessLaunchState_Launched:
 				{
 					DMibLock(pLaunchData->m_Lock);
-					
+
 					pLaunchData->m_pLaunchedProcess = _State.f_Get<NMib::NProcess::EProcessLaunchState_Launched>();
 				}
 				break;
-					
+
 			case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 				{
 					if (SavedOnStateChange)
@@ -681,19 +681,19 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 			}
 		}
 	;
-	
+
 	_Params.m_fOnOutput =
 		[pLaunchData](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 		{
-			
+
 			DMibLock(pLaunchData->m_Lock);
-			
+
 			auto & Output = pLaunchData->m_LaunchOutputs.f_Insert();
-			
+
 			Output.m_OutputType = _OutputType;
 			Output.m_Output = _Output;
 		}
 	;
-	
+
 	return true;
 }

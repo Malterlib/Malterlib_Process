@@ -24,7 +24,7 @@ namespace NMib::NProcess::NPlatform
 		DMibListLinkDS_Link(CProcessLaunchLink, m_Link);
 	};
 
-	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bint _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths = {}, NStr::CStr const &_LocalPaths = {});
+	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths = {}, NStr::CStr const &_LocalPaths = {});
 
 	class CPOSIXLaunchContext : public NThread::CThread, public NStorage::TCSharedPointerIntrusiveBase<>, public CProcessLaunchLink
 	{
@@ -33,14 +33,14 @@ namespace NMib::NProcess::NPlatform
 		CPOSIXLaunchContext();
 		~CPOSIXLaunchContext();
 
-		bint f_Open(CProcessLaunchParams const &_Params);
+		bool f_Open(CProcessLaunchParams const &_Params);
 
 		bool f_RedirectStdInWrite(int &_Pipe, NMib::NStr::CStr &_Errors);
 
-		bint f_Start(EProcessLaunchCloseFlag _Flags);
+		bool f_Start(EProcessLaunchCloseFlag _Flags);
 		void f_Close(EProcessLaunchCloseFlag _Flags);
 
-		bint f_IsRunning();
+		bool f_IsRunning();
 		void f_SendText(NStr::CStrSecure const &_Text);
 		void f_CloseStdIn();
 		void f_SendBinary(NContainer::CSecureByteVector const &_Data);
@@ -65,8 +65,8 @@ namespace NMib::NProcess::NPlatform
 		void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
 		void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
 		void fp_OnExit(uint32 _ExitCode);
-		bint fp_DoStart(NStr::CStr &_Errors);
-		bint fp_LaunchChild
+		bool fp_DoStart(NStr::CStr &_Errors);
+		bool fp_LaunchChild
 			(
 				int &_hStdOutRead
 				, int &_hStdOutWrite
@@ -100,9 +100,9 @@ namespace NMib::NProcess::NPlatform
 		pid_t mp_ProcessID;
 		NThread::CMutual mp_NeedTerminationLock;
 		NMib::NProcess::EProcessLaunchCloseFlag mp_NeedTermination;
-		bint mp_bNeedWait;
-		bint mp_bClosed;
-		bint mp_bStarted;
+		bool mp_bNeedWait;
+		bool mp_bClosed;
+		bool mp_bStarted;
 		NAtomic::TCAtomic<uint32> mp_bOverallStatsAvailable;
 
 		CSharedLimiter mp_pCPULimiter;
