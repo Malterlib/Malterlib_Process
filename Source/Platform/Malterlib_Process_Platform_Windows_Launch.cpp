@@ -1479,7 +1479,7 @@ namespace NMib::NProcess::NPlatform
 							if (!bRunAsUser)
 								RevertToSelf();
 							NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
-							_Errors += NStr::CStr::CFormat("CreateProcessWithTokenW({}, {}) failed with : {}" DMibNewLine) << ProgramPathFull << Params << Error;
+							_Errors += NStr::CStr::CFormat("CreateProcessWithTokenW({}, {}, {}) failed with : {}" DMibNewLine) << ProgramPathFull << Params << WorkingDir << Error;
 							return false;
 						}
 						if (!bRunAsUser)
