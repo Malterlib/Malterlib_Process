@@ -752,7 +752,7 @@ namespace NMib::NProcess
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
-		return Entry.m_Promise;
+		return Entry.m_Promise.f_Future();
 	}
 
 	NConcurrency::TCFuture<NContainer::CSecureByteVector> CStdInActor::f_ReadBinary()
@@ -763,7 +763,7 @@ namespace NMib::NProcess
 		Internal.f_RegisterForReadBinary();
 		Internal.f_HandleBufferedStdInBinary();
 
-		return Entry.m_Promise;
+		return Entry.m_Promise.f_Future();
 	}
 
 	NConcurrency::TCFuture<NStr::CStrSecure> CStdInActor::f_ReadPrompt(CStdInReaderPromptParams const &_Params)
@@ -775,6 +775,6 @@ namespace NMib::NProcess
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
-		return Entry.m_Promise;
+		return Entry.m_Promise.f_Future();
 	}
 }

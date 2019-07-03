@@ -191,7 +191,7 @@ namespace NMib::NProcess
 			}
 		;
 
-		return pState->m_Promise;
+		return pState->m_Promise.f_Future();
 	}
 
 	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CProcessLaunchActor::f_Launch
