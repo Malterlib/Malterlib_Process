@@ -19,6 +19,10 @@ using namespace NMib;
 #include <mach/task.h>
 #endif
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
 #include "Malterlib_Process_Platform_POSIX.h"
 
 #include <Mib/Core/PlatformSpecific/PosixErrNo>
@@ -30,14 +34,7 @@ using namespace NMib;
 
 NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerDomain()
 {
-	char Hostname[_POSIX_HOST_NAME_MAX];
-
-	int Result = gethostname(Hostname, _POSIX_HOST_NAME_MAX);
-
-	if (Result == -1)
-		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get computer domain)", errno));
-
-	NMib::NStr::CStr HostnameStr = Hostname;
+	NMib::NStr::CStr HostnameStr = fg_Process_GetHostName();
 
 	fg_GetStrSep(HostnameStr, ".");
 
@@ -102,14 +99,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerName()
 
 NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerAddress()
 {
-	char Hostname[_POSIX_HOST_NAME_MAX];
-
-	int Result = gethostname(Hostname, _POSIX_HOST_NAME_MAX);
-
-	if (Result == -1)
-		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get computer name)", errno));
-
-	NMib::NStr::CStr HostnameStr = Hostname;
+	NMib::NStr::CStr HostnameStr = fg_Process_GetHostName();
 
 	NMib::NStr::CStr ComputerName = fg_GetStrSep(HostnameStr, ".");
 	if (HostnameStr == "local")
@@ -120,6 +110,8 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerAddress()
 
 NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetHostName()
 {
+	using namespace NMib::NStr;
+
 	char Hostname[_POSIX_HOST_NAME_MAX];
 
 	int Result = gethostname(Hostname, _POSIX_HOST_NAME_MAX);
@@ -127,9 +119,28 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetHostName()
 	if (Result == -1)
 		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get host name)", errno));
 
-	NMib::NStr::CStr HostnameStr = Hostname;
-	
-	return HostnameStr;
+#ifdef DPlatformFamily_OSX
+	return Hostname;
+#else
+	struct addrinfo HintAddrInfo;
+	NMemory::fg_MemClear(HintAddrInfo);
+
+	HintAddrInfo.ai_socktype = SOCK_DGRAM;
+	HintAddrInfo.ai_flags = AI_CANONNAME;
+
+	addrinfo *pAddrInfo = nullptr;
+
+	Result = getaddrinfo(Hostname, NULL, &HintAddrInfo, &pAddrInfo);
+
+	if (Result == -1)
+		DMibError(NMib::NPlatform::fg_FormatErrno("getaddrinfo (get host name)", errno));
+
+	CStr FullyQualifiedName = pAddrInfo->ai_canonname;
+
+	freeaddrinfo(pAddrInfo);
+
+	return FullyQualifiedName;
+#endif
 }
 
 mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
