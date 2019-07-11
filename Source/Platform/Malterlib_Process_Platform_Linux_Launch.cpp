@@ -16,6 +16,9 @@
 #include <fcntl.h>
 #include <errno.h>
 
+int fg_GetUnixOpenFlags();
+void fg_SetUnixHandleOptions(int _File);
+
 bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess::NPlatform::CPOSIXLaunchContext *_pLaunchContext, NMib::NProcess::CProcessLaunchParams &_Params, NMib::NStr::CStr &_Program, int& _StdErrRead, int& _StdErrWrite, int &_StdInRead, int &_StdInWrite, NMib::NStr::CStr &_Errors)
 {
 	bool bGKSUAvailable = fg_FindExecutable("gksu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gksu";
@@ -73,13 +76,14 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 
 		if (mkfifo(ReadPipeName.f_GetStr(), S_IRUSR|S_IWUSR) == 0)
 		{
-			_StdErrRead = open(ReadPipeName.f_GetStr(), O_CLOEXEC|O_NONBLOCK|O_RDONLY, S_IRUSR);
+			_StdErrRead = open(ReadPipeName.f_GetStr(), fg_GetUnixOpenFlags() | O_NONBLOCK | O_RDONLY, S_IRUSR);
 
 			if (_StdErrRead == -1)
 			{
 				_Errors += NMib::NPlatform::fg_FormatErrno("open (elevate stderr pipe)", errno);
 				return false;
 			}
+			fg_SetUnixHandleOptions(_StdErrRead);
 		}
 		else
 		{
@@ -318,7 +322,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 
 							if (!pLaunchData->m_StdInPipeName.f_IsEmpty())
 							{
-								int Pipe = open(pLaunchData->m_StdInPipeName.f_GetStr(), O_CLOEXEC|O_WRONLY, S_IWUSR);
+								int Pipe = open(pLaunchData->m_StdInPipeName.f_GetStr(), fg_GetUnixOpenFlags() | O_WRONLY, S_IWUSR);
 
 								if (Pipe == -1)
 								{
@@ -332,6 +336,8 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 								}
 								else
 								{
+									fg_SetUnixHandleOptions(Pipe);
+
 									NMib::NStr::CStr Errors;
 									if (!pLaunchData->m_pLaunchContext->f_RedirectStdInWrite(Pipe, Errors))
 									{
