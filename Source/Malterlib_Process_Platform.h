@@ -121,6 +121,7 @@ namespace NMib::NProcess
 		NMib::NStr::CStr fg_Process_GetComputerName();
 		NMib::NStr::CStr fg_Process_GetComputerAddress();
 		NMib::NStr::CStr fg_Process_GetHostName();
+		NMib::NStr::CStr fg_Process_GetFullyQualiedHostName();
 
 		void fg_Process_SetPriority(EExecutionPriority _Priority);
 

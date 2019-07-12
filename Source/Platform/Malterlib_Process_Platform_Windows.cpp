@@ -383,6 +383,16 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetHostName()
 {
 	NStr::CWStr Temp;
 	DWORD Size = 0;
+	GetComputerNameExW(ComputerNameDnsHostname, Temp.f_GetStr(1), &Size);
+	GetComputerNameExW(ComputerNameDnsHostname, Temp.f_GetStr(Size), &Size);
+	Temp.f_GetLen();
+	return NStr::NPlatform::fg_StrFromWindows(Temp);
+}
+
+NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetFullyQualiedHostName()
+{
+	NStr::CWStr Temp;
+	DWORD Size = 0;
 	GetComputerNameExW(ComputerNameDnsFullyQualified, Temp.f_GetStr(1), &Size);
 	GetComputerNameExW(ComputerNameDnsFullyQualified, Temp.f_GetStr(Size), &Size);
 	Temp.f_GetLen();

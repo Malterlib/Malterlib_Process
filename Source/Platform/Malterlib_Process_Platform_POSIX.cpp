@@ -34,7 +34,7 @@ using namespace NMib;
 
 NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerDomain()
 {
-	NMib::NStr::CStr HostnameStr = fg_Process_GetHostName();
+	NMib::NStr::CStr HostnameStr = fg_Process_GetFullyQualiedHostName();
 
 	fg_GetStrSep(HostnameStr, ".");
 
@@ -119,6 +119,20 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetHostName()
 	if (Result == -1)
 		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get host name)", errno));
 
+	return Hostname;
+}
+
+NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetFullyQualiedHostName()
+{
+	using namespace NMib::NStr;
+
+	char Hostname[_POSIX_HOST_NAME_MAX];
+
+	int Result = gethostname(Hostname, _POSIX_HOST_NAME_MAX);
+
+	if (Result == -1)
+		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get host name)", errno));
+
 #ifdef DPlatformFamily_OSX
 	return Hostname;
 #else
@@ -142,7 +156,6 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetHostName()
 	return FullyQualifiedName;
 #endif
 }
-
 mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 {
 	return getpid();
