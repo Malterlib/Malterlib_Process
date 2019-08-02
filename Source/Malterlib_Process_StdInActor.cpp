@@ -121,14 +121,14 @@ namespace NMib::NProcess
 
 		struct CReadEntry
 		{
-			CReadEntryInfo m_EntryInfo;
 			NConcurrency::TCPromise<NStr::CStrSecure> m_Promise;
+			CReadEntryInfo m_EntryInfo;
 		};
 
 		struct CReadEntryBinary
 		{
-			NContainer::CSecureByteVector m_Buffer;
 			NConcurrency::TCPromise<NContainer::CSecureByteVector> m_Promise;
+			NContainer::CSecureByteVector m_Buffer;
 		};
 
 		struct CBufferedStdIn
@@ -183,14 +183,9 @@ namespace NMib::NProcess
 	{
 		f_AbortReads();
 		auto &Internal = *mp_pInternal;
-		NStorage::TCSharedPointer<NConcurrency::CCanDestroyTracker> pCanDestroy = fg_Construct();
 
-		NConcurrency::g_Dispatch(Internal.m_StdOutActor) / []
-			{
-			}
-			> pCanDestroy->f_Track()
-		;
-		return pCanDestroy->f_Future();
+		co_await Internal.m_StdOutActor.f_Destroy();
+		co_return {};
 	}
 
 	void CStdInActor::f_AbortReads()
@@ -669,8 +664,8 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags)
 	{
-		auto &Internal = *mp_pInternal;
 		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
+		auto &Internal = *mp_pInternal;
 		try
 		{
 			NStorage::TCSharedPointer<CInternal::CSubscription, NStorage::CSupportWeakTag> pSubscription = fg_Construct
@@ -707,8 +702,8 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags)
 	{
-		auto &Internal = *mp_pInternal;
 		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
+		auto &Internal = *mp_pInternal;
 		try
 		{
 			NStorage::TCSharedPointer<CInternal::CSubscription, NStorage::CSupportWeakTag> pSubscription = fg_Construct

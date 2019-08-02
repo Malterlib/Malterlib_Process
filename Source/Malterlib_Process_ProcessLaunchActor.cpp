@@ -68,10 +68,8 @@ namespace NMib::NProcess
 			Internal.m_fOnStateChange.f_Clear();
 			Internal.m_OnOutput.f_Clear();
 			Internal.m_PendingProcessStops.f_Clear();
-			return fg_Explicit();
+			co_return {};
 		}
-
-		NConcurrency::TCPromise<void> Promise;
 
 		bool bStopRun = false;
 		if (Internal.m_bProcessRunning)
@@ -82,24 +80,28 @@ namespace NMib::NProcess
 			}
 			catch (NException::CException const &)
 			{
-				Promise.f_SetResult();
-				return Promise.f_MoveFuture();
+				co_return {};
 			}
 			bStopRun = true;
 		}
+
 		auto &Pending = Internal.m_PendingProcessStops.f_Insert();
+		NConcurrency::TCPromise<void> PendingStopPromise;
 		Pending.m_bStopRun = bStopRun;
-		Pending.m_fOnStop = [Promise](uint32 _ExitCode)
+		Pending.m_fOnStop = [PendingStopPromise](uint32 _ExitCode)
 			{
-				Promise.f_SetResult();
+				PendingStopPromise.f_SetResult();
 			}
 		;
-		Pending.m_fOnException = [Promise]()
+		Pending.m_fOnException = [PendingStopPromise]()
 			{
-				Promise.f_SetCurrentException();
+				PendingStopPromise.f_SetCurrentException();
 			}
 		;
-		return Promise.f_MoveFuture();
+
+		co_await PendingStopPromise.f_MoveFuture();
+
+		co_return {};
 	}
 
 	CProcessLaunchActor::CLaunch::CLaunch(CProcessLaunchParams const &_Params)
@@ -128,20 +130,20 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<CProcessLaunchActor::CSimpleLaunchResult> CProcessLaunchActor::f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch)
 	{
-		if (_SimpleLaunch.m_Params.m_fOnOutput)
-			return DMibErrorInstance("On output cannot be specified for simple launch");
-		if (_SimpleLaunch.m_Params.m_fOnStateChange)
-			return DMibErrorInstance("On state change cannot be specified for simple launch");
-
 		struct CState
 		{
+			NConcurrency::TCPromise<CProcessLaunchActor::CSimpleLaunchResult> m_Promise;
 			NConcurrency::CActorSubscription m_Subscription;
 			CProcessLaunchActor::CSimpleLaunchResult m_LaunchResult;
-			NConcurrency::TCPromise<CProcessLaunchActor::CSimpleLaunchResult> m_Promise;
 			ESimpleLaunchFlag m_SimpleFlags = ESimpleLaunchFlag_None;
 		};
 
 		NStorage::TCSharedPointer<CState> pState = fg_Construct();
+
+		if (_SimpleLaunch.m_Params.m_fOnOutput)
+			return pState->m_Promise <<= DMibErrorInstance("On output cannot be specified for simple launch");
+		if (_SimpleLaunch.m_Params.m_fOnStateChange)
+			return pState->m_Promise <<= DMibErrorInstance("On state change cannot be specified for simple launch");
 
 		pState->m_SimpleFlags = _SimpleLaunch.m_SimpleFlags;
 
@@ -200,6 +202,8 @@ namespace NMib::NProcess
 			, NConcurrency::TCActor<NConcurrency::CActor> &&_CallbackActor
 		)
 	{
+		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
+
 		DMibRequire(!mp_pInternal);
 
 		mp_pInternal = fg_Construct(this);
@@ -497,8 +501,6 @@ namespace NMib::NProcess
 			;
 		}
 
-		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
-
 #if (DMibSysLogSeverities) != 0
 		if (pState->m_ToLog & ELogFlag_Info)
 		{
@@ -537,13 +539,14 @@ namespace NMib::NProcess
 			NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> &&_fSend
 		)
 	{
+		NConcurrency::TCPromise<void> Promise;
+
 		if (!m_pProcessLaunch)
-			return fg_Explicit();
+			return Promise <<= g_Void;
 
 		if (!m_BlockingActor)
 			m_BlockingActor = NConcurrency::fg_ConstructActor<NConcurrency::CSeparateThreadActor>(fg_Construct("Blocking process launch"));
 
-		NConcurrency::TCPromise<void> Promise;
 		// Dispatch on separate thread actor as this can block
 		fg_Dispatch
 			(
@@ -603,11 +606,11 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_StopProcess() const
 	{
+		NConcurrency::TCPromise<uint32> Promise;
+
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch)
-			return fg_Explicit(0);
-
-		NConcurrency::TCPromise<uint32> Promise;
+			return Promise <<= 0;
 
 		bool bStopRun = false;
 
@@ -619,8 +622,7 @@ namespace NMib::NProcess
 			}
 			catch (NException::CException const &)
 			{
-				Promise.f_SetCurrentException();
-				return Promise.f_MoveFuture();
+				return Promise <<= NException::fg_CurrentException();
 			}
 			bStopRun = true;
 		}
