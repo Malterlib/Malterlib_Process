@@ -172,7 +172,7 @@ namespace
 					}						
 					
 				}
-				catch (NMib::NException::CException const &_Exception)
+				catch (NMib::NException::CException const &)
 				{
 				}
 			}
