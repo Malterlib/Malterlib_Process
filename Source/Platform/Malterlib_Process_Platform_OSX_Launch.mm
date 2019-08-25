@@ -122,7 +122,6 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessL
 	
 	NSString* pNSTarget = NMib::NPlatform::fg_MaxOSX_GetString(Target);
 	
-#if DPlatformVersionMax >= 1060
 	if (CSystem::ms_PlatformVersion >= 10'06'00)
 	{
 		NSURL* pURL = [[NSURL alloc] initFileURLWithPath:pNSTarget];
@@ -137,7 +136,6 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessL
 		[[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:pURLArray];
 	}
 	else
-#endif
 	{
 		NSString *pNSPath = NMib::NPlatform::fg_MaxOSX_GetString(NMib::NFile::CFile::fs_GetPath(Target));
 		

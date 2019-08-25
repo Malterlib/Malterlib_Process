@@ -1469,11 +1469,6 @@ namespace NMib::NProcess::NPlatform
 		}
 #endif
 
-#if DPlatformVersionMax <= 1050
-#define pbi_start_tvsec pbi_start.tv_sec
-#define pbi_start_tvusec pbi_start.tv_usec
-#endif
-
 		void fg_ConvertExecutionStatistics
 			(
 				CProcessStatistics &_Dest

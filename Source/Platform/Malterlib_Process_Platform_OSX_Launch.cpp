@@ -58,7 +58,6 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 	
 	
 	AuthorizationRights Rights = {0};
-#if DPlatformVersionMax >= 1070
 	AuthorizationItem Right;
 	if (CSystem::ms_PlatformVersion >= 10'07'00)
 	{
@@ -66,14 +65,12 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 		Rights.count = 1;
 		Rights.items = &Right;
 	}
-#endif
 	AuthorizationFlags Flags =	kAuthorizationFlagInteractionAllowed|kAuthorizationFlagPreAuthorize|kAuthorizationFlagExtendRights;
 	
 	NStr::CStr Prompt = _Params.m_Prompt;
 	NStr::CStr IconPath = _Params.m_IconPath;
 	
 	AuthorizationEnvironment Environment = {0};
-#if DPlatformVersionMax >= 1070
 	AuthorizationItem EnvironmentItems[2];
 	if (CSystem::ms_PlatformVersion >= 10'07'00)
 	{
@@ -90,8 +87,7 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 		Environment.count = 2;
 		Environment.items = EnvironmentItems;
 	}
-#endif
-	
+
 	Status = AuthorizationCopyRights(Authorization, &Rights, &Environment, Flags, NULL);
 	if (Status != errAuthorizationSuccess)
 	{
