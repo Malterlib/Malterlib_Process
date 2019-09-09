@@ -7,7 +7,7 @@
 #include <Mib/Process/ProxiedProcessLaunch>
 #include <Mib/Cryptography/UUID>
 #include <Mib/Process/StdIn>
-
+#include <Mib/Encoding/JSON>
 
 #include "MalterlibBuild.h"
 
@@ -41,23 +41,25 @@ namespace
 
 		static NMib::NStr::CStr fs_GetTestPath(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test, NMib::NStr::CStr const &_Logger = "Registry")
 		{
-			NMib::NStr::CStr Ret;
+			NMib::NContainer::TCVector<NMib::NStr::CStr> Ret;
 			if (_Test.f_IsEmpty())
-				Ret = NMib::NStr::CStr::CFormat("--Tests \"{}\" --TestLogger {} --TestResults (All ProcessRecursive)") << _TestPath << _Logger;
+				Ret = {"--test", _TestPath, "--logger", _Logger, "--filter-results", "[\"All\"]", "--process-recursive"};
 			else
-				Ret = NMib::NStr::CStr::CFormat("--Tests \"{}/{}\" --TestLogger {} --TestResults (All ProcessRecursive)") << _TestPath << _Test << _Logger;
+				Ret = {"--test", _TestPath / _Test, "--logger", _Logger, "--filter-results", "[\"All\"]", "--process-recursive"};
 
 			auto Groups = NMib::NTest::fg_TestGetCurrentGroups();
 
 			if (!Groups.f_IsEmpty())
 			{
-				Ret += " --TestGroups (";
+				Ret.f_Insert("--groups");
+
+				NMib::NEncoding::CJSON JSON = NMib::NEncoding::EJSONType_Array;
 				for (auto iGroup = Groups.f_GetIterator(); iGroup; ++iGroup)
-					Ret += NMib::NStr::CStr::CFormat("{} ") << iGroup.f_GetKey();
-				Ret += ")";
+					JSON.f_Insert(iGroup.f_GetKey());
+				Ret.f_Insert(JSON.f_ToString());
 			}
 
-			return Ret;
+			return NMib::NProcess::CProcessLaunchParams::fs_GetParams(Ret);
 		}
 
 		NMib::NProcess::CProcessLaunchParams f_GetLaunchParams(NMib::NStr::CStr const &_TestPath = fg_TestGetCurrentPath(), NMib::NStr::CStr const &_Test = "JustExit", NMib::NStr::CStr const &_Logger = "Registry")
@@ -92,7 +94,7 @@ namespace
 				Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
 
 			if (!m_bFailClient)
-				Params.m_Parameters = "--Tests Malterlib/Process/ProcessLaunch/ProxyServer --TestLogger Null --TestResults (ProcessRecursive)";
+				Params.m_Parameters = "--test Malterlib/Process/ProcessLaunch/ProxyServer --logger Null --process-recursive";
 			else
 				Params.m_Parameters = "--DoesNotExist";
 
@@ -471,7 +473,26 @@ namespace
 					NMib::NStr::CStr URLHandler = DLaunchableScheme + URLTest; // NMib::NStr::CStr::CFormat("idslaunch{}") << NMib::NMisc::g_Random->f_GetValue<uint32>();
 
 					#ifdef DPlatformFamily_Windows
-						NMib::NProcess::CProcessLaunch::fs_RegisterURLHandler(URLHandler, NMib::NFile::CFile::fs_GetProgramPath(), NMib::NStr::CStr::CFormat("--Tests \"{}\" --TestLogger Registry --TestResults (All ProcessRecursive) --TestData \"%1\"") << fg_TestGetCurrentPath());
+						NMib::NProcess::CProcessLaunch::fs_RegisterURLHandler
+							(
+								URLHandler
+								, NMib::NFile::CFile::fs_GetProgramPath()
+								, NMib::NProcess::CProcessLaunchParams::fs_GetParams
+								(
+									{
+										"--test"
+										, fg_TestGetCurrentPath()
+										, "--logger"
+										, "Registry"
+										, "--filter-results"
+										, "[\"All\"]"
+										, "--process-recursive"
+										, "--extra-data"
+										, "\"%1\""
+									}
+								)
+							)
+						;
 						auto Cleanup
 							= NMib::fg_OnScopeExit
 							(
@@ -1155,7 +1176,19 @@ namespace
 						NMib::NStr::CStr StdOut;
 						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 
-						Params.m_Parameters = NMib::NStr::CStr::CFormat("--Tests \"{}\" --TestLogger Registry --TestResults (All ProcessRecursive)") << fg_TestGetCurrentPath();
+						Params.m_Parameters = NMib::NProcess::CProcessLaunchParams::fs_GetParams
+							(
+								{
+									"--test"
+									, fg_TestGetCurrentPath()
+									, "--logger"
+									, "Registry"
+									, "--filter-results"
+									, "[\"All\"]"
+									, "--process-recursive"
+								}
+							)
+						;
 
 						NMib::NStr::CStr SandboxPath = NMib::NFile::CFile::fs_GetProgramDirectory() + "/SandboxTest";
 						NMib::NStr::CStr SandboxFile = SandboxPath + "/TestFile.txt";

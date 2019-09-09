@@ -30,9 +30,9 @@ namespace
 		static NMib::NStr::CStr fs_GetTestPath(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test)
 		{
 			if (_Test.f_IsEmpty())
-				return NMib::NStr::CStr::CFormat("--Tests \"{}\" --TestLogger Null --TestResults (All ProcessRecursive)") << _TestPath;
+				return NMib::NProcess::CProcessLaunchParams::fs_GetParams({"--test", _TestPath, "--logger", "Null", "--filter-results", "[\"All\"]", "--process-recursive"});
 			else
-				return NMib::NStr::CStr::CFormat("--Tests \"{}/{}\" --TestLogger Null --TestResults (All ProcessRecursive)") << _TestPath << _Test;
+				return NMib::NProcess::CProcessLaunchParams::fs_GetParams({"--test", _TestPath / _Test, "--logger", "Null", "--filter-results", "[\"All\"]", "--process-recursive"});
 		}
 
 		static NMib::NProcess::CProcessLaunchParams fs_GetLaunchParams(NMib::NStr::CStr const &_Test = "JustExit", NMib::NStr::CStr const &_TestPath = fg_TestGetCurrentPath())
@@ -206,8 +206,8 @@ namespace
 				{
 					DMibTestSuite("Process redirection")
 					{
-						//--Tests "Malterlib/StdIn/*/Process redirection/Level2" --TestLogger Null --TestResults (All ProcessRecursive)
-						//--Tests Malterlib/StdIn* --TestResults (All)
+						//--test "Malterlib/StdIn/*/Process redirection/Level2" --logger Null --filter-results ["All"] --process-recursive
+						//--test Malterlib/StdIn* --filter-results ["All"]
 						EExitResult Exited = EExitResult_None;
 						uint32 ExitCode = 66;
 						NMib::NStr::CStr StdOut;
