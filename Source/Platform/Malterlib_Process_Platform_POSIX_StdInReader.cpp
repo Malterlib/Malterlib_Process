@@ -254,7 +254,7 @@ namespace NMib::NProcess::NPlatform
 		}
 	};
 
-	TCSubSystem<CSubSystem_Process_Platform_POSIX_StdInReader, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_StdInReader = {DAggregateInit};
+	constinit TCSubSystem<CSubSystem_Process_Platform_POSIX_StdInReader, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_StdInReader = {DAggregateInit};
 
 	CPOSIXStdInReader::~CPOSIXStdInReader()
 	{

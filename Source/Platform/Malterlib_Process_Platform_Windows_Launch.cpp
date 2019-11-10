@@ -55,7 +55,7 @@ namespace NMib::NProcess::NPlatform
 		}
 	};
 
-	TCSubSystem<CSubSystem_Process_Platform_Windows_Launch, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_Windows_Launch = {DAggregateInit};
+	constinit TCSubSystem<CSubSystem_Process_Platform_Windows_Launch, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_Windows_Launch = {DAggregateInit};
 
 	CProcessEntry::~CProcessEntry()
 	{

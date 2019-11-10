@@ -628,7 +628,7 @@ void NMib::NProcess::NPlatform::fg_Process_Stop(mint _ProcessID)
 	}
 }
 
-static NMib::NStorage::TCAggregate<NMib::NThread::CEvent> g_TerminationEvent = {DAggregateInit};
+constinit static NMib::NStorage::TCAggregate<NMib::NThread::CEvent> g_TerminationEvent = {DAggregateInit};
 
 void NMib::NProcess::NPlatform::fg_Process_AbortWaitForTermination()
 {
@@ -667,7 +667,7 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 	g_TerminationEvent.f_Destruct();
 }
 
-static NMib::NStorage::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};
+constinit static NMib::NStorage::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};
 
 NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTermination(NFunction::TCFunction<void ()> &&_fOnTerminate)
 {

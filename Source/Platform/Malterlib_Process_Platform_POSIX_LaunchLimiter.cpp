@@ -24,7 +24,7 @@ namespace NMib::NProcess::NPlatform
 		}
 	};
 
-	TCSubSystem<CSubSystem_Process_Platform_POSIX_LaunchLimiter, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform = {DAggregateInit};
+	constinit TCSubSystem<CSubSystem_Process_Platform_POSIX_LaunchLimiter, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform = {DAggregateInit};
 
 	CSharedLimiter fg_GetCPULimiter(NStr::CStr const &_ProcessGroup, fp32 _CPUUsage, pid_t _ProcessID)
 	{

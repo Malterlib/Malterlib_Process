@@ -349,7 +349,7 @@ namespace NMib::NProcess::NPlatform
 		}
 	};
 
-	TCSubSystem<CSubSystem_Process_Platform_Windows_StdInReader, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_Windows_StdInReader = {DAggregateInit};
+	constinit TCSubSystem<CSubSystem_Process_Platform_Windows_StdInReader, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_Windows_StdInReader = {DAggregateInit};
 
 	CWindowsStdInReader::~CWindowsStdInReader()
 	{
