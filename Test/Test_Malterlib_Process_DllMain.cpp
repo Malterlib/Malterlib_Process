@@ -26,9 +26,8 @@ extern "C"
 						NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
 					}
 					break;
+				case NMib::NProcess::EProcessLaunchState_Launched:
 				case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-					{
-					}
 					break;
 				}
 			}

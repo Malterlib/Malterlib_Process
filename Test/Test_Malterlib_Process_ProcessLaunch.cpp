@@ -228,6 +228,8 @@ namespace
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
+							case NMib::NProcess::EProcessLaunchState_Launched:
+								break;
 							}
 						}
 					;
@@ -386,6 +388,8 @@ namespace
 								NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
 								DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_Launched:
 							break;
 						}
 					}
@@ -809,6 +813,8 @@ namespace
 										//DMibTrace("Launch failed error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 									}
 									break;
+								case NMib::NProcess::EProcessLaunchState_Launched:
+									break;
 								}
 
 							}
@@ -972,6 +978,8 @@ namespace
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
+							case NMib::NProcess::EProcessLaunchState_Launched:
+								break;
 							}
 						}
 					;
@@ -1072,6 +1080,8 @@ namespace
 											NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
 											DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 										}
+										break;
+									case NMib::NProcess::EProcessLaunchState_Launched:
 										break;
 									}
 								}
@@ -1223,6 +1233,8 @@ namespace
 										DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 									}
 									break;
+								case NMib::NProcess::EProcessLaunchState_Launched:
+									break;
 								}
 							}
 						;
@@ -1301,6 +1313,8 @@ namespace
 									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_Launched:
 								break;
 							}
 						}
@@ -1463,18 +1477,20 @@ namespace
 
 							switch (_State.f_GetTypeID())
 							{
-								case NMib::NProcess::EProcessLaunchState_Exited:
+							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
 									++Finished;
 									Event.f_Signal();
 								}
 								break;
-								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
 									DMibTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 									++Finished;
 									Event.f_Signal();
 								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_Launched:
 								break;
 							}
 						}
@@ -1526,6 +1542,8 @@ namespace
 									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
 									FailedMessage = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
 								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_Launched:
 								break;
 							}
 						}
@@ -1704,6 +1722,8 @@ namespace
 								{
 									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
 								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_Launched:
 								break;
 							}
 						}
@@ -1892,6 +1912,8 @@ namespace
 									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_Launched:
 								break;
 							}
 						}
