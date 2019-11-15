@@ -470,11 +470,17 @@ namespace
 				else
 				{
 #ifdef DPlatformFamily_Windows
-					NMib::NStr::CStr URLTest = NMib::NCryptography::fg_GetHashedUuidString(fg_TestGetCurrentPath(), NMib::NCryptography::CUniversallyUniqueIdentifier("{3CD79DA2-0245-4662-A4E2-153B32B8FCE2}"));
+					NMib::NStr::CStr URLTest = NMib::NCryptography::fg_GetHashedUuidString
+						(
+							fg_TestGetCurrentPath()
+							, NMib::NCryptography::CUniversallyUniqueIdentifier("{3CD79DA2-0245-4662-A4E2-153B32B8FCE2}")
+						)
+					;
 #else
 					NMib::NStr::CStr URLTest;
 #endif
-					NMib::NStr::CStr URLHandler = DLaunchableScheme + URLTest; // NMib::NStr::CStr::CFormat("idslaunch{}") << NMib::NMisc::g_Random->f_GetValue<uint32>();
+					NMib::NStr::CStr URLHandler = DLaunchableScheme + URLTest;
+					URLHandler = URLHandler.f_LowerCase();
 
 					#ifdef DPlatformFamily_Windows
 						NMib::NProcess::CProcessLaunch::fs_RegisterURLHandler
@@ -492,9 +498,9 @@ namespace
 										, "[\"All\"]"
 										, "--process-recursive"
 										, "--extra-data"
-										, "\"%1\""
 									}
 								)
+								+ " \"%1\""
 							)
 						;
 						auto Cleanup
@@ -523,6 +529,13 @@ namespace
 						Params.m_LaunchType = NMib::NProcess::EProcessLaunchType_Document;
 						Params.m_Target = URLHandler + "://" + TestFilePath;
 						Params.m_bShowLaunched = false;
+						NMib::NStr::CStr Output;
+						Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+							{
+								Output += _Output;
+							}
+						;
+
 						Params.m_fOnStateChange
 							= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 							{
@@ -562,6 +575,7 @@ namespace
 							DMibTestPath("Block on exit");
 							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
 							DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
+							DMibTest(DMibExpr(Output) == DMibExpr(""));
 							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
 							DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
 						}
@@ -573,6 +587,7 @@ namespace
 
 						Exited = EExitResult_None;
 						ExitCode = 66;
+						Output.f_Clear();
 						LaunchError.f_Clear();
 						NMib::NAtomic::fg_MemoryFence();
 
@@ -589,6 +604,7 @@ namespace
 							DMibTestPath("Wait for exit");
 							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
 							DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
+							DMibTest(DMibExpr(Output) == DMibExpr(""));
 							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
 							DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
 						}

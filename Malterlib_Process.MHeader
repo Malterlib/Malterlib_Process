@@ -145,7 +145,7 @@ Property
 	Property
 	{
 		URLSchemeUnique "@(MalterlibFinalModuleDestination->HashUUID(AlphaNum))"
-		URLScheme "hs@(URLSchemeUnique->FormatString({sm6}))"
+		URLScheme "mib@(URLSchemeUnique->FormatString({sm6}))"
 
 		MalterlibBuildSpecifics "@(MalterlibBuildSpecifics)\r\n"\
 								"#define DLaunchableScheme \"@(URLScheme)\"\r\n"
