@@ -5,9 +5,9 @@ Import "../Core/Lib_Malterlib.MTarget"
 
 %Group "{Malterlib}/{Lib_Malterlib_Process}"
 {
-	%Group Process
+	%Group "Process"
 	{
-		%Group Include
+		%Group "Include"
 		{
 			Compile.Type "C++"
 			{
@@ -16,7 +16,7 @@ Import "../Core/Lib_Malterlib.MTarget"
 			%File "Include/Mib/Process/^*"
 		}
 		%File "Source/*"
-		%Group Platform
+		%Group "Platform"
 		{
 			%File "Source/Platform/*"
 			{
@@ -26,12 +26,12 @@ Import "../Core/Lib_Malterlib.MTarget"
 				}
 			}
 		}
-		%Group Documentation
+		%Group "Documentation"
 		{
 			%File "Documentation/*"
 		}
 	}
-	%Dependency Lib_Malterlib_Concurrency
+	%Dependency "Lib_Malterlib_Concurrency"
 	{
 		Dependency.Indirect true
 	}	
@@ -58,7 +58,7 @@ Property
 	}
 }
 
-%Target Dll_Test_Malterlib_Helper_Process
+%Target "Dll_Test_Malterlib_Helper_Process"
 {
 	Property
 	{
@@ -74,11 +74,11 @@ Property
 	}
 	Compile
 	{
-		!!CompileDialect C
+		!!CompileDialect "C"
 		PrefixHeader ""
 	}
-	%File Test/Test_Malterlib_Process_DllMain.cpp
-	%Dependency Lib_Malterlib
+	%File "Test/Test_Malterlib_Process_DllMain.cpp"
+	%Dependency "Lib_Malterlib"
 }
 
 
@@ -104,7 +104,7 @@ Property
 
 		MalterlibEnableBreakpad true
 		{
-			!!PlatformFamily OSX
+			!!PlatformFamily "OSX"
 		}
 		MalterlibSigning false
 		MalterlibTestOwnMain true
@@ -116,15 +116,15 @@ Property
 	%Group "Helper Source"
 	{
 		
-		%File Test/Test_Malterlib_Process_Launchable_Main.cpp
-		%File Test/Test_Malterlib_Process_Launchable_EventHandler.mm
+		%File "Test/Test_Malterlib_Process_Launchable_Main.cpp"
+		%File "Test/Test_Malterlib_Process_Launchable_EventHandler.mm"
 		{
 			Compile.Disabled true
 			{
-				!PlatformFamily OSX
+				!PlatformFamily "OSX"
 			}
 		}
-		%File Test/Test_Malterlib_Process_Launchable_EventHandler.h
+		%File "Test/Test_Malterlib_Process_Launchable_EventHandler.h"
 	}
 }
 
@@ -162,24 +162,24 @@ Property
 									"			<string>allowed</string>\n"\
 									"		</array>\n"
 		{
-			!!PlatformFamily OSX
+			!!PlatformFamily "OSX"
 		}
 
 	}
-	%Group Tests
+	%Group "Tests"
 	{
-		%File Test/Test_Malterlib_Process_ProcessLaunch.cpp
-		%File Test/Test_Malterlib_Process_StdIn.cpp
-		%File Test/Test_Malterlib_Process_Info.cpp
+		%File "Test/Test_Malterlib_Process_ProcessLaunch.cpp"
+		%File "Test/Test_Malterlib_Process_StdIn.cpp"
+		%File "Test/Test_Malterlib_Process_Info.cpp"
 	}
 	%Dependency "Malterlib_Helper_Process=Exe_Test_Malterlib_Helper_Process"
 	{
-		!!PlatformFamily OSX
-		Dependency.Link "false"
+		!!PlatformFamily "OSX"
+		Dependency.Link false
 	}
 	%Dependency "Dll_Test_Malterlib_Helper_Process"
 	{
-		Dependency.Link "false"
+		Dependency.Link false
 	}
 }
 
