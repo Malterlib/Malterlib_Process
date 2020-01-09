@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -63,9 +63,18 @@ namespace NMib::NProcess::NPlatform
 
 	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths, NStr::CStr const &_LocalPaths)
 	{
+		auto fExistsAndHasRightAttribs = [&](NStr::CStr const &_Path)
+			{
+				if (!NMib::NFile::CFile::fs_FileExists(_Path, _Type))
+					return false;
+				auto Attribs = NMib::NFile::CFile::fs_GetAttributes(_Path);
+				return (Attribs & _Type) == _Type;
+			}
+		;
+
 		// First look in current dir
 		NStr::CStr FullPath = NFile::NPlatform::fg_ConvertToPOSIXPath(_Path, true);
-		if (NMib::NFile::CFile::fs_FileExists(FullPath, _Type))
+		if (fExistsAndHasRightAttribs(FullPath))
 			return FullPath;
 
 		if (!_bAllowLocate)
@@ -83,16 +92,17 @@ namespace NMib::NProcess::NPlatform
 				NStr::CStr ThisPath = fg_GetStrSep(Path, ":");
 
 				NStr::CStr ExecutablePath = NMib::NFile::CFile::fs_AppendPath(ThisPath, _Path);
-				if (NMib::NFile::CFile::fs_FileExists(ExecutablePath, _Type))
+				if (fExistsAndHasRightAttribs(ExecutablePath))
 					return ExecutablePath;
 			}
 		}
 		for (auto &Path : _ExtraPaths)
 		{
 			NStr::CStr ExecutablePath = NMib::NFile::CFile::fs_AppendPath(Path, _Path);
-			if (NMib::NFile::CFile::fs_FileExists(ExecutablePath, _Type))
+			if (fExistsAndHasRightAttribs(ExecutablePath))
 				return ExecutablePath;
 		}
+
 		return _Path;
 	}
 
@@ -299,8 +309,8 @@ namespace NMib::NProcess::NPlatform
 			{
 #ifdef DPlatformFamily_OSX
 				NStr::CStr OriginalProgram = Program;
-				Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Directory, {}, LocalPaths);
-				if ( NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
+				Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_Directory, {}, LocalPaths);
+				if (NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
 				{
 					if (NMib::NFile::CFile::fs_GetExtension(Program).f_CmpNoCase("app") == 0)
 					{
@@ -313,9 +323,9 @@ namespace NMib::NProcess::NPlatform
 						NewLaunchOptions.m_Target = Program;
 						return fg_MacOSX_LaunchUIExecutable(NewLaunchOptions, mp_ProcessID, _Errors);
 					}
-					else
-						Program = fg_FindExecutable(OriginalProgram, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 				}
+
+				Program = fg_FindExecutable(OriginalProgram, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 #else
 				Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 #endif
@@ -590,7 +600,7 @@ namespace NMib::NProcess::NPlatform
 
 					if (!Chroot.f_IsEmpty())
 					{
-						NStr::CStr LaunchHelper = fg_FindExecutable("MalterlibSandBox_" DMibStringize(DArchitecture), true, NMib::NFile::EFileAttrib_File, {}, LocalPaths);
+						NStr::CStr LaunchHelper = fg_FindExecutable("MalterlibSandBox_" DMibStringize(DArchitecture), true, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 
 						if (!NMib::NFile::CFile::fs_FileExists(LaunchHelper, NMib::NFile::EFileAttrib_File))
 						{
@@ -1619,7 +1629,7 @@ bool NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_IsRunning();
 }
-	
+
 void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrSecure const &_Data)
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
@@ -1657,10 +1667,10 @@ mint NMib::NProcess::NPlatform::fg_ProcessLaunch_GetID(void *_pLaunch)
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_GetID();
 }
-			
+
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetExecutionStatistics(void *_pLaunch)
 {
-	
+
 	CProcessStatistics Stats;
 
 #ifdef DPlatformFamily_OSX
@@ -1669,7 +1679,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	proc_taskallinfo TaskInfoAll = {0};
 	bytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));
 	bytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTBSDINFO, 0, &TaskInfoAll.pbsd, sizeof(TaskInfoAll.pbsd));
-	
+
 	if (bytes <= 0)
 	{
 		int ErrNo = errno;
@@ -1685,7 +1695,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	else
 		fg_ConvertExecutionStatistics(Stats, TaskInfoAll);
 #endif
-	
+
 	return Stats;
 }
 
@@ -1693,13 +1703,13 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 {
 
 	NMib::NProcess::CProcessStatistics Stats;
-	
+
 #ifdef DPlatformFamily_OSX
 	NMib::NProcess::NPlatform::CPOSIXLaunchContext *pLaunch = NMib::fg_AutoStaticCast(_pLaunch);
 	int bytes;
 	proc_taskinfo TaskInfo = {0};
 	bytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTASKINFO, 0, &TaskInfo, sizeof(TaskInfo));
-	
+
 	if (bytes <= 0)
 	{
 		int ErrNo = errno;
@@ -1739,7 +1749,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pPr
 	int bytes;
 	proc_taskinfo TaskInfo = {0};
 	bytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfo, sizeof(TaskInfo));
-	
+
 	if (bytes <= 0)
 	{
 		int ErrNo = errno;
@@ -1765,7 +1775,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 	proc_taskallinfo TaskInfoAll = {0};
 	bytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));
 	bytes = proc_pidinfo(ProcessID, PROC_PIDTBSDINFO, 0, &TaskInfoAll.pbsd, sizeof(TaskInfoAll.pbsd));
-	
+
 	if (bytes <= 0)
 	{
 		int ErrNo = errno;
@@ -1780,8 +1790,8 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 	}
 	else
 		fg_ConvertExecutionStatistics(_Stats, TaskInfoAll);
-#endif			
-}		
+#endif
+}
 
 
 void NMib::NProcess::NPlatform::fg_Process_GetMemoryOverallStatistics(void *_pProcess, CProcessStatistics &_Stats)
@@ -1852,11 +1862,11 @@ void NMib::NProcess::NPlatform::fg_Process_DeRegisterAtStartup(NMib::NStr::CStr 
 }
 
 NMib::NProcess::EProcessElevation NMib::NProcess::NPlatform::fg_Process_GetElevation()
-{		
+{
 	if (geteuid() == 0 && getuid() != 0)
 		return EProcessElevation_IsElevated;
 	else if (geteuid() == 0 && getuid() == 0)
 		return EProcessElevation_IsRoot;
-	
+
 	return EProcessElevation_IsNotElevated;
 }
