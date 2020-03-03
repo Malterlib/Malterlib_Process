@@ -87,6 +87,7 @@ namespace NMib::NProcess
 		NConcurrency::TCFuture<void> f_CloseStdIn() const;
 		NConcurrency::TCFuture<void> f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const;
 		NConcurrency::TCFuture<uint32> f_StopProcess() const; // Soft termination
+		NConcurrency::TCFuture<void> f_Signal(int32 _Signal) const; // Only for unix
 
 		NConcurrency::TCFuture<fp64> f_GetRunningTime() const;
 

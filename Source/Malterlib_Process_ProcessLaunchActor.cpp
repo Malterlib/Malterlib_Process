@@ -1,9 +1,15 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
 #include "Malterlib_Process_ProcessLaunchActor.h"
 #include <Mib/Concurrency/ActorCallbackManager>
+
+#ifndef DPlatformFamily_Windows
+#include <Mib/Core/PlatformSpecific/PosixErrNo>
+#include <errno.h>
+#include <signal.h>
+#endif
 
 namespace NMib::NProcess
 {
@@ -602,6 +608,29 @@ namespace NMib::NProcess
 				}
 			)
 		;
+	}
+
+	NConcurrency::TCFuture<void> CProcessLaunchActor::f_Signal(int32 _Signal) const
+	{
+		NConcurrency::TCPromise<uint32> Promise;
+
+		auto &Internal = *mp_pInternal;
+		if (!Internal.m_pProcessLaunch)
+			co_return {};
+
+		if (Internal.m_bProcessRunning)
+		{
+			auto ProcessId = Internal.m_pProcessLaunch->f_GetProcessID();
+
+#ifdef DPlatformFamily_Windows
+			co_return DMibErrorInstance("Signal is not supported on Windows");
+#else
+			if (kill(ProcessId, _Signal))
+				co_return DMibErrorInstance(NMib::NPlatform::fg_FormatErrno(NMib::NStr::CStr::CFormat("kill({}, {})") << ProcessId << _Signal, errno));
+#endif
+		}
+
+		co_return {};
 	}
 
 	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_StopProcess() const
