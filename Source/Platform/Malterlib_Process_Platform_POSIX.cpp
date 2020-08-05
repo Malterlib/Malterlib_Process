@@ -203,6 +203,19 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 
 	static auto fSigTermHandler = [](int const _Signal)
 		{
+			sigset_t WaitSet;
+			sigset_t OldSet;
+			sigemptyset(&WaitSet);
+			sigaddset(&WaitSet, SIGTERM);
+			sigaddset(&WaitSet, SIGINT);
+			sigprocmask(SIG_BLOCK, &WaitSet, &OldSet);
+
+			auto Cleanup = g_OnScopeExit > [&]
+				{
+					sigprocmask(SIG_SETMASK, &OldSet, nullptr);
+				}
+			;
+
 			(*gs_TerminationFunction)();
 		}
 	;
