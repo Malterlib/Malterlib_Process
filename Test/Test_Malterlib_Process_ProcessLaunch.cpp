@@ -216,6 +216,7 @@ namespace
 					Params.m_fOnStateChange
 						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
+							DMibLock(Lock);
 							switch (_State.f_GetTypeID())
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
@@ -378,6 +379,7 @@ namespace
 				Params.m_fOnStateChange
 					= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 					{
+						DMibLock(Lock);
 						switch (_State.f_GetTypeID())
 						{
 						case NMib::NProcess::EProcessLaunchState_Exited:
@@ -543,6 +545,7 @@ namespace
 						Params.m_fOnStateChange
 							= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 							{
+								DMibLock(Lock);
 								switch (_State.f_GetTypeID())
 								{
 								case NMib::NProcess::EProcessLaunchState_Launched:
@@ -564,10 +567,7 @@ namespace
 								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 									{
 										Exited = EExitResult_NotLaunched;
-										{
-											DMibLock(Lock);
-											LaunchError = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
-										}
+										LaunchError = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
 									}
 									break;
 								}
@@ -725,6 +725,7 @@ namespace
 						Params.m_fOnStateChange
 							= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 							{
+								DMibLock(Lock);
 								switch (_State.f_GetTypeID())
 								{
 								case NMib::NProcess::EProcessLaunchState_Launched:
@@ -824,6 +825,7 @@ namespace
 						Params.m_fOnStateChange
 							= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 							{
+								DMibLock(Lock);
 								switch (_State.f_GetTypeID())
 								{
 								case NMib::NProcess::EProcessLaunchState_Exited:
@@ -983,6 +985,7 @@ namespace
 				{
 					NMib::NStr::CStr TestPath = fg_TestGetCurrentPath();
 
+					NMib::NThread::CMutual Lock;
 					TCAtomic<EExitResult> Exited = EExitResult_None;
 					TCAtomic<uint32> ExitCode = 66;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(TestPath);
@@ -992,6 +995,7 @@ namespace
 					Params.m_fOnStateChange
 						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
+							DMibLock(Lock);
 							switch (_State.f_GetTypeID())
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
@@ -1080,6 +1084,7 @@ namespace
 					{
 						if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
 						{
+							NMib::NThread::CMutual Lock;
 							TCAtomic<EExitResult> Exited = EExitResult_None;
 							TCAtomic<uint32> ExitCode = 66;
 							NMib::NProcess::CProcessLaunchParams Params = CProcessLaunch_Tests::f_GetLaunchParams(TestPath);
@@ -1089,6 +1094,7 @@ namespace
 							Params.m_fOnStateChange
 								= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 								{
+									DMibLock(Lock);
 									switch (_State.f_GetTypeID())
 									{
 									case NMib::NProcess::EProcessLaunchState_Exited:
@@ -1236,6 +1242,7 @@ namespace
 						Params.m_fOnStateChange
 							= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 							{
+								DMibLock(Lock);
 								switch (_State.f_GetTypeID())
 								{
 								case NMib::NProcess::EProcessLaunchState_Exited:
@@ -1318,6 +1325,7 @@ namespace
 					Params.m_fOnStateChange
 						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
+							DMibLock(Lock);
 							switch (_State.f_GetTypeID())
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
@@ -1418,6 +1426,7 @@ namespace
 					Params.m_fOnStateChange
 						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
+							DMibLock(Lock);
 							switch (_State.f_GetTypeID())
 							{
 								case NMib::NProcess::EProcessLaunchState_Launched:
@@ -1540,7 +1549,7 @@ namespace
 						, "http://localhost"
 						, [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
-
+							DMibLock(Lock);
 							switch (_State.f_GetTypeID())
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
@@ -1736,6 +1745,7 @@ namespace
 					Params.m_fOnStateChange
 						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
+							DMibLock(Lock);
 							switch (_State.f_GetTypeID())
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
@@ -1923,6 +1933,7 @@ namespace
 					Params.m_fOnStateChange
 						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
+							DMibLock(Lock);
 							switch (_State.f_GetTypeID())
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
