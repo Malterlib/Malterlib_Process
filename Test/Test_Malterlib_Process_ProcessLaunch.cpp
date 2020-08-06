@@ -15,6 +15,7 @@ namespace
 {
 	using namespace NMib::NTest;
 	using namespace NMib::NTime;
+	using namespace NMib::NAtomic;
 
 	enum EExitResult
 	{
@@ -206,9 +207,10 @@ namespace
 				}
 				else
 				{
-					EExitResult Exited = EExitResult_None;
-					uint32 ExitCode = 66;
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
 					NMib::NStr::CStr StdOut;
+					NMib::NThread::CMutual Lock;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 					Params.m_bThreaded = _bThreaded;
 					Params.m_fOnStateChange
@@ -218,13 +220,13 @@ namespace
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_Exited;
-									NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+									Exited = EExitResult_NotLaunched;
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
@@ -237,14 +239,11 @@ namespace
 					Params.m_fOnOutput
 						= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 						{
+							DMibLock(Lock);
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-							{
 								StdOut += _Output;
-							}
 							else
-							{
 								DMibDTrace("Unexpected output: {}\r\n", _Output);
-							}
 						}
 					;
 					{
@@ -255,15 +254,17 @@ namespace
 
 					{
 						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 					}
 
 					Exited = EExitResult_None;
 					ExitCode = 66;
-					StdOut.f_Clear();
-					NMib::NAtomic::fg_MemoryFence();
+					{
+						DMibLock(Lock);
+						StdOut.f_Clear();
+					}
 
 					{
 						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
@@ -271,22 +272,23 @@ namespace
 							pLauncher->f_Start();
 					}
 
-					while (NMib::fg_Volatile(Exited) == EExitResult_None)
-					{
-						NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
+					while (Exited.f_Load() == EExitResult_None)
 						NMib::NSys::fg_Thread_SmallestSleep();
-					}
 					{
+						DMibLock(Lock);
+
 						DMibTestPath("Wait for exit");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 					}
 
 					Exited = EExitResult_None;
 					ExitCode = 66;
-					StdOut.f_Clear();
-					NMib::NAtomic::fg_MemoryFence();
+					{
+						DMibLock(Lock);
+						StdOut.f_Clear();
+					}
 
 					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
@@ -297,16 +299,14 @@ namespace
 						}
 					;
 
-
 					{
 						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						if (!_bThreaded)
 							pLauncher->f_Start();
 					}
 
-					while (NMib::fg_Volatile(Exited) == EExitResult_None)
+					while (Exited.f_Load() == EExitResult_None)
 					{
-						NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
 						NMib::NSys::fg_Thread_SmallestSleep();
 						while (auto QueueEntry = DispatchQueue.f_Pop())
 						{
@@ -314,10 +314,11 @@ namespace
 						}
 					}
 					{
+						DMibLock(Lock);
 						DMibTestPath("Wait for exit with dispatch");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 					}
 				}
 			};
@@ -364,10 +365,12 @@ namespace
 		{
 			DMibTestSuite(CTestCategory(_bThreaded ? "Performance" : "Performance non threaded") << CTestGroup("Performance"))
 			{
-				EExitResult Exited = EExitResult_None;
-				uint32 ExitCode = 66;
+				TCAtomic<EExitResult> Exited = EExitResult_None;
+				TCAtomic<uint32> ExitCode = 66;
 				NMib::NStr::CStr StdOut;
 				NMib::NProcess::CProcessLaunchParams Params;
+				NMib::NThread::CMutual Lock;
+
 				Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
 				Params.m_Parameters = NMib::NStr::CStr::CFormat("--JustExit {}") << m_ExitCode.f_Get();
 				Params.m_bThreaded = _bThreaded;
@@ -379,13 +382,13 @@ namespace
 						{
 						case NMib::NProcess::EProcessLaunchState_Exited:
 							{
-								NMib::fg_Volatile(Exited) = EExitResult_Exited;
-								NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								Exited = EExitResult_Exited;
 							}
 							break;
 						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 							{
-								NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+								Exited = EExitResult_NotLaunched;
 								DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 							}
 							break;
@@ -398,14 +401,11 @@ namespace
 				Params.m_fOnOutput
 					= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 					{
+						DMibLock(Lock);
 						if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-						{
 							StdOut += _Output;
-						}
 						else
-						{
 							DMibDTrace("Unexpected output: {}\r\n", _Output);
-						}
 					}
 				;
 				CTestPerformanceMeasure MalterlibTime("Malterlib");
@@ -420,8 +420,10 @@ namespace
 					{
 						Exited = EExitResult_None;
 						ExitCode = 66;
-						StdOut.f_Clear();
-						NMib::NAtomic::fg_MemoryFence();
+						{
+							DMibLock(Lock);
+							StdOut.f_Clear();
+						}
 						{
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 							if (!_bThreaded)
@@ -429,8 +431,8 @@ namespace
 						}
 
 						{
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited))(ETestFlag_Aggregated);
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()))(ETestFlag_Aggregated);
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited))(ETestFlag_Aggregated);
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()))(ETestFlag_Aggregated);
 						}
 					}
 					MalterlibTime.f_Stop(nLoops);
@@ -521,8 +523,9 @@ namespace
 							NMib::NFile::CFile::fs_DeleteFile(TestFilePath);
 						}
 
-						EExitResult Exited = EExitResult_None;
-						uint32 ExitCode = 66;
+						NMib::NThread::CMutual Lock;
+						TCAtomic<EExitResult> Exited = EExitResult_None;
+						TCAtomic<uint32> ExitCode = 66;
 						NMib::NProcess::CProcessLaunchParams Params;
 						NMib::NStr::CStr LaunchError;
 
@@ -532,6 +535,7 @@ namespace
 						NMib::NStr::CStr Output;
 						Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 							{
+								DMibLock(Lock);
 								Output += _Output;
 							}
 						;
@@ -546,21 +550,24 @@ namespace
 										void* pProcess = _State.f_Get<NMib::NProcess::EProcessLaunchState_Launched>();
 										if (!pProcess)
 										{
-											if (NMib::fg_Volatile(ExitCode) == 66)
-												NMib::fg_Volatile(ExitCode) = m_ExitCode.f_Get();
+											if (ExitCode == 66)
+												ExitCode = m_ExitCode.f_Get();
 										}
 									}
 									break;
 								case NMib::NProcess::EProcessLaunchState_Exited:
 									{
-										NMib::fg_Volatile(Exited) = EExitResult_Exited;
-										NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+										ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+										Exited = EExitResult_Exited;
 									}
 									break;
 								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 									{
-										NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
-										LaunchError = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
+										Exited = EExitResult_NotLaunched;
+										{
+											DMibLock(Lock);
+											LaunchError = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
+										}
 									}
 									break;
 								}
@@ -572,11 +579,12 @@ namespace
 						}
 
 						{
+							DMibLock(Lock);
 							DMibTestPath("Block on exit");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 							DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
 							DMibTest(DMibExpr(Output) == DMibExpr(""));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 							DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
 						}
 
@@ -587,32 +595,34 @@ namespace
 
 						Exited = EExitResult_None;
 						ExitCode = 66;
-						Output.f_Clear();
-						LaunchError.f_Clear();
-						NMib::NAtomic::fg_MemoryFence();
+						{
+							DMibLock(Lock);
+							Output.f_Clear();
+							LaunchError.f_Clear();
+						}
 
 						{
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
-						while (NMib::fg_Volatile(Exited) == EExitResult_None)
-						{
-							NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
+						while (Exited.f_Load() == EExitResult_None)
 							NMib::NSys::fg_Thread_SmallestSleep();
-						}
 						{
+							DMibLock(Lock);
 							DMibTestPath("Wait for exit");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 							DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
 							DMibTest(DMibExpr(Output) == DMibExpr(""));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 							DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
 						}
 
 						Exited = EExitResult_None;
 						ExitCode = 66;
-						LaunchError.f_Clear();
-						NMib::NAtomic::fg_MemoryFence();
+						{
+							DMibLock(Lock);
+							LaunchError.f_Clear();
+						}
 
 						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
@@ -632,9 +642,8 @@ namespace
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
-						while (NMib::fg_Volatile(Exited) == EExitResult_None)
+						while (Exited.f_Load() == EExitResult_None)
 						{
-							NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
 							NMib::NSys::fg_Thread_SmallestSleep();
 							while (auto QueueEntry = DispatchQueue.f_Pop())
 							{
@@ -642,10 +651,11 @@ namespace
 							}
 						}
 						{
+							DMibLock(Lock);
 							DMibTestPath("Wait for exit with dispatch");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 							DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 							DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
 						}
 					}
@@ -703,8 +713,9 @@ namespace
 						NMib::NProcess::CProcessLaunch *pLauncher = nullptr;
 						NMib::NStr::CStr RandomString = NMib::NCryptography::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
 
-						EExitResult Exited = EExitResult_None;
-						uint32 ExitCode = 66;
+						NMib::NThread::CMutual Lock;
+						TCAtomic<EExitResult> Exited = EExitResult_None;
+						TCAtomic<uint32> ExitCode = 66;
 						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "", "Null");
 						Params.m_bShowLaunched = false;
 						Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
@@ -724,13 +735,13 @@ namespace
 									break;
 								case NMib::NProcess::EProcessLaunchState_Exited:
 									{
-										NMib::fg_Volatile(Exited) = EExitResult_Exited;
-										NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+										ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+										Exited = EExitResult_Exited;
 									}
 									break;
 								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 									{
-										NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+										Exited = EExitResult_NotLaunched;
 										DMibConOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 									}
 									break;
@@ -743,16 +754,13 @@ namespace
 						NMib::NStr::CStr StdOut;
 
 						Params.m_fOnOutput
-							= [&StdErr, &StdOut](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+							= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 							{
+								DMibLock(Lock);
 								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
-								{
 									StdErr += _Output;
-								}
 								else if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-								{
 									StdOut += _Output;
-								}
 							}
 						;
 
@@ -761,13 +769,13 @@ namespace
 							pLauncher = &Launcher;
 						}
 
-						StdOut = StdOut.f_Trim();
-
 						{
+							DMibLock(Lock);
 							DMibTestPath("Block on exit");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+							StdOut = StdOut.f_Trim();
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 #ifndef DPlatformFamily_Linux // Buggy gksu does not forward exit code
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 #endif
 							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
 							DMibTest(DMibExpr(StdOut) == DMibExpr(RandomString));
@@ -804,8 +812,9 @@ namespace
 					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
 #endif
 					{
-						EExitResult Exited = EExitResult_None;
-						uint32 ExitCode = 66;
+						NMib::NThread::CMutual Lock;
+						TCAtomic<EExitResult> Exited = EExitResult_None;
+						TCAtomic<uint32> ExitCode = 66;
 						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "", "Null");
 						Params.m_bShowLaunched = false;
 						Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
@@ -819,13 +828,13 @@ namespace
 								{
 								case NMib::NProcess::EProcessLaunchState_Exited:
 									{
-										NMib::fg_Volatile(Exited) = EExitResult_Exited;
-										NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+										ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+										Exited = EExitResult_Exited;
 									}
 									break;
 								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 									{
-										NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+										Exited = EExitResult_NotLaunched;
 										//DMibTrace("Launch failed error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 									}
 									break;
@@ -840,16 +849,13 @@ namespace
 						NMib::NStr::CStr StdOut;
 
 						Params.m_fOnOutput
-							= [&StdErr, &StdOut](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+							= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 							{
+								DMibLock(Lock);
 								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
-								{
 									StdErr += _Output;
-								}
 								else if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-								{
 									StdOut += _Output;
-								}
 							}
 						;
 
@@ -858,66 +864,72 @@ namespace
 						}
 
 						{
+							DMibLock(Lock);
 							DMibTestPath("Block on exit");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 #ifndef DPlatformFamily_Linux // Buggy gksu does not forward exit code
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 #endif
 							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
 							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
 						}
 
-						StdErr = NMib::NStr::CStr();
-						StdOut = NMib::NStr::CStr();
+						{
+							DMibLock(Lock);
+							StdErr = NMib::NStr::CStr();
+							StdOut = NMib::NStr::CStr();
+						}
 						Exited = EExitResult_None;
 						ExitCode = 66;
 						NMib::NStr::CStr OldTarget = Params.m_Target;
 						Params.m_Target = "/Blah";
-						NMib::NAtomic::fg_MemoryFence();
 
 						{
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						}
 
 						{
+							DMibLock(Lock);
 							DMibTestPath("Block on exit");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_NotLaunched));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(66));
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(66));
 							DMibTest(DMibExpr(StdErr) == DMibExpr(""));
 							DMibTest(DMibExpr(StdOut) == DMibExpr(""));
 						}
 
-						StdErr = NMib::NStr::CStr();
-						StdOut = NMib::NStr::CStr();
+						{
+							DMibLock(Lock);
+							StdErr = NMib::NStr::CStr();
+							StdOut = NMib::NStr::CStr();
+						}
 						Exited = EExitResult_None;
 						ExitCode = 66;
 						Params.m_Target = OldTarget;
-						NMib::NAtomic::fg_MemoryFence();
 
 						{
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
-						while (NMib::fg_Volatile(Exited) == EExitResult_None)
-						{
-							NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
+						while (Exited.f_Load() == EExitResult_None)
 							NMib::NSys::fg_Thread_SmallestSleep();
-						}
 						{
+							DMibLock(Lock);
 							DMibTestPath("Wait for exit");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 #ifndef DPlatformFamily_Linux // Buggy gksu does not forward exit code
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 #endif
 							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
 							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
 						}
 
-						StdErr = NMib::NStr::CStr();
-						StdOut = NMib::NStr::CStr();
+						{
+							DMibLock(Lock);
+							StdErr = NMib::NStr::CStr();
+							StdOut = NMib::NStr::CStr();
+						}
 						Exited = EExitResult_None;
 						ExitCode = 66;
-						NMib::NAtomic::fg_MemoryFence();
 
 						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
@@ -933,9 +945,8 @@ namespace
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
-						while (NMib::fg_Volatile(Exited) == EExitResult_None)
+						while (Exited.f_Load() == EExitResult_None)
 						{
-							NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
 							NMib::NSys::fg_Thread_SmallestSleep();
 							while (auto QueueEntry = DispatchQueue.f_Pop())
 							{
@@ -943,10 +954,11 @@ namespace
 							}
 						}
 						{
+							DMibLock(Lock);
 							DMibTestPath("Wait for exit with dispatch");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 #ifndef DPlatformFamily_Linux // Buggy gksu does not forward exit code
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 #endif
 							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
 							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
@@ -971,8 +983,8 @@ namespace
 				{
 					NMib::NStr::CStr TestPath = fg_TestGetCurrentPath();
 
-					EExitResult Exited = EExitResult_None;
-					uint32 ExitCode = 66;
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(TestPath);
 					Params.m_bShowLaunched = false;
 					Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_DeElevate;
@@ -984,13 +996,13 @@ namespace
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_Exited;
-									NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+									Exited = EExitResult_NotLaunched;
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
@@ -1010,8 +1022,8 @@ namespace
 						{
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						}
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 					};
 
 
@@ -1019,26 +1031,21 @@ namespace
 					{
 						Exited = EExitResult_None;
 						ExitCode = 66;
-						NMib::NAtomic::fg_MemoryFence();
 
 						{
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
-						while (NMib::fg_Volatile(Exited) == EExitResult_None)
-						{
-							NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
+						while (Exited.f_Load() == EExitResult_None)
 							NMib::NSys::fg_Thread_SmallestSleep();
-						}
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 					};
 
 					DMibTestSuite("Wait for exit with dispatch")
 					{
 						Exited = EExitResult_None;
 						ExitCode = 66;
-						NMib::NAtomic::fg_MemoryFence();
 
 						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
@@ -1054,17 +1061,16 @@ namespace
 							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
-						while (NMib::fg_Volatile(Exited) == EExitResult_None)
+						while (Exited.f_Load() == EExitResult_None)
 						{
-							NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
 							NMib::NSys::fg_Thread_SmallestSleep();
 							while (auto QueueEntry = DispatchQueue.f_Pop())
 							{
 								(*QueueEntry)();
 							}
 						}
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 					};
 				}
 				else
@@ -1074,8 +1080,8 @@ namespace
 					{
 						if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
 						{
-							EExitResult Exited = EExitResult_None;
-							uint32 ExitCode = 66;
+							TCAtomic<EExitResult> Exited = EExitResult_None;
+							TCAtomic<uint32> ExitCode = 66;
 							NMib::NProcess::CProcessLaunchParams Params = CProcessLaunch_Tests::f_GetLaunchParams(TestPath);
 							Params.m_bShowLaunched = false;
 							Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
@@ -1087,13 +1093,13 @@ namespace
 									{
 									case NMib::NProcess::EProcessLaunchState_Exited:
 										{
-											NMib::fg_Volatile(Exited) = EExitResult_Exited;
-											NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+											ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+											Exited = EExitResult_Exited;
 										}
 										break;
 									case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 										{
-											NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+											Exited = EExitResult_NotLaunched;
 											DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 										}
 										break;
@@ -1110,33 +1116,28 @@ namespace
 
 							{
 								DMibTestPath("Block on exit");
-								DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
-								DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+								DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+								DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 							}
 
 							Exited = EExitResult_None;
 							ExitCode = 66;
-							NMib::NAtomic::fg_MemoryFence();
 
 							{
 								Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Wait for exit");
 								auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 							}
 
-							while (NMib::fg_Volatile(Exited) == EExitResult_None)
-							{
-								NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
+							while (Exited.f_Load() == EExitResult_None)
 								NMib::NSys::fg_Thread_SmallestSleep();
-							}
 							{
 								DMibTestPath("Wait for exit");
-								DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
-								DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+								DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+								DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 							}
 
 							Exited = EExitResult_None;
 							ExitCode = 66;
-							NMib::NAtomic::fg_MemoryFence();
 
 							NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
@@ -1153,9 +1154,8 @@ namespace
 								auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 							}
 
-							while (NMib::fg_Volatile(Exited) == EExitResult_None)
+							while (Exited.f_Load() == EExitResult_None)
 							{
-								NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
 								NMib::NSys::fg_Thread_SmallestSleep();
 								while (auto QueueEntry = DispatchQueue.f_Pop())
 								{
@@ -1164,8 +1164,8 @@ namespace
 							}
 							{
 								DMibTestPath("Wait for exit with dispatch");
-								DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
-								DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+								DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+								DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 							}
 						}
 					};
@@ -1197,8 +1197,9 @@ namespace
 				else
 				{
 					{
-						EExitResult Exited = EExitResult_None;
-						uint32 ExitCode = 66;
+						NMib::NThread::CMutual Lock;
+						TCAtomic<EExitResult> Exited = EExitResult_None;
+						TCAtomic<uint32> ExitCode = 66;
 						NMib::NStr::CStr StdOut;
 						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 
@@ -1239,13 +1240,13 @@ namespace
 								{
 								case NMib::NProcess::EProcessLaunchState_Exited:
 									{
-										NMib::fg_Volatile(Exited) = EExitResult_Exited;
-										NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+										ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+										Exited = EExitResult_Exited;
 									}
 									break;
 								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 									{
-										NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+										Exited = EExitResult_NotLaunched;
 										DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 									}
 									break;
@@ -1258,6 +1259,7 @@ namespace
 						Params.m_fOnOutput
 							= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 							{
+								DMibLock(Lock);
 								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 									StdOut += _Output;
 								else
@@ -1271,8 +1273,8 @@ namespace
 
 						{
 							DMibTestPath("Block on exit");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 						}
 					}
 				}
@@ -1307,8 +1309,8 @@ namespace
 			{
 				DMibTestSuite("Limits")
 				{
-					EExitResult Exited = EExitResult_None;
-					uint32 ExitCode = 66;
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
 					NMib::NStr::CStr StdOut;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
 					Params.m_bThreaded = true;
@@ -1320,13 +1322,13 @@ namespace
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_Exited;
-									NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+									Exited = EExitResult_NotLaunched;
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
@@ -1346,15 +1348,11 @@ namespace
 					Params.m_fOnOutput
 						= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 						{
+							DMibLock(Lock);
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-							{
-								DMibLock(Lock);
 								StdOut += _Output;
-							}
 							else
-							{
 								DMibDTrace("Unexpected output: {}\r\n", _Output);
-							}
 						}
 					;
 					{
@@ -1365,10 +1363,11 @@ namespace
 					}
 
 					{
+						DMibLock(Lock);
 						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 					}
 				};
 			}
@@ -1408,8 +1407,8 @@ namespace
 				}
 				else
 				{
-					EExitResult Exited = EExitResult_None;
-					uint32 ExitCode = 66;
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
 					NMib::NStr::CStr StdOut;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
 					Params.m_Parameters = fs_GetTestPath(fg_TestGetCurrentPath(), "", "Null");
@@ -1427,13 +1426,13 @@ namespace
 									break;
 							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_Exited;
-									NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+									Exited = EExitResult_NotLaunched;
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
@@ -1444,15 +1443,11 @@ namespace
 					Params.m_fOnOutput
 						= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 						{
+							DMibLock(Lock);
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
-							{
-								DMibLock(Lock);
 								StdOut += _Output;
-							}
 							else
-							{
 								DMibDTrace("Unexpected output: {}\n", _Output);
-							}
 						}
 					;
 					{
@@ -1460,8 +1455,9 @@ namespace
 					}
 
 					{
+						DMibLock(Lock);
 						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(StdOut == fp_GetLongOutput()));
 						#if 0
 						if (StdOut != fp_GetLongOutput())
@@ -1470,7 +1466,7 @@ namespace
 							NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Expected.txt"), fp_GetLongOutput());
 						}
 						#endif
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 					}
 
 				}
@@ -1532,9 +1528,10 @@ namespace
 		{
 			DMibTestSuite(NMib::NTest::CTestCategory("SimpleURL") << NMib::NTest::CTestGroup("Manual"))
 			{
-				EExitResult Exited = EExitResult_None;
-				bool Failed = false;
-				uint32 ExitCode = 33;
+				NMib::NThread::CMutual Lock;
+				TCAtomic<EExitResult> Exited = EExitResult_None;
+				TCAtomic<bool> Failed = false;
+				TCAtomic<uint32> ExitCode = 33;
 				NMib::NStr::CStr FailedMessage;
 
 				NMib::NProcess::CProcessLaunchParams Params = NMib::NProcess::CProcessLaunchParams::fs_LaunchURL
@@ -1548,15 +1545,18 @@ namespace
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_Exited;
 									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
 									Failed = true;
-									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
-									FailedMessage = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
+									Exited = EExitResult_NotLaunched;
+									{
+										DMibLock(Lock);
+										FailedMessage = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
+									}
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_Launched:
@@ -1573,7 +1573,6 @@ namespace
 					Params.m_Target = "http://www.malterlib.com";
 					Exited = EExitResult_None;
 					ExitCode = 66;
-					NMib::NAtomic::fg_MemoryFence();
 
 					{
 						auto Launch = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
@@ -1582,14 +1581,16 @@ namespace
 					#ifdef DPlatformFamily_Linux
 						if (t_ProxyType == EProxyType_ElevatedProxied)
 						{
-							DMibTest(DMibExpr(Failed));
+							DMibLock(Lock);
+							DMibTest(DMibExpr(Failed.f_Load()));
 							DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
 						}
 						else
 					#endif
 						{
-							DMibTest(!DMibExpr(Failed));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(0));
+							DMibLock(Lock);
+							DMibTest(!DMibExpr(Failed.f_Load()));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
 							DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
 						}
 				}
@@ -1600,8 +1601,10 @@ namespace
 					Params.m_Target = "failed://www.malterlib.com";
 					Exited = EExitResult_None;
 					ExitCode = 66;
-					FailedMessage.f_Clear();
-					NMib::NAtomic::fg_MemoryFence();
+					{
+						DMibLock(Lock);
+						FailedMessage.f_Clear();
+					}
 
 					{
 						auto Launch = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
@@ -1610,13 +1613,15 @@ namespace
 					#ifdef DPlatformFamily_Linux
 						if (t_ProxyType == EProxyType_ElevatedProxied)
 						{
-							DMibTest(DMibExpr(Failed));
+							DMibLock(Lock);
+							DMibTest(DMibExpr(Failed.f_Load()));
 							DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
 						}
 						else
 					#endif
 						{
-							DMibTest(DMibExpr(Failed));
+							DMibLock(Lock);
+							DMibTest(DMibExpr(Failed.f_Load()));
 							DMibTest(DMibExpr(FailedMessage) != DMibExpr(""));
 						}
 				}
@@ -1629,34 +1634,36 @@ namespace
 					Params.m_Target = "http://www.malterlib.com";
 					Exited = EExitResult_None;
 					ExitCode = 66;
-					FailedMessage.f_Clear();
-					NMib::NAtomic::fg_MemoryFence();
+					{
+						DMibLock(Lock);
+						FailedMessage.f_Clear();
+					}
 
 
 					{
 						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 					}
 
-					while (NMib::fg_Volatile(Exited) == EExitResult_None)
-					{
-						NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
+					while (Exited.f_Load() == EExitResult_None)
 						NMib::NSys::fg_Thread_SmallestSleep();
+
+				#ifdef DPlatformFamily_Linux
+					if (t_ProxyType == EProxyType_ElevatedProxied)
+					{
+						DMibLock(Lock);
+						DMibTest(DMibExpr(Failed.f_Load()));
+						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
+						DMibTrace("FailedMessage = \"{}\"", FailedMessage);
+						DMibTraceRaw("Expect = \"Launching a document or URL elevated is not supported on Linux.\"");
 					}
-					#ifdef DPlatformFamily_Linux
-						if (t_ProxyType == EProxyType_ElevatedProxied)
-						{
-							DMibTest(DMibExpr(Failed));
-							DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
-							DMibTrace("FailedMessage = \"{}\"", FailedMessage);
-							DMibTraceRaw("Expect = \"Launching a document or URL elevated is not supported on Linux.\"");
-						}
-						else
-					#endif
-						{
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(0));
-							DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
-						}
+					else
+				#endif
+					{
+						DMibLock(Lock);
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
+						DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
+					}
 				}
 
 				{
@@ -1667,7 +1674,10 @@ namespace
 					Params.m_Target = "http://www.malterlib.com";
 					Exited = EExitResult_None;
 					ExitCode = 66;
-					FailedMessage.f_Clear();
+					{
+						DMibLock(Lock);
+						FailedMessage.f_Clear();
+					}
 					Params.m_fDispatcher
 							= [&](NMib::NFunction::TCFunction<void ()> const &_ToDispatch)
 						{
@@ -1675,14 +1685,11 @@ namespace
 						}
 					;
 
-					NMib::NAtomic::fg_MemoryFence();
-
 					{
 						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 					}
-					while (NMib::fg_Volatile(Exited) == EExitResult_None)
+					while (Exited.f_Load() == EExitResult_None)
 					{
-						NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
 						NMib::NSys::fg_Thread_SmallestSleep();
 						while (auto QueueEntry = DispatchQueue.f_Pop())
 						{
@@ -1694,14 +1701,16 @@ namespace
 					#ifdef DPlatformFamily_Linux
 						if (t_ProxyType == EProxyType_ElevatedProxied)
 						{
-							DMibTest(DMibExpr(Failed));
+							DMibLock(Lock);
+							DMibTest(DMibExpr(Failed.f_Load()));
 							DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
 						}
 						else
 					#endif
 						{
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(0));
+							DMibLock(Lock);
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
 							DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
 						}
 				}
@@ -1718,8 +1727,9 @@ namespace
 				}
 				else
 				{
-					EExitResult Exited = EExitResult_None;
-					uint32 ExitCode = 66;
+					NMib::NThread::CMutual Lock;
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
 					NMib::NStr::CStr StdOut;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 					Params.m_bThreaded = _bThreaded;
@@ -1730,13 +1740,13 @@ namespace
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_Exited;
-									NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+									Exited = EExitResult_NotLaunched;
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_Launched:
@@ -1748,14 +1758,11 @@ namespace
 					Params.m_fOnOutput
 						= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 						{
+							DMibLock(Lock);
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-							{
 								StdOut += _Output;
-							}
 							else
-							{
 								DMibDTrace("Unexpected output: {}\r\n", _Output);
-							}
 						}
 					;
 					{
@@ -1766,13 +1773,15 @@ namespace
 
 					{
 						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_NotLaunched));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
 					}
 
 					Exited = EExitResult_None;
 					ExitCode = 66;
-					StdOut.f_Clear();
-					NMib::NAtomic::fg_MemoryFence();
+					{
+						DMibLock(Lock);
+						StdOut.f_Clear();
+					}
 
 					{
 						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
@@ -1780,20 +1789,19 @@ namespace
 							pLauncher->f_Start();
 					}
 
-					while (NMib::fg_Volatile(Exited) == EExitResult_None)
-					{
-						NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
+					while (Exited.f_Load() == EExitResult_None)
 						NMib::NSys::fg_Thread_SmallestSleep();
-					}
 					{
 						DMibTestPath("Wait for exit");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_NotLaunched));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
 					}
 
 					Exited = EExitResult_None;
 					ExitCode = 66;
-					StdOut.f_Clear();
-					NMib::NAtomic::fg_MemoryFence();
+					{
+						DMibLock(Lock);
+						StdOut.f_Clear();
+					}
 
 					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
@@ -1811,9 +1819,8 @@ namespace
 							pLauncher->f_Start();
 					}
 
-					while (NMib::fg_Volatile(Exited) == EExitResult_None)
+					while (Exited.f_Load() == EExitResult_None)
 					{
-						NMib::NAtomic::fg_MemoryFence(NMib::NAtomic::EMemoryOrder_Acquire);
 						NMib::NSys::fg_Thread_SmallestSleep();
 						while (auto QueueEntry = DispatchQueue.f_Pop())
 						{
@@ -1822,7 +1829,7 @@ namespace
 					}
 					{
 						DMibTestPath("Wait for exit with dispatch");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_NotLaunched));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
 					}
 				}
 			};
@@ -1898,8 +1905,9 @@ namespace
 			{
 				DMibTestCategoryFlags("KillSandbox", ETestCategoryFlag_DisableExceptionFilter | ETestCategoryFlag_Tests)
 				{
-					EExitResult Exited = EExitResult_None;
-					uint32 ExitCode = 66;
+					NMib::NThread::CMutual Lock;
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
 					NMib::NStr::CStr StdOut;
 
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath() + "/9", "", "Null");
@@ -1919,13 +1927,13 @@ namespace
 							{
 							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_Exited;
-									NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
-									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+									Exited = EExitResult_NotLaunched;
 									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
@@ -1940,6 +1948,7 @@ namespace
 					Params.m_fOnOutput
 						= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 						{
+							DMibLock(Lock);
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 								StdOut += _Output;
 							else
@@ -2017,9 +2026,10 @@ namespace
 
 
 					{
+						DMibLock(Lock);
 						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(ExitCode) == DMibExpr(255));
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(255));
 #ifndef DPlatformFamily_Windows
 						DMibTest(DMibExpr(StdErr) == DMibExpr("Process terminated due to signal 9\n")); // (ETestFlag_NoValues);
 #endif
