@@ -13,6 +13,7 @@
 
 #include <signal.h>
 #include <errno.h>
+#include <linux/limits.h>
 
 bool NMib::NProcess::NPlatform::fg_Process_IsRunning(mint _ProcessID)
 {
@@ -318,6 +319,29 @@ NMib::NContainer::TCVector<NMib::NProcess::NPlatform::CPOSIXProcessInfo> NMib::N
 	return Ret;
 }
 
+namespace
+{
+	template <typename tf_CStr>
+	bool fg_ResolveSymbolicLink(tf_CStr const &_FileFrom, tf_CStr &o_FileTo)
+	{
+		using namespace NMib;
+		using namespace NMib::NStr;
+
+		static_assert(tf_CStr::mc_Type == EStrType_UTF && sizeof(typename tf_CStr::CChar) == 1);
+
+		tf_CStr NewString;
+		auto nChars = readlink(_FileFrom.f_GetStr(), NewString.f_GetStr(PATH_MAX + 1), PATH_MAX);
+		if (nChars < 0)
+			return false;
+
+		NewString.f_SetAt(nChars, 0);
+		NewString.f_TrimSize();
+
+		o_FileTo = fg_Move(NewString);
+		return true;
+	}
+}
+
 NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum)
 {
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
@@ -357,19 +381,15 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			New.m_FileName = fg_Move(Process.m_Name);
 		if (_ToGet & NProcess::EProcessInfoFlag_FullPath)
 		{
-			try
-			{
-				New.m_FullPath = NFile::CFile::fs_ResolveSymbolicLink(NStr::fg_Format("/proc/{}/exe", Process.m_ProcessID));
-			}
-			catch (NFile::CExceptionFile const &)
-			{
-			}
+			NStr::CStr FullPath;
+			if (fg_ResolveSymbolicLink(NStr::fg_Format("/proc/{}/exe", Process.m_ProcessID), FullPath))
+				New.m_FullPath = fg_Move(FullPath);
 		}
 		if (_ToGet & NProcess::EProcessInfoFlag_Args)
 		{
-			try
+			NContainer::TCVector<ch8> FileData;
+			if (NMib::NPlatform::fg_ReadProcFS(NMib::NStr::CFStr256::CFormat("/proc/{}/cmdline") << Process.m_ProcessID, FileData))
 			{
-				auto FileData = NMib::NPlatform::fg_ReadProcFS(NMib::NStr::CFStr256::CFormat("/proc/{}/cmdline") << Process.m_ProcessID);
 				ch8 const *pParse = FileData.f_GetArray();
 				ch8 const *pEnd = pParse + FileData.f_GetLen() - 1;
 				while (pParse < pEnd)
@@ -379,15 +399,12 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 					pParse += nChars + 1;
 				}
 			}
-			catch (NFile::CExceptionFile const &)
-			{
-			}
 		}
 		if (_ToGet & NProcess::EProcessInfoFlag_User)
 		{
-			try
+			NContainer::TCVector<ch8> FileData;
+			if (NMib::NPlatform::fg_ReadProcFS(NMib::NStr::CFStr256::CFormat("/proc/{}/status") << Process.m_ProcessID, FileData))
 			{
-				auto FileData = NMib::NPlatform::fg_ReadProcFS(NMib::NStr::CFStr256::CFormat("/proc/{}/status") << Process.m_ProcessID);
 				ch8 const *pParse = FileData.f_GetArray();
 				ch8 const *pEnd = pParse + FileData.f_GetLen() - 1;
 				while (pParse < pEnd)
@@ -421,9 +438,6 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 
 					NStr::fg_ParseEndOfLine(pParse);
 				}
-			}
-			catch (NFile::CExceptionFile const &)
-			{
 			}
 		}
 	}
