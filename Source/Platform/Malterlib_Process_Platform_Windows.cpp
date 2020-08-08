@@ -71,35 +71,20 @@ namespace
 
 uint32 NMib::NProcess::NPlatform::fg_Win32_TranslateProcessPriority(EExecutionPriority _Priority)
 {
-
 	if (_Priority == EExecutionPriority_Default)
-	{
 		return 0;
-	}
 	else if (_Priority == EExecutionPriority_Highest)
-	{
 		return REALTIME_PRIORITY_CLASS;
-	}
 	else if (_Priority >= EExecutionPriority_High)
-	{
 		return HIGH_PRIORITY_CLASS;
-	}
 	else if (_Priority >= EExecutionPriority_AboveNormal)
-	{
 		return ABOVE_NORMAL_PRIORITY_CLASS;
-	}
 	else if (_Priority >= EExecutionPriority_Normal)
-	{
 		return NORMAL_PRIORITY_CLASS;
-	}
 	else if (_Priority >= EExecutionPriority_BelowNormal)
-	{
 		return BELOW_NORMAL_PRIORITY_CLASS;
-	}
 	else
-	{
 		return IDLE_PRIORITY_CLASS;
-	}
 }
 
 void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const &_File, NMib::NProcess::CVersionInfo &_VersionInfo)
@@ -200,10 +185,24 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 	_VersionInfo.m_BuildTime = NTime::CTimeConvert::fs_CreateTime(1970) + NTime::CTimeSpan((int64)TimeStamp);
 }
 
-
 void NMib::NProcess::NPlatform::fg_Process_SetPriority(EExecutionPriority _Priority)
 {
 	SetPriorityClass(GetCurrentProcess(), fg_Win32_TranslateProcessPriority(_Priority));
+}
+
+NMib::EExecutionPriority NMib::NProcess::NPlatform::fg_Process_GetPriority()
+{
+	auto PriorityClass = GetPriorityClass(GetCurrentProcess());
+	switch (PriorityClass)
+	{
+	case REALTIME_PRIORITY_CLASS: return EExecutionPriority_Highest;
+	case HIGH_PRIORITY_CLASS: return EExecutionPriority_High;
+	case ABOVE_NORMAL_PRIORITY_CLASS: return EExecutionPriority_AboveNormal;
+	case NORMAL_PRIORITY_CLASS: return EExecutionPriority_Normal;
+	case BELOW_NORMAL_PRIORITY_CLASS: return EExecutionPriority_BelowNormal;
+	case IDLE_PRIORITY_CLASS: return EExecutionPriority_Lowest;
+	default: return EExecutionPriority_Default;
+	}
 }
 
 NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum)

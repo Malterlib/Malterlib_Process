@@ -237,10 +237,40 @@ bool NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _Proce
 	return getppid() == _ProcessID;
 }
 
+namespace
+{
+#ifdef DPlatformFamily_Linux
+	static constexpr int32 gc_MaxNice = 19;
+#else
+	static constexpr int32 gc_MaxNice = 20;
+#endif
+
+	int32 fg_Process_GetNice(EExecutionPriority _Priority)
+	{
+		if (_Priority < EExecutionPriority_Normal)
+			return ((0x8000 - int32(_Priority)) * gc_MaxNice) / 0x8000;
+		else
+			return (((0x8000 - int32(_Priority + 1)) * 20) / 0x8000);
+	}
+
+	int32 fg_Process_GetNiceReverse(int32 _Priority)
+	{
+		if (_Priority < 0)
+			return EExecutionPriority((0x8000 - (_Priority * 0x8000) / 20) - 1);
+		else
+			return EExecutionPriority(0x8000 - (_Priority * 0x8000) / gc_MaxNice);
+	}
+}
+
+EExecutionPriority NMib::NProcess::NPlatform::fg_Process_GetPriority()
+{
+	return EExecutionPriority(fg_Process_GetNiceReverse(getpriority(PRIO_PROCESS, getpid())));
+}
+
 void NMib::NProcess::NPlatform::fg_Process_SetPriority(EExecutionPriority _Priority)
 {
 	// Best effort for setting priority
-	for (int32 NiceProirity = (-(int32(_Priority)+1)*20 ) / int32(0x8000) + 20; NiceProirity <= 20; ++NiceProirity)
+	for (int32 NiceProirity = fg_Process_GetNice(_Priority); NiceProirity <= 20; ++NiceProirity)
 	{
 		if (!setpriority(PRIO_PROCESS, getpid(), NiceProirity))
 			break;

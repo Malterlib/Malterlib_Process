@@ -123,6 +123,7 @@ namespace NMib::NProcess
 		NMib::NStr::CStr fg_Process_GetHostName();
 		NMib::NStr::CStr fg_Process_GetFullyQualiedHostName();
 
+		EExecutionPriority fg_Process_GetPriority();
 		void fg_Process_SetPriority(EExecutionPriority _Priority);
 
 		NContainer::TCVector<NProcess::CProcessInfo> fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet = NProcess::EProcessInfoFlag_None, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum = nullptr);
