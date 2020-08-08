@@ -156,9 +156,15 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetFullyQualiedHostName()
 	return FullyQualifiedName;
 #endif
 }
+
 mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 {
 	return getpid();
+}
+
+mint NMib::NProcess::NPlatform::fg_Process_GetCurrentGroupUID()
+{
+	return getpgid(0);
 }
 
 void NMib::NProcess::NPlatform::fg_Process_AbortWaitForTermination()

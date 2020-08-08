@@ -414,13 +414,19 @@ mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 	return GetCurrentProcessId();
 }
 
+mint NMib::NProcess::NPlatform::fg_Process_GetCurrentGroupUID()
+{
+	if (CSystem::ms_PlatformVersion >= 6'2'000000)
+		return fg_GetPEB(fg_GetTEB())->ProcessParameters->ProcessGroupId;
+	else
+		return GetCurrentProcessId();
+}
+
 bool NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
 {
 	// Not implemented yet
 	return false;
 }
-
-
 
 void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {

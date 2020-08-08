@@ -114,6 +114,7 @@ namespace NMib::NProcess
 		void fg_Process_Terminate(mint _ProcessID);
 
 		mint fg_Process_GetCurrentUID();
+		mint fg_Process_GetCurrentGroupUID();
 		bool fg_Process_GetProcessIsParentProcess(mint _ProcessID);
 		bool fg_Process_IsRunning(mint _ProcessID);
 
