@@ -2535,7 +2535,7 @@ namespace NMib::NProcess::NPlatform
 					)
 				;
 
-				__super::f_Start(EThreadPriority_Highest, 0, 0, true);
+				__super::f_Start(EExecutionPriority_Highest, 0, 0, true);
 
 				CleanupRef.f_Clear();
 			}

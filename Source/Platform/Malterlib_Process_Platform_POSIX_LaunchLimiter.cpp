@@ -268,7 +268,7 @@ namespace NMib::NProcess::NPlatform
 					return 0;
 				}
 				, "CProcessLaunchLimiter"
-				, EThreadPriority_Highest
+				, EExecutionPriority_Highest
 			)
 		;
 	}
