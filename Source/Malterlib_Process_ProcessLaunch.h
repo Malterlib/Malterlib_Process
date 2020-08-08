@@ -172,6 +172,7 @@ namespace NMib::NProcess
 		uint32 m_bMakeEffectiveUserReal:1;
 		uint32 m_bMakeEffectiveGroupReal:1;
 		uint32 m_bCreateNewProcessGroup:1;
+		uint32 m_bForceFork:1;
 
 		fp32 m_CPUUsage;		// Percentage of available processing power to use.
 
@@ -233,7 +234,7 @@ namespace NMib::NProcess
 
 		enum : uint32
 		{
-			EProtocolVersion = 0x106
+			EProtocolVersion = 0x107
 		};
 
 		template <typename tf_CStream>
@@ -282,6 +283,8 @@ namespace NMib::NProcess
 			Temp = m_bMakeEffectiveGroupReal;
 			_Stream << Temp;
 			Temp = m_bCreateNewProcessGroup;
+			_Stream << Temp;
+			Temp = m_bForceFork;
 			_Stream << Temp;
 
 			_Stream << m_CPUUsage;
@@ -351,6 +354,11 @@ namespace NMib::NProcess
 			{
 				_Stream >> Temp;
 				m_bCreateNewProcessGroup = Temp;
+			}
+			if (Version >= 0x107)
+			{
+				_Stream >> Temp;
+				m_bForceFork = Temp;
 			}
 
 			_Stream >> m_CPUUsage;

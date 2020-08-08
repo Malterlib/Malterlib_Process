@@ -12,6 +12,9 @@
 #ifdef DPlatformFamily_Linux
 #	include <Mib/Core/PlatformSpecific/LinuxOptional>
 #endif
+#ifdef DPlatformFamily_OSX
+#	include <Mib/Core/PlatformSpecific/OSXQualityOfService>
+#endif
 #include <Mib/Process/ProcessLaunch>
 
 extern "C"
@@ -34,9 +37,11 @@ extern "C"
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <spawn.h>
 
 #ifdef DPlatformFamily_OSX
 #include <libproc.h>
+#include <pthread/spawn.h>
 #endif
 #include <sys/ptrace.h>
 
@@ -402,10 +407,79 @@ namespace NMib::NProcess::NPlatform
 
 			NStr::CStr ProgramToLaunch = fl_ConvertChrootPath(Program);
 
+			bool bNeedTwoPhaseSpawn =
+				(!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() && mp_LastLaunchOptions.m_WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory())
+				|| mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default
+				|| !mp_LastLaunchOptions.m_Limits.f_IsEmpty()
+				|| mp_LastLaunchOptions.m_bMakeEffectiveGroupReal
+				|| mp_LastLaunchOptions.m_bMakeEffectiveUserReal
+				|| !Chroot.f_IsEmpty()
+				|| RunAsGroup != gid_t(-1)
+				|| RunAsUser != uid_t(-1)
+			;
+
+			bool bSholudSpawn = !mp_LastLaunchOptions.m_bForceFork;
+
+			NStr::CStr SpawnHelperExecutable = NFile::CFile::fs_GetProgramDirectory() / "MalterlibHelper";
+			if (bSholudSpawn && bNeedTwoPhaseSpawn)
+			{
+				if (!NFile::CFile::fs_FileExists(SpawnHelperExecutable))
+				{
+					bNeedTwoPhaseSpawn = false;
+					bSholudSpawn = false;
+				}
+			}
+			else
+				bNeedTwoPhaseSpawn = false;
+
+			NStr::CStr WorkingDirectory;
+
 			NContainer::TCVector<NStr::CStr> Parameters;
 			NContainer::TCVector<ch8 *> ParametersList;
 
-			ParametersList.f_Insert(ProgramToLaunch.f_GetStrUniqueWritable());
+			NStr::CStr ChrootLaunchHelper;
+
+			if (!Chroot.f_IsEmpty())
+			{
+				ChrootLaunchHelper = fg_FindExecutable
+					(
+						"MalterlibSandBox_" DMibStringize(DArchitecture)
+						, true
+						, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable
+						, {}
+						, LocalPaths
+					)
+				;
+
+				if (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty())
+					WorkingDirectory = fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
+				else
+					WorkingDirectory = fl_ConvertChrootPath(NMib::NFile::CFile::fs_GetCurrentDirectory());
+
+				ParametersList.f_Insert(ChrootLaunchHelper.f_GetStrUniqueWritable());
+				if (bNeedTwoPhaseSpawn)
+					ParametersList.f_Insert(Parameters.f_Insert("--malterlib-launch").f_GetStrUniqueWritable());
+
+				ParametersList.f_Insert(Chroot.f_GetStrUniqueWritable());
+				ParametersList.f_Insert(WorkingDirectory.f_GetStrUniqueWritable());
+
+				if (mp_LastLaunchOptions.m_bCopyRootToSandbox)
+					ParametersList.f_Insert((char *)"1");
+				else
+					ParametersList.f_Insert((char *)"0");
+
+				ParametersList.f_Insert(ProgramToLaunch.f_GetStrUniqueWritable());
+			}
+			else
+			{
+				if (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty())
+					WorkingDirectory = fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
+
+				ParametersList.f_Insert(ProgramToLaunch.f_GetStrUniqueWritable());
+				if (bNeedTwoPhaseSpawn)
+					ParametersList.f_Insert(Parameters.f_Insert("--malterlib-launch").f_GetStrUniqueWritable());
+			}
+
 			NStr::CStr Params = mp_LastLaunchOptions.m_Parameters;
 			while (!Params.f_IsEmpty())
 			{
@@ -419,6 +493,109 @@ namespace NMib::NProcess::NPlatform
 
 			NContainer::TCVector<NStr::CStr> Env;
 			NContainer::TCVector<ch8 *> EnvList;
+
+			auto fConvertProcessLimitToRLimit = [&](EProcessLimit _Limit, NStr::CStr &o_Error)
+				{
+					int RLimit = 0;
+					switch (_Limit)
+					{
+					case EProcessLimit_CoreDumpSize: RLimit = RLIMIT_CORE; break;
+					case EProcessLimit_CpuTime: RLimit = RLIMIT_CPU; break;
+					case EProcessLimit_DataSegment: RLimit = RLIMIT_DATA; break;
+					case EProcessLimit_FileSize: RLimit = RLIMIT_FSIZE; break;
+					case EProcessLimit_LockedMemory: RLimit = RLIMIT_MEMLOCK; break;
+					case EProcessLimit_OpenedFiles: RLimit = RLIMIT_NOFILE; break;
+					case EProcessLimit_Threads: RLimit = RLIMIT_NPROC; break;
+					case EProcessLimit_ResidentMemory: RLimit = RLIMIT_RSS; break;
+					case EProcessLimit_StackSize: RLimit = RLIMIT_STACK; break;
+#ifdef DPlatformFamily_Linux
+					case EProcessLimit_VirtualAddressSpace: RLimit = RLIMIT_AS; break;
+					case EProcessLimit_MessageQueueSize: RLimit = RLIMIT_MSGQUEUE; break;
+					case EProcessLimit_NiceValue: RLimit = RLIMIT_NICE; break;
+					case EProcessLimit_RealtimePriority: RLimit = RLIMIT_RTPRIO; break;
+					case EProcessLimit_RealtimeTime: RLimit = RLIMIT_RTTIME; break;
+					case EProcessLimit_SignalsPending: RLimit = RLIMIT_SIGPENDING; break;
+#endif
+					default:
+						{
+							using namespace NStr;
+							o_Error = "Unsupported limit {} when setting limits in forked process"_f << _Limit;
+						}
+						break;
+					}
+
+					return RLimit;
+				}
+			;
+
+			if (bNeedTwoPhaseSpawn)
+			{
+				using namespace NStr;
+
+				EnvList.f_Insert(Env.f_Insert("MalterlibLaunch=true").f_GetStrUniqueWritable());
+				if (ChrootLaunchHelper)
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Executable={}"_f << ChrootLaunchHelper).f_GetStrUniqueWritable());
+				else
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Executable={}"_f << ProgramToLaunch).f_GetStrUniqueWritable());
+
+				if (Chroot.f_IsEmpty() && !WorkingDirectory.f_IsEmpty() && WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory())
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_WorkingDirectory={}"_f << WorkingDirectory).f_GetStrUniqueWritable());
+
+				if (mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default)
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Priority={}"_f << int32(mp_LastLaunchOptions.m_LaunchPriority)).f_GetStrUniqueWritable());
+
+				if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetGid={}"_f << uint64(getegid())).f_GetStrUniqueWritable());
+				else if (RunAsGroup != gid_t(-1))
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetGid={}"_f << uint64(RunAsGroup)).f_GetStrUniqueWritable());
+
+				if (mp_LastLaunchOptions.m_bMakeEffectiveUserReal)
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetUid={}"_f << uint64(geteuid())).f_GetStrUniqueWritable());
+				else if (RunAsUser != uid_t(-1))
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetUid={}"_f << uint64(RunAsUser)).f_GetStrUniqueWritable());
+
+				CStr Limits;
+				for (auto iLimit = mp_LastLaunchOptions.m_Limits.f_GetIterator(); iLimit; ++iLimit)
+				{
+					CStr Error;
+					int RLimit = fConvertProcessLimitToRLimit(iLimit.f_GetKey(), Error);
+					if (Error)
+					{
+						_Errors += Error;
+						_Errors += "\n";
+						return false;
+					}
+
+					if (iLimit->f_IsMaxUnchaned() && iLimit->f_IsUnchaned())
+						continue;
+
+					Limits += "<{}"_f << RLimit;
+
+					if (!iLimit->f_IsMaxUnchaned())
+					{
+						if (iLimit->f_IsMaxUnlimited())
+							Limits += "=Max({})"_f << RLIM_INFINITY;
+						else
+							Limits += "=Max({})"_f << iLimit->m_MaxValue;
+					}
+
+					if (!iLimit->f_IsUnchaned())
+					{
+						if (iLimit->f_IsUnlimited())
+							Limits += "=Cur({})"_f << RLIM_INFINITY;
+						else
+							Limits += "=Cur({})"_f << iLimit->m_Value;
+					}
+
+					Limits += ">";
+				}
+
+				if (Limits)
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Limits={}"_f << Limits).f_GetStrUniqueWritable());
+
+				EnvList.f_Insert(Env.f_Insert("MalterlibLaunchEnd=true").f_GetStrUniqueWritable());
+			}
+
 			auto FinalEnv = fg_GetSys()->f_Environment();
 			if (!mp_LastLaunchOptions.m_Environment.f_IsEmpty())
 			{
@@ -440,229 +617,311 @@ namespace NMib::NProcess::NPlatform
 
 			EnvList.f_Insert((ch8 *)nullptr);
 
-			//DMibLock(m_ForkLock); // To protect
-
-#if !defined(DMibMemoryOverrideDll)
-			if (fg_GetSys()->f_IsDll()) // We need to prepare
-#endif
-				NMib::NPlatform::fg_ForkPrepare();
-
-			pid_t ForkResult = fork();
-
-#if !defined(DMibMemoryOverrideDll)
-		if (fg_GetSys()->f_IsDll()) // We need to cleanup after fork
-#endif
-				NMib::NPlatform::fg_ForkParentOrChild();
-
-			if (ForkResult == -1)
+			if (bSholudSpawn)
 			{
-				int ErrNo = errno;
-				_Errors += NMib::NPlatform::fg_FormatErrno("fork (launch process)", ErrNo);
-				_Errors += "\n";
-				return false;
-			}
-			else if (ForkResult == 0)
-			{
-				// 0 = stdin
-				// 1 = stdout
-				// 2 = stderr
-
 				try
 				{
-					fp_DestroyPipe(_hStdInWrite);
-					if (_hStdInRead == -1)
-						close(0);
-					else
-						dup2(_hStdInRead, 0);
+					auto fCallPosixSpawnApi = [&](auto &&_fFunction, ch8 const *_pFunctionName, auto &&...p_Params)
+						{
+							using namespace NStr;
+							int ErrNo = _fFunction(p_Params...);
+							if (ErrNo)
+								DMibError(NMib::NPlatform::fg_FormatErrno("{} (launch process)"_f << _pFunctionName, ErrNo));
+						}
+					;
 
-					fp_DestroyPipe(_hStdOutRead);
-					if (_hStdOutWrite == -1)
-						close(1);
-					else
-						dup2(_hStdOutWrite, 1);
+					#define DCallPosixSpawnApi(d_Function, ...) fCallPosixSpawnApi(&d_Function, DMibStringize(d_Function), __VA_ARGS__)
 
-					fp_DestroyPipe(_hStdErrRead);
+					posix_spawn_file_actions_t SpawnFileActions;
+					DCallPosixSpawnApi(posix_spawn_file_actions_init, &SpawnFileActions);
+
+					auto Cleanup = g_OnScopeExit > [&]
+						{
+							posix_spawn_file_actions_destroy(&SpawnFileActions);
+						}
+					;
+
+					posix_spawnattr_t SpawnAttributes;
+					DCallPosixSpawnApi(posix_spawnattr_init, &SpawnAttributes);
+
+					auto Cleanup2 = g_OnScopeExit > [&]
+						{
+							posix_spawnattr_destroy(&SpawnAttributes);
+						}
+					;
+
+					auto fDestroyPipe = [&](int _Handle)
+						{
+							if (_Handle != -1)
+								DCallPosixSpawnApi(posix_spawn_file_actions_addclose, &SpawnFileActions, _Handle);
+						}
+					;
+
+					auto fCloseOrDup = [&](int _Handle, int _DestinationHandle)
+						{
+							if (_Handle == -1)
+								DCallPosixSpawnApi(posix_spawn_file_actions_addclose, &SpawnFileActions, _DestinationHandle);
+							else
+								DCallPosixSpawnApi(posix_spawn_file_actions_adddup2, &SpawnFileActions, _Handle, _DestinationHandle);
+						}
+					;
+
+					fCloseOrDup(_hStdInRead, 0);
+
+					fCloseOrDup(_hStdOutWrite, 1);
+
 					if (_hStdErrWrite == -1)
-					{
-						if (_hStdOutWrite != -1)
-							dup2(_hStdOutWrite, 2);
-						else
-							close(2);
-					}
+						fCloseOrDup(_hStdOutWrite, 2);
 					else
-						dup2(_hStdErrWrite, 2);
+						fCloseOrDup(_hStdErrWrite, 2);
 
+					fDestroyPipe(_hStdInWrite);
+					fDestroyPipe(_hStdOutRead);
+					fDestroyPipe(_hStdErrRead);
+					fDestroyPipe(_hStdInRead);
+					fDestroyPipe(_hStdOutWrite);
+					fDestroyPipe(_hStdErrWrite);
+
+					short PreviousFlags = 0;
+					DCallPosixSpawnApi(posix_spawnattr_getflags, &SpawnAttributes, &PreviousFlags);
+					short NewFlags = PreviousFlags;
+
+					if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
+					{
+						DCallPosixSpawnApi(posix_spawnattr_setpgroup, &SpawnAttributes, 0);
+						NewFlags |= POSIX_SPAWN_SETPGROUP;
+					}
+
+#ifdef DPlatformFamily_OSX
+					if (mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default)
+					{
+						if (posix_spawnattr_set_qos_class_np)
+						{
+							int RelativePriority = 0;
+							auto QosClass = NMib::NPlatform::fg_PriorityToQualityOfService(mp_LastLaunchOptions.m_LaunchPriority, RelativePriority);
+							if (QosClass == QOS_CLASS_UTILITY || QosClass == QOS_CLASS_BACKGROUND)
+							{
+								DCallPosixSpawnApi
+									(
+										posix_spawnattr_set_qos_class_np
+										, &SpawnAttributes
+										, QosClass
+									)
+								;
+							}
+						}
+					}
+#endif
+					if (NewFlags != PreviousFlags)
+						DCallPosixSpawnApi(posix_spawnattr_setflags, &SpawnAttributes, NewFlags);
+
+					auto pExecutable = ProgramToLaunch.f_GetStr();
+					if (bNeedTwoPhaseSpawn)
+						pExecutable = SpawnHelperExecutable.f_GetStr();
+
+					pid_t Pid = -1;
+					DCallPosixSpawnApi(posix_spawn, &Pid, pExecutable, &SpawnFileActions, &SpawnAttributes, ParametersList.f_GetArray(), EnvList.f_GetArray());
+
+					mp_hStdinWrite = _hStdInWrite;
+					mp_hStdoutRead = _hStdOutRead;
+					mp_hStderrRead = _hStdErrRead;
+					_hStdInWrite = -1;
+					_hStdOutRead = -1;
+					_hStdErrRead = -1;
 					fp_DestroyPipe(_hStdInRead);
 					fp_DestroyPipe(_hStdOutWrite);
 					fp_DestroyPipe(_hStdErrWrite);
 
-					if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
-					{
-						if (setpgid(0, 0))
-						{
-							int ErrNo = errno;
-							DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno("setpgid(0, 0) when creating new process group in forked process", ErrNo));
-							NMib::NSys::fg_TerminateProcess(65);
-						}
-					}
-
-					if (mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default)
-						fg_Process_SetPriority(mp_LastLaunchOptions.m_LaunchPriority);
-
-					for (auto iLimit = mp_LastLaunchOptions.m_Limits.f_GetIterator(); iLimit; ++iLimit)
-					{
-						int RLimit = 0;
-						switch (iLimit.f_GetKey())
-						{
-						case EProcessLimit_CoreDumpSize: RLimit = RLIMIT_CPU; break;
-						case EProcessLimit_CpuTime: RLimit = RLIMIT_CPU; break;
-						case EProcessLimit_DataSegment: RLimit = RLIMIT_DATA; break;
-						case EProcessLimit_FileSize: RLimit = RLIMIT_FSIZE; break;
-						case EProcessLimit_LockedMemory: RLimit = RLIMIT_MEMLOCK; break;
-						case EProcessLimit_OpenedFiles: RLimit = RLIMIT_NOFILE; break;
-						case EProcessLimit_Threads: RLimit = RLIMIT_NPROC; break;
-						case EProcessLimit_ResidentMemory: RLimit = RLIMIT_RSS; break;
-						case EProcessLimit_StackSize: RLimit = RLIMIT_STACK; break;
-
-#ifdef DPlatformFamily_Linux
-						case EProcessLimit_VirtualAddressSpace: RLimit = RLIMIT_AS; break;
-						case EProcessLimit_MessageQueueSize: RLimit = RLIMIT_MSGQUEUE; break;
-						case EProcessLimit_NiceValue: RLimit = RLIMIT_NICE; break;
-						case EProcessLimit_RealtimePriority: RLimit = RLIMIT_RTPRIO; break;
-						case EProcessLimit_RealtimeTime: RLimit = RLIMIT_RTTIME; break;
-						case EProcessLimit_SignalsPending: RLimit = RLIMIT_SIGPENDING; break;
-#endif
-						default:
-							{
-
-								DMibConErrOut("Unsupported limit {} when setting limits in forked process{\n}", iLimit.f_GetKey());
-								NMib::NSys::fg_TerminateProcess(67);
-							}
-							break;
-						}
-
-						rlimit Limits;
-						if (!getrlimit(RLimit, &Limits))
-						{
-							if (!iLimit->f_IsMaxUnchaned())
-							{
-								if (iLimit->f_IsMaxUnlimited())
-									Limits.rlim_max = RLIM_INFINITY;
-								else
-									Limits.rlim_max = iLimit->m_MaxValue;
-							}
-							if (!iLimit->f_IsUnchaned())
-							{
-								if (iLimit->f_IsUnlimited())
-									Limits.rlim_cur = RLIM_INFINITY;
-								else
-									Limits.rlim_cur = iLimit->m_Value;
-							}
-							if (setrlimit(RLimit, &Limits))
-							{
-								int ErrNo = errno;
-								DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setrlimit({}, {{{}, {}}) when setting limits in forked process") << RLimit << Limits.rlim_cur << Limits.rlim_max, ErrNo));
-								NMib::NSys::fg_TerminateProcess(67);
-							}
-						}
-						else
-						{
-							int ErrNo = errno;
-							DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("getrlimit({}) when setting limits in forked process") << RLimit, ErrNo));
-							NMib::NSys::fg_TerminateProcess(67);
-						}
-					}
-
-					// Group needs to be set first as permissions to set user will be lost
-					if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
-						setgid(getegid());
-					else if (RunAsGroup != gid_t(-1))
-					{
-						if (setgid(RunAsGroup))
-						{
-							int ErrNo = errno;
-							DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setgid({}) when setting process group in forked process") << RunAsGroup, ErrNo));
-							NMib::NSys::fg_TerminateProcess(65);
-						}
-					}
-
-					if (mp_LastLaunchOptions.m_bMakeEffectiveUserReal)
-						setuid(geteuid());
-					else if (RunAsUser != uid_t(-1))
-					{
-						if (setuid(RunAsUser))
-						{
-							int ErrNo = errno;
-							DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setuid({}) when setting process user in forked process") << RunAsUser, ErrNo));
-							NMib::NSys::fg_TerminateProcess(64);
-						}
-					}
-
-					if (!Chroot.f_IsEmpty())
-					{
-						NStr::CStr LaunchHelper = fg_FindExecutable("MalterlibSandBox_" DMibStringize(DArchitecture), true, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
-
-						if (!NMib::NFile::CFile::fs_FileExists(LaunchHelper, NMib::NFile::EFileAttrib_File))
-						{
-							DMibConErrOut("Could not find MalterlibSandBox_" DMibStringize(DArchitecture) " in program directory" DMibNewLine, 0);
-							NMib::NSys::fg_TerminateProcess(1);
-						}
-
-						NStr::CStr WorkingDir;
-						if (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty())
-							WorkingDir = fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
-						else
-							WorkingDir = fl_ConvertChrootPath(NMib::NFile::CFile::fs_GetCurrentDirectory());
-
-						NContainer::TCVector<ch8 *> NewParametersList;
-
-						NewParametersList.f_Insert(LaunchHelper.f_GetStrUniqueWritable());
-						NewParametersList.f_Insert(Chroot.f_GetStrUniqueWritable());
-						NewParametersList.f_Insert(WorkingDir.f_GetStrUniqueWritable());
-						if (mp_LastLaunchOptions.m_bCopyRootToSandbox)
-							NewParametersList.f_Insert((char *)"1");
-						else
-							NewParametersList.f_Insert((char *)"0");
-
-						NewParametersList.f_Insert(ParametersList);
-
-						execve(LaunchHelper, NewParametersList.f_GetArray(), EnvList.f_GetArray());
-						int ErrNo = errno;
-						DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("execve({}) when executing in forked chrooted process") << ProgramToLaunch, ErrNo));
-						NMib::NSys::fg_TerminateProcess(1);
-
-					}
-					else
-					{
-						if (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty())
-							NSys::NFile::fg_SetCurrentDirectory(fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory));
-					}
-
-					execve(ProgramToLaunch.f_GetStr(), ParametersList.f_GetArray(), EnvList.f_GetArray());
-					int ErrNo = errno;
-					DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("execve({}) when executing in forked process") << ProgramToLaunch, ErrNo));
-					NMib::NSys::fg_TerminateProcess(1);
+					mp_ProcessID = Pid;
 				}
 				catch (NException::CException const &_Exception)
 				{
-					DMibConErrOut("Error setting up for fork: {}{\n}", _Exception.f_GetErrorStr());
-					NMib::NSys::fg_TerminateProcess(1);
+					_Errors += _Exception.f_GetErrorStr();
+					_Errors += "\n";
+					return false;
 				}
 			}
 			else
 			{
+	#if !defined(DMibMemoryOverrideDll)
+				if (fg_GetSys()->f_IsDll()) // We need to prepare
+	#endif
+					NMib::NPlatform::fg_ForkPrepare();
 
-				mp_hStdinWrite = _hStdInWrite;
-				mp_hStdoutRead = _hStdOutRead;
-				mp_hStderrRead = _hStdErrRead;
-				_hStdInWrite = -1;
-				_hStdOutRead = -1;
-				_hStdErrRead = -1;
-				fp_DestroyPipe(_hStdInRead);
-				fp_DestroyPipe(_hStdOutWrite);
-				fp_DestroyPipe(_hStdErrWrite);
+				pid_t ForkResult = fork();
 
-				mp_ProcessID = ForkResult;
+	#if !defined(DMibMemoryOverrideDll)
+			if (fg_GetSys()->f_IsDll()) // We need to cleanup after fork
+	#endif
+					NMib::NPlatform::fg_ForkParentOrChild();
+
+				if (ForkResult == -1)
+				{
+					int ErrNo = errno;
+					_Errors += NMib::NPlatform::fg_FormatErrno("fork (launch process)", ErrNo);
+					_Errors += "\n";
+					return false;
+				}
+				else if (ForkResult == 0)
+				{
+					// 0 = stdin
+					// 1 = stdout
+					// 2 = stderr
+
+					try
+					{
+						fp_DestroyPipe(_hStdInWrite);
+						if (_hStdInRead == -1)
+							close(0);
+						else
+							dup2(_hStdInRead, 0);
+
+						fp_DestroyPipe(_hStdOutRead);
+						if (_hStdOutWrite == -1)
+							close(1);
+						else
+							dup2(_hStdOutWrite, 1);
+
+						fp_DestroyPipe(_hStdErrRead);
+						if (_hStdErrWrite == -1)
+						{
+							if (_hStdOutWrite != -1)
+								dup2(_hStdOutWrite, 2);
+							else
+								close(2);
+						}
+						else
+							dup2(_hStdErrWrite, 2);
+
+						fp_DestroyPipe(_hStdInRead);
+						fp_DestroyPipe(_hStdOutWrite);
+						fp_DestroyPipe(_hStdErrWrite);
+
+						if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
+						{
+							if (setpgid(0, 0))
+							{
+								int ErrNo = errno;
+								DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno("setpgid(0, 0) when creating new process group in forked process", ErrNo));
+								NMib::NSys::fg_TerminateProcess(65);
+							}
+						}
+
+						if (mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default)
+							fg_Process_SetPriority(mp_LastLaunchOptions.m_LaunchPriority);
+
+						for (auto iLimit = mp_LastLaunchOptions.m_Limits.f_GetIterator(); iLimit; ++iLimit)
+						{
+							NStr::CStr Error;
+							int RLimit = fConvertProcessLimitToRLimit(iLimit.f_GetKey(), Error);
+
+							if (Error)
+							{
+								DMibConErrOut("{}{\n}", Error);
+								NMib::NSys::fg_TerminateProcess(67);
+							}
+
+							rlimit Limits;
+							if (!getrlimit(RLimit, &Limits))
+							{
+								if (!iLimit->f_IsMaxUnchaned())
+								{
+									if (iLimit->f_IsMaxUnlimited())
+										Limits.rlim_max = RLIM_INFINITY;
+									else
+										Limits.rlim_max = iLimit->m_MaxValue;
+								}
+								if (!iLimit->f_IsUnchaned())
+								{
+									if (iLimit->f_IsUnlimited())
+										Limits.rlim_cur = RLIM_INFINITY;
+									else
+										Limits.rlim_cur = iLimit->m_Value;
+								}
+								if (setrlimit(RLimit, &Limits))
+								{
+									int ErrNo = errno;
+									DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setrlimit({}, {{{}, {}}) when setting limits in forked process") << RLimit << Limits.rlim_cur << Limits.rlim_max, ErrNo));
+									NMib::NSys::fg_TerminateProcess(67);
+								}
+							}
+							else
+							{
+								int ErrNo = errno;
+								DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("getrlimit({}) when setting limits in forked process") << RLimit, ErrNo));
+								NMib::NSys::fg_TerminateProcess(67);
+							}
+						}
+
+						// Group needs to be set first as permissions to set user will be lost
+						if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
+							setgid(getegid());
+						else if (RunAsGroup != gid_t(-1))
+						{
+							if (setgid(RunAsGroup))
+							{
+								int ErrNo = errno;
+								DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setgid({}) when setting process group in forked process") << RunAsGroup, ErrNo));
+								NMib::NSys::fg_TerminateProcess(65);
+							}
+						}
+
+						if (mp_LastLaunchOptions.m_bMakeEffectiveUserReal)
+							setuid(geteuid());
+						else if (RunAsUser != uid_t(-1))
+						{
+							if (setuid(RunAsUser))
+							{
+								int ErrNo = errno;
+								DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setuid({}) when setting process user in forked process") << RunAsUser, ErrNo));
+								NMib::NSys::fg_TerminateProcess(64);
+							}
+						}
+
+						if (!Chroot.f_IsEmpty())
+						{
+							if (!NMib::NFile::CFile::fs_FileExists(ChrootLaunchHelper, NMib::NFile::EFileAttrib_File))
+							{
+								DMibConErrOut("Could not find MalterlibSandBox_" DMibStringize(DArchitecture) " in program directory" DMibNewLine, 0);
+								NMib::NSys::fg_TerminateProcess(1);
+							}
+
+							execve(ChrootLaunchHelper, ParametersList.f_GetArray(), EnvList.f_GetArray());
+							int ErrNo = errno;
+							DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("execve({}) when executing in forked chrooted process") << ProgramToLaunch, ErrNo));
+							NMib::NSys::fg_TerminateProcess(1);
+						}
+						else
+						{
+							if (!WorkingDirectory.f_IsEmpty())
+								NSys::NFile::fg_SetCurrentDirectory(WorkingDirectory);
+						}
+
+						execve(ProgramToLaunch.f_GetStr(), ParametersList.f_GetArray(), EnvList.f_GetArray());
+						int ErrNo = errno;
+						DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("execve({}) when executing in forked process") << ProgramToLaunch, ErrNo));
+						NMib::NSys::fg_TerminateProcess(1);
+					}
+					catch (NException::CException const &_Exception)
+					{
+						DMibConErrOut("Error setting up for fork: {}{\n}", _Exception.f_GetErrorStr());
+						NMib::NSys::fg_TerminateProcess(1);
+					}
+				}
+				else
+				{
+					mp_hStdinWrite = _hStdInWrite;
+					mp_hStdoutRead = _hStdOutRead;
+					mp_hStderrRead = _hStdErrRead;
+					_hStdInWrite = -1;
+					_hStdOutRead = -1;
+					_hStdErrRead = -1;
+					fp_DestroyPipe(_hStdInRead);
+					fp_DestroyPipe(_hStdOutWrite);
+					fp_DestroyPipe(_hStdErrWrite);
+
+					mp_ProcessID = ForkResult;
+				}
 			}
 			return true;
 		}

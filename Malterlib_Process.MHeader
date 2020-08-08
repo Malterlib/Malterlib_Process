@@ -169,6 +169,7 @@ Property
 	%Group "Tests"
 	{
 		%File "Test/Test_Malterlib_Process_ProcessLaunch.cpp"
+		%File "Test/Test_Malterlib_Process_ProcessLaunchFeatures.cpp"
 		%File "Test/Test_Malterlib_Process_StdIn.cpp"
 		%File "Test/Test_Malterlib_Process_Info.cpp"
 	}

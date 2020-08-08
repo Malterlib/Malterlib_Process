@@ -57,7 +57,7 @@ namespace
 				NMib::NEncoding::CJSON JSON = NMib::NEncoding::EJSONType_Array;
 				for (auto iGroup = Groups.f_GetIterator(); iGroup; ++iGroup)
 					JSON.f_Insert(iGroup.f_GetKey());
-				Ret.f_Insert(JSON.f_ToString());
+				Ret.f_Insert(JSON.f_ToString(nullptr));
 			}
 
 			return NMib::NProcess::CProcessLaunchParams::fs_GetParams(Ret);
@@ -70,7 +70,7 @@ namespace
 
 			if (_Test == "JustExit")
 			{
-				Params.m_Parameters = NMib::NStr::CStr::CFormat("--StdOutExit {}") << m_ExitCode.f_Get();
+				Params.m_Parameters = NMib::NStr::CStr::CFormat("--std-out-exit {}") << m_ExitCode.f_Get();
 			}
 			else
 				Params.m_Parameters = fs_GetTestPath(_TestPath, _Test, _Logger);
@@ -198,7 +198,7 @@ namespace
 		}
 
 		template <EProxyType t_ProxyType>
-		void f_TestExecutable(bool _bThreaded)
+		void f_TestExecutable(bool _bThreaded, bool _bForceFork)
 		{
 			DMibTestSuite((_bThreaded ? "Executable" : "Executable non threaded"))
 			{
@@ -207,12 +207,18 @@ namespace
 				}
 				else
 				{
+					NMib::NStr::CStr WorkingDirectory = NMib::NFile::CFile::fs_GetProgramDirectory() / "ProcessWorkingDir";
+					NMib::NFile::CFile::fs_CreateDirectory(WorkingDirectory);
+
 					TCAtomic<EExitResult> Exited = EExitResult_None;
 					TCAtomic<uint32> ExitCode = 66;
 					NMib::NStr::CStr StdOut;
 					NMib::NThread::CMutual Lock;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 					Params.m_bThreaded = _bThreaded;
+					Params.m_bForceFork = _bForceFork;
+					Params.m_WorkingDirectory = WorkingDirectory;
+
 					Params.m_fOnStateChange
 						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
@@ -362,7 +368,7 @@ namespace
 		}
 
 		template <EProxyType t_ProxyType>
-		void f_TestPerformance(bool _bThreaded)
+		void f_TestPerformance(bool _bThreaded, bool _bForceFork)
 		{
 			DMibTestSuite(CTestCategory(_bThreaded ? "Performance" : "Performance non threaded") << CTestGroup("Performance"))
 			{
@@ -372,9 +378,14 @@ namespace
 				NMib::NProcess::CProcessLaunchParams Params;
 				NMib::NThread::CMutual Lock;
 
-				Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
-				Params.m_Parameters = NMib::NStr::CStr::CFormat("--JustExit {}") << m_ExitCode.f_Get();
+				#ifdef DPlatformFamily_Windows
+					Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
+				#else
+					Params.m_Target = NMib::NFile::CFile::fs_GetProgramDirectory() / "MalterlibHelper";
+				#endif
+				Params.m_Parameters = NMib::NStr::CStr::CFormat("--just-exit {}") << m_ExitCode.f_Get();
 				Params.m_bThreaded = _bThreaded;
+				Params.m_bForceFork = _bForceFork;
 
 				Params.m_fOnStateChange
 					= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
@@ -1297,7 +1308,7 @@ namespace
 				{
 					try
 					{
-						NMib::NSys::fg_Thread_SetPriority(NMib::NSys::fg_Thread_GetCurrent(), NMib::EThreadPriority_Lowest);
+						NMib::NSys::fg_Thread_SetPriority(NMib::NSys::fg_Thread_GetCurrent(), NMib::EExecutionPriority_Lowest);
 					}
 					catch (NMib::NException::CException const &)
 					{
@@ -1727,7 +1738,7 @@ namespace
 		}
 
 		template <EProxyType t_ProxyType>
-		void f_TestProxyFailure(bool _bThreaded)
+		void f_TestProxyFailure(bool _bThreaded, bool _bForceFork)
 		{
 			DMibTestSuite((_bThreaded ? "Proxy failure" : "Proxy failure non threaded"))
 			{
@@ -1742,6 +1753,7 @@ namespace
 					NMib::NStr::CStr StdOut;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 					Params.m_bThreaded = _bThreaded;
+					Params.m_bForceFork = _bForceFork;
 					Params.m_fOnStateChange
 						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
@@ -2051,7 +2063,7 @@ namespace
 
 
 		template <EProxyType t_ProxyType>
-		void f_DoAllTests()
+		void f_DoAllTests(bool _bForceFork)
 		{
 			f_EnableClientFailure(false);
 
@@ -2061,6 +2073,9 @@ namespace
 			else if (t_ProxyType == EProxyType_ElevatedProxied)
 				Desc = "Proxied Elevated";
 
+			if (_bForceFork)
+				Desc += " Fork";
+
 			NMib::NTest::CTestCategory TestCategory(Desc);
 
 			if (t_ProxyType == EProxyType_ElevatedProxied)
@@ -2068,8 +2083,8 @@ namespace
 
 			DMibTestCategory(TestCategory)
 			{
-				f_TestExecutable<t_ProxyType>(true);
-				f_TestExecutable<t_ProxyType>(false);
+				f_TestExecutable<t_ProxyType>(true, _bForceFork);
+				f_TestExecutable<t_ProxyType>(false, _bForceFork);
 	#ifdef DPlatformFamily_Windows
 				f_TestDocument<t_ProxyType>();
 	#endif
@@ -2078,8 +2093,8 @@ namespace
 					f_TestElevationStdIn();
 
 				f_TestDeElevation<t_ProxyType>();
-				f_TestPerformance<t_ProxyType>(true);
-				f_TestPerformance<t_ProxyType>(false);
+				f_TestPerformance<t_ProxyType>(true, _bForceFork);
+				f_TestPerformance<t_ProxyType>(false, _bForceFork);
 	#ifdef DPlatformFamily_Windows
 				f_TestSandbox<t_ProxyType>();
 	#endif
@@ -2097,8 +2112,8 @@ namespace
 				if (t_ProxyType != EProxyType_None)
 				{
 					f_EnableClientFailure(true);
-					f_TestProxyFailure<t_ProxyType>(true);
-					f_TestProxyFailure<t_ProxyType>(false);
+					f_TestProxyFailure<t_ProxyType>(true, _bForceFork);
+					f_TestProxyFailure<t_ProxyType>(false, _bForceFork);
 				}
 				//f_TestWebLaunch();
 			};
@@ -2119,10 +2134,18 @@ namespace
 				DMibTestCategory(Path)
 				{
 					m_bProxyElevation = false;
-					f_DoAllTests<EProxyType_None>();
-					f_DoAllTests<EProxyType_Proxied>();
+					f_DoAllTests<EProxyType_None>(false);
+					f_DoAllTests<EProxyType_Proxied>(false);
 					m_bProxyElevation = true;
-					f_DoAllTests<EProxyType_ElevatedProxied>();
+					f_DoAllTests<EProxyType_ElevatedProxied>(false);
+
+					#ifndef DPlatformFamily_Windows
+						m_bProxyElevation = false;
+						f_DoAllTests<EProxyType_None>(true);
+						f_DoAllTests<EProxyType_Proxied>(true);
+						m_bProxyElevation = true;
+						f_DoAllTests<EProxyType_ElevatedProxied>(true);
+					#endif
 				};
 			}
 		}

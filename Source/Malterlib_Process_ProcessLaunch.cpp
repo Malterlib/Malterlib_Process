@@ -551,6 +551,7 @@ namespace NMib::NProcess
 		m_bMakeEffectiveUserReal = _From.m_bMakeEffectiveUserReal;
 		m_bMakeEffectiveGroupReal = _From.m_bMakeEffectiveGroupReal;
 		m_bCreateNewProcessGroup = _From.m_bCreateNewProcessGroup;
+		m_bForceFork = _From.m_bForceFork;
 		m_CPUUsage = _From.m_CPUUsage;
 		m_Elevation = _From.m_Elevation;
 		m_RunAsUser = _From.m_RunAsUser;
@@ -588,6 +589,7 @@ namespace NMib::NProcess
 		, m_bMakeEffectiveUserReal(false)
 		, m_bMakeEffectiveGroupReal(false)
 		, m_bCreateNewProcessGroup(false)
+		, m_bForceFork(false)
 	{
 	}
 
@@ -624,6 +626,7 @@ namespace NMib::NProcess
 		, m_bMakeEffectiveUserReal(_From.m_bMakeEffectiveUserReal)
 		, m_bMakeEffectiveGroupReal(_From.m_bMakeEffectiveGroupReal)
 		, m_bCreateNewProcessGroup(_From.m_bCreateNewProcessGroup)
+		, m_bForceFork(_From.m_bForceFork)
 		, m_RunAsUser(_From.m_RunAsUser)
 		, m_RunAsUserPassword(_From.m_RunAsUserPassword)
 		, m_RunAsGroup(_From.m_RunAsGroup)
@@ -662,6 +665,7 @@ namespace NMib::NProcess
 		, m_bMakeEffectiveUserReal(_From.m_bMakeEffectiveUserReal)
 		, m_bMakeEffectiveGroupReal(_From.m_bMakeEffectiveGroupReal)
 		, m_bCreateNewProcessGroup(_From.m_bCreateNewProcessGroup)
+		, m_bForceFork(_From.m_bForceFork)
 		, m_RunAsUser(fg_Move(_From.m_RunAsUser))
 		, m_RunAsUserPassword(fg_Move(_From.m_RunAsUserPassword))
 		, m_RunAsGroup(fg_Move(_From.m_RunAsGroup))
@@ -701,6 +705,7 @@ namespace NMib::NProcess
 		m_bMakeEffectiveUserReal = _From.m_bMakeEffectiveUserReal;
 		m_bMakeEffectiveGroupReal = _From.m_bMakeEffectiveGroupReal;
 		m_bCreateNewProcessGroup = _From.m_bCreateNewProcessGroup;
+		m_bForceFork = _From.m_bForceFork;
 		m_RunAsUser = fg_Move(_From.m_RunAsUser);
 		m_RunAsUserPassword = fg_Move(_From.m_RunAsUserPassword);
 		m_RunAsGroup = fg_Move(_From.m_RunAsGroup);
