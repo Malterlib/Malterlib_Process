@@ -407,7 +407,7 @@ namespace NMib::NProcess::NPlatform
 
 			NStr::CStr ProgramToLaunch = fl_ConvertChrootPath(Program);
 
-			bool bNeedTwoPhaseSpawn =
+			bool bNeedsTwoPhaseSpawn =
 				(!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() && mp_LastLaunchOptions.m_WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory())
 				|| mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default
 				|| !mp_LastLaunchOptions.m_Limits.f_IsEmpty()
@@ -418,19 +418,19 @@ namespace NMib::NProcess::NPlatform
 				|| RunAsUser != uid_t(-1)
 			;
 
-			bool bSholudSpawn = !mp_LastLaunchOptions.m_bForceFork;
+			bool bShouldSpawn = !mp_LastLaunchOptions.m_bForceFork;
 
 			NStr::CStr SpawnHelperExecutable = NFile::CFile::fs_GetProgramDirectory() / "MalterlibHelper";
-			if (bSholudSpawn && bNeedTwoPhaseSpawn)
+			if (bShouldSpawn && bNeedsTwoPhaseSpawn)
 			{
 				if (!NFile::CFile::fs_FileExists(SpawnHelperExecutable))
 				{
-					bNeedTwoPhaseSpawn = false;
-					bSholudSpawn = false;
+					bNeedsTwoPhaseSpawn = false;
+					bShouldSpawn = false;
 				}
 			}
 			else
-				bNeedTwoPhaseSpawn = false;
+				bNeedsTwoPhaseSpawn = false;
 
 			NStr::CStr WorkingDirectory;
 
@@ -457,7 +457,7 @@ namespace NMib::NProcess::NPlatform
 					WorkingDirectory = fl_ConvertChrootPath(NMib::NFile::CFile::fs_GetCurrentDirectory());
 
 				ParametersList.f_Insert(ChrootLaunchHelper.f_GetStrUniqueWritable());
-				if (bNeedTwoPhaseSpawn)
+				if (bNeedsTwoPhaseSpawn)
 					ParametersList.f_Insert(Parameters.f_Insert("--malterlib-launch").f_GetStrUniqueWritable());
 
 				ParametersList.f_Insert(Chroot.f_GetStrUniqueWritable());
@@ -476,7 +476,7 @@ namespace NMib::NProcess::NPlatform
 					WorkingDirectory = fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
 
 				ParametersList.f_Insert(ProgramToLaunch.f_GetStrUniqueWritable());
-				if (bNeedTwoPhaseSpawn)
+				if (bNeedsTwoPhaseSpawn)
 					ParametersList.f_Insert(Parameters.f_Insert("--malterlib-launch").f_GetStrUniqueWritable());
 			}
 
@@ -528,7 +528,7 @@ namespace NMib::NProcess::NPlatform
 				}
 			;
 
-			if (bNeedTwoPhaseSpawn)
+			if (bNeedsTwoPhaseSpawn)
 			{
 				using namespace NStr;
 
@@ -617,7 +617,7 @@ namespace NMib::NProcess::NPlatform
 
 			EnvList.f_Insert((ch8 *)nullptr);
 
-			if (bSholudSpawn)
+			if (bShouldSpawn)
 			{
 				try
 				{
@@ -716,7 +716,7 @@ namespace NMib::NProcess::NPlatform
 						DCallPosixSpawnApi(posix_spawnattr_setflags, &SpawnAttributes, NewFlags);
 
 					auto pExecutable = ProgramToLaunch.f_GetStr();
-					if (bNeedTwoPhaseSpawn)
+					if (bNeedsTwoPhaseSpawn)
 						pExecutable = SpawnHelperExecutable.f_GetStr();
 
 					pid_t Pid = -1;
@@ -751,7 +751,7 @@ namespace NMib::NProcess::NPlatform
 				pid_t ForkResult = fork();
 
 	#if !defined(DMibMemoryOverrideDll)
-			if (fg_GetSys()->f_IsDll()) // We need to cleanup after fork
+				if (fg_GetSys()->f_IsDll()) // We need to cleanup after fork
 	#endif
 					NMib::NPlatform::fg_ForkParentOrChild();
 
@@ -770,29 +770,27 @@ namespace NMib::NProcess::NPlatform
 
 					try
 					{
-						fp_DestroyPipe(_hStdInWrite);
-						if (_hStdInRead == -1)
-							close(0);
-						else
-							dup2(_hStdInRead, 0);
+						auto fCloseOrDup = [&](int _Handle, int _DestinationHandle)
+							{
+								if (_Handle == -1)
+									close(_DestinationHandle);
+								else
+									dup2(_Handle, _DestinationHandle);
+							}
+						;
 
-						fp_DestroyPipe(_hStdOutRead);
-						if (_hStdOutWrite == -1)
-							close(1);
-						else
-							dup2(_hStdOutWrite, 1);
+						fCloseOrDup(_hStdInRead, 0);
 
-						fp_DestroyPipe(_hStdErrRead);
+						fCloseOrDup(_hStdOutWrite, 1);
+
 						if (_hStdErrWrite == -1)
-						{
-							if (_hStdOutWrite != -1)
-								dup2(_hStdOutWrite, 2);
-							else
-								close(2);
-						}
+							fCloseOrDup(_hStdOutWrite, 2);
 						else
-							dup2(_hStdErrWrite, 2);
+							fCloseOrDup(_hStdErrWrite, 2);
 
+						fp_DestroyPipe(_hStdInWrite);
+						fp_DestroyPipe(_hStdOutRead);
+						fp_DestroyPipe(_hStdErrRead);
 						fp_DestroyPipe(_hStdInRead);
 						fp_DestroyPipe(_hStdOutWrite);
 						fp_DestroyPipe(_hStdErrWrite);
@@ -853,7 +851,7 @@ namespace NMib::NProcess::NPlatform
 							}
 						}
 
-						// Group needs to be set first as permissions to set user will be lost
+						// Group needs to be set first as permissions to change group and user will be lost after setting user
 						if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
 							setgid(getegid());
 						else if (RunAsGroup != gid_t(-1))

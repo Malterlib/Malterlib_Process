@@ -259,7 +259,7 @@ namespace
 			return (((0x8000 - int32(_Priority + 1)) * 20) / 0x8000);
 	}
 
-	int32 fg_Process_GetNiceReverse(int32 _Priority)
+	EExecutionPriority fg_Process_GetNiceReverse(int32 _Priority)
 	{
 		if (_Priority < 0)
 			return EExecutionPriority((0x8000 - (_Priority * 0x8000) / 20) - 1);
@@ -270,15 +270,15 @@ namespace
 
 EExecutionPriority NMib::NProcess::NPlatform::fg_Process_GetPriority()
 {
-	return EExecutionPriority(fg_Process_GetNiceReverse(getpriority(PRIO_PROCESS, getpid())));
+	return fg_Process_GetNiceReverse(getpriority(PRIO_PROCESS, getpid()));
 }
 
 void NMib::NProcess::NPlatform::fg_Process_SetPriority(EExecutionPriority _Priority)
 {
 	// Best effort for setting priority
-	for (int32 NiceProirity = fg_Process_GetNice(_Priority); NiceProirity <= 20; ++NiceProirity)
+	for (int32 NicePriority = fg_Process_GetNice(_Priority); NicePriority <= 20; ++NicePriority)
 	{
-		if (!setpriority(PRIO_PROCESS, getpid(), NiceProirity))
+		if (!setpriority(PRIO_PROCESS, getpid(), NicePriority))
 			break;
 	}
 
