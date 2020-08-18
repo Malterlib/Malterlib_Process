@@ -203,6 +203,7 @@ namespace NMib::NProcess::NPlatform
 		return false;
 	}
 
+#ifdef DPlatformFamily_Linux
 	namespace
 	{
 		int32 g_FastPosixSpawn = 2;
@@ -223,6 +224,7 @@ namespace NMib::NProcess::NPlatform
 			return !!(g_FastPosixSpawn = 0);
 		}
 	}
+#endif
 
 	bool CPOSIXLaunchContext::fp_LaunchChild
 		(
