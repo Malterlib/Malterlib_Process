@@ -544,16 +544,6 @@ namespace NMib::NProcess::NPlatform
 				if (mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default)
 					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Priority={}"_f << int32(mp_LastLaunchOptions.m_LaunchPriority)).f_GetStrUniqueWritable());
 
-				if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
-					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetGid={}"_f << uint64(getegid())).f_GetStrUniqueWritable());
-				else if (RunAsGroup != gid_t(-1))
-					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetGid={}"_f << uint64(RunAsGroup)).f_GetStrUniqueWritable());
-
-				if (mp_LastLaunchOptions.m_bMakeEffectiveUserReal)
-					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetUid={}"_f << uint64(geteuid())).f_GetStrUniqueWritable());
-				else if (RunAsUser != uid_t(-1))
-					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetUid={}"_f << uint64(RunAsUser)).f_GetStrUniqueWritable());
-
 				CStr Limits;
 				for (auto iLimit = mp_LastLaunchOptions.m_Limits.f_GetIterator(); iLimit; ++iLimit)
 				{
@@ -592,6 +582,18 @@ namespace NMib::NProcess::NPlatform
 
 				if (Limits)
 					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Limits={}"_f << Limits).f_GetStrUniqueWritable());
+
+				// Group needs to be set first as permissions to change group and user will be lost after setting user
+				if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetGid={}"_f << uint64(getegid())).f_GetStrUniqueWritable());
+				else if (RunAsGroup != gid_t(-1))
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetGid={}"_f << uint64(RunAsGroup)).f_GetStrUniqueWritable());
+
+				// User needs to be last command as other commands might rely on permissions that are lost when changing user
+				if (mp_LastLaunchOptions.m_bMakeEffectiveUserReal)
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetUid={}"_f << uint64(geteuid())).f_GetStrUniqueWritable());
+				else if (RunAsUser != uid_t(-1))
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetUid={}"_f << uint64(RunAsUser)).f_GetStrUniqueWritable());
 
 				EnvList.f_Insert(Env.f_Insert("MalterlibLaunchEnd=true").f_GetStrUniqueWritable());
 			}
