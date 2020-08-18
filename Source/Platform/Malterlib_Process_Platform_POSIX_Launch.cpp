@@ -38,12 +38,16 @@ extern "C"
 #include <fcntl.h>
 #include <signal.h>
 #include <spawn.h>
+#include <sys/ptrace.h>
 
 #ifdef DPlatformFamily_OSX
 #include <libproc.h>
 #include <pthread/spawn.h>
 #endif
-#include <sys/ptrace.h>
+
+#ifdef DPlatformFamily_Linux
+#include <gnu/libc-version.h>
+#endif
 
 namespace NMib::NProcess::NPlatform
 {
@@ -199,6 +203,27 @@ namespace NMib::NProcess::NPlatform
 		return false;
 	}
 
+	namespace
+	{
+		int32 g_FastPosixSpawn = 2;
+		bool fg_GLibcSupportsFastPosixSpawn()
+		{
+			if (g_FastPosixSpawn < 2)
+				return !!g_FastPosixSpawn;
+
+			int32 MajorVersion = 0;
+			int32 MinorVersion = 0;
+			(NStr::CStr::CParse("{}.{}") >> MajorVersion >> MinorVersion).f_Parse(gnu_get_libc_version());
+
+			if (MajorVersion > 2)
+				return !!(g_FastPosixSpawn = 1);
+			if (MajorVersion == 2 && MinorVersion >= 24)
+				return !!(g_FastPosixSpawn = 1);
+
+			return !!(g_FastPosixSpawn = 0);
+		}
+	}
+
 	bool CPOSIXLaunchContext::fp_LaunchChild
 		(
 			int &_hStdOutRead
@@ -210,9 +235,6 @@ namespace NMib::NProcess::NPlatform
 			, NStr::CStr &_Errors
 		)
 	{
-
-
-
 		NStr::CStr Program = mp_LastLaunchOptions.m_Target;
 
 #ifdef DPlatformFamily_Linux
@@ -260,9 +282,7 @@ namespace NMib::NProcess::NPlatform
 #endif
 		}
 		else
-
 #endif
-
 		if (mp_LastLaunchOptions.m_Elevation == EProcessLaunchElevation_Elevate)
 		{
 			if (mp_LastLaunchOptions.m_bSandboxed)
@@ -419,6 +439,11 @@ namespace NMib::NProcess::NPlatform
 			;
 
 			bool bShouldSpawn = !mp_LastLaunchOptions.m_bForceFork;
+
+#ifdef DPlatformFamily_Linux
+			if (mp_LastLaunchOptions.m_bCreateNewProcessGroup && !fg_GLibcSupportsFastPosixSpawn())
+				bShouldSpawn = false; // Would use fork anyway
+#endif
 
 			NStr::CStr SpawnHelperExecutable = NFile::CFile::fs_GetProgramDirectory() / "MalterlibHelper";
 			if (bShouldSpawn && bNeedsTwoPhaseSpawn)
