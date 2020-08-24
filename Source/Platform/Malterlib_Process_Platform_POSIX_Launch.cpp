@@ -724,7 +724,7 @@ namespace NMib::NProcess::NPlatform
 #ifdef DPlatformFamily_OSX
 					if (mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default)
 					{
-						if (posix_spawnattr_set_qos_class_np)
+						if (&posix_spawnattr_set_qos_class_np)
 						{
 							int RelativePriority = 0;
 							auto QosClass = NMib::NPlatform::fg_PriorityToQualityOfService(mp_LastLaunchOptions.m_LaunchPriority, RelativePriority);
