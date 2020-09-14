@@ -377,35 +377,38 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 	auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
 
 	{
-		DMibLock(SubSystem.m_StdInReaderImpLock);
-
-		NStorage::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
-
-		if (Params.m_Flags & EStdInReaderFlag_Exclusive)
+		DMibLock(NMib::NPlatform::fg_ForkLock()); // Need to take fork lock first to prevent cycle
 		{
-			if (pImp && !pImp->m_Readers.f_IsEmpty())
-				DMibError("Stdin reader opened for exclusive access, but another reader is already open");
-		}
-		else
-		{
-			if (pImp && !pImp->m_Readers.f_IsEmpty() && (pImp->m_Readers.f_GetFirst()->m_pParams->m_Flags & EStdInReaderFlag_Exclusive))
-				DMibError("There is already a stdin reader opened for exclusive access");
-		}
+			DMibLock(SubSystem.m_StdInReaderImpLock);
 
-		bool bInit = false;
-		if (!pImp)
-		{
-			pNew = fg_Construct<CPOSIXStdInReaderImplementation>((Params.m_Flags & EStdInReaderFlag_ForcePolling) != 0);
-			pImp = (CPOSIXStdInReaderImplementation *)pNew.f_Get();
-			bInit = true;
-		}
+			NStorage::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
 
-		pImp->m_Readers.f_Insert(*pReader);
+			if (Params.m_Flags & EStdInReaderFlag_Exclusive)
+			{
+				if (pImp && !pImp->m_Readers.f_IsEmpty())
+					DMibError("Stdin reader opened for exclusive access, but another reader is already open");
+			}
+			else
+			{
+				if (pImp && !pImp->m_Readers.f_IsEmpty() && (pImp->m_Readers.f_GetFirst()->m_pParams->m_Flags & EStdInReaderFlag_Exclusive))
+					DMibError("There is already a stdin reader opened for exclusive access");
+			}
 
-		if (!SubSystem.m_pStdInReaderImp)
-		{
-			pImp->f_Init();
-			SubSystem.m_pStdInReaderImp = fg_Move(pNew);
+			bool bInit = false;
+			if (!pImp)
+			{
+				pNew = fg_Construct<CPOSIXStdInReaderImplementation>((Params.m_Flags & EStdInReaderFlag_ForcePolling) != 0);
+				pImp = (CPOSIXStdInReaderImplementation *)pNew.f_Get();
+				bInit = true;
+			}
+
+			pImp->m_Readers.f_Insert(*pReader);
+
+			if (!SubSystem.m_pStdInReaderImp)
+			{
+				pImp->f_Init();
+				SubSystem.m_pStdInReaderImp = fg_Move(pNew);
+			}
 		}
 	}
 
