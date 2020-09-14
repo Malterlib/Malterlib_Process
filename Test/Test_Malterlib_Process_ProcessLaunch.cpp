@@ -334,6 +334,8 @@ namespace
 		template <EProxyType t_ProxyType>
 		void f_TestExecutableFromDll()
 		{
+#ifndef DMibSanitizerEnabled_Thread
+			// tsan does not currently support unloading dlls
 			DMibTestSuite("Executable from dll")
 			{
 				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
@@ -365,6 +367,7 @@ namespace
 					}
 				}
 			};
+#endif
 		}
 
 		template <EProxyType t_ProxyType>

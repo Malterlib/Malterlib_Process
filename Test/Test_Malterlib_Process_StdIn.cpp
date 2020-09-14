@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Test/Exception>
@@ -38,7 +38,7 @@ namespace
 		static NMib::NProcess::CProcessLaunchParams fs_GetLaunchParams(NMib::NStr::CStr const &_Test = "JustExit", NMib::NStr::CStr const &_TestPath = fg_TestGetCurrentPath())
 		{
 			NMib::NProcess::CProcessLaunchParams Params;
-			Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();		
+			Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
 			Params.m_Parameters = fs_GetTestPath(_TestPath, _Test);
 			return Params;
 		}
@@ -109,7 +109,7 @@ namespace
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateNormal()));
 					}
-	
+
 				};
 				DMibTestSuite("ReadInput")
 				{
@@ -161,7 +161,7 @@ namespace
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateNormal()));
 					}
-	
+
 				};
 
 				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
@@ -210,6 +210,7 @@ namespace
 						//--test Malterlib/StdIn* --filter-results ["All"]
 						EExitResult Exited = EExitResult_None;
 						uint32 ExitCode = 66;
+						NMib::NThread::CMutual Lock;
 						NMib::NStr::CStr StdOut;
 						NMib::NProcess::CProcessLaunchParams Params = fs_GetLaunchParams("Level2");
 						NMib::NProcess::CProcessLaunch *pLauncher = nullptr;
@@ -237,14 +238,17 @@ namespace
 									break;
 								case NMib::NProcess::EProcessLaunchState_Launched:
 									{
-										pThreadObject 
+										pThreadObject
 											= NMib::NThread::CThreadObject::fs_StartThread
 											(
 												[&](NMib::NThread::CThreadObject *_pThread) -> aint
 												{
 													NMib::NSys::fg_Thread_Sleep(0.5);
-													pLauncher->f_SendStdIn(RandomString);
-													pLauncher->f_SendStdIn("\n");
+													{
+														DMibLock(Lock);
+														pLauncher->f_SendStdIn(RandomString);
+														pLauncher->f_SendStdIn("\n");
+													}
 
 													return 0;
 												}
@@ -270,14 +274,14 @@ namespace
 								}
 							}
 						;
+
 						{
+							Lock.f_Lock();
 							NMib::NProcess::CProcessLaunch Launcher(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 							pLauncher = &Launcher;
+							Lock.f_Unlock();
 						}
 
-
-
-					
 						{
 							DMibTestPath("Block on exit");
 							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
