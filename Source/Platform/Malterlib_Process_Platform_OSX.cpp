@@ -323,8 +323,8 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 						
 						if (!Data)
 							break;
-						
-						CmdName.f_AddStr(&Data, 1);
+
+						CmdName.f_AddChar(Data);
 					}
 					
 					//NStream::fg_AlignStream(Stream, 4);
@@ -352,7 +352,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 								}
 								
 								bFirst = false;
-								Argument.f_AddStr(&Data, 1);
+								Argument.f_AddChar(Data);
 							}
 							
 							//NStream::fg_AlignStream(Stream, 4);
