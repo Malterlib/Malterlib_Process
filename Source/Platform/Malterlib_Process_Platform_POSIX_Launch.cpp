@@ -206,11 +206,12 @@ namespace NMib::NProcess::NPlatform
 #ifdef DPlatformFamily_Linux
 	namespace
 	{
-		int32 g_FastPosixSpawn = 2;
+		NAtomic::TCAtomic<int32> g_FastPosixSpawn = 2;
 		bool fg_GLibcSupportsFastPosixSpawn()
 		{
-			if (g_FastPosixSpawn < 2)
-				return !!g_FastPosixSpawn;
+			auto CurrentValue = g_FastPosixSpawn.f_Load(NAtomic::EMemoryOrder_Relaxed);
+			if (CurrentValue < 2)
+				return !!CurrentValue;
 
 			int32 MajorVersion = 0;
 			int32 MinorVersion = 0;
