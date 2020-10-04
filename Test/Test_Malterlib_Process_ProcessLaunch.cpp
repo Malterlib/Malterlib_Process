@@ -101,7 +101,18 @@ namespace
 
 			Params.m_bStdOutPID = 1;
 
-			m_pProxyClient = NMib::fg_Construct(Params, NMib::fg_Default());
+			m_pProxyClient = NMib::fg_Construct
+				(
+					Params
+					, [](NMib::NStr::CStr const &_Error)
+					{
+						if (_Error.f_Find("Did you mean any of the following"))
+							return; // Normal part of test
+
+						DMibConErrOut("Proxy Client Error:\n{}", _Error);
+					}
+				)
+			;
 
 			return *m_pProxyClient;
 		}

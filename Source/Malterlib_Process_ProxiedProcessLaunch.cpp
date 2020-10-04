@@ -611,6 +611,7 @@ namespace NMib::NProcess
 		}
 
 		mutable NThread::CMutual m_ErrorLock;
+		NStr::CStr m_StdErr;
 		NStr::CStr m_Error;
 
 		void f_SetError(NStr::CStr const &_Error)
@@ -635,6 +636,7 @@ namespace NMib::NProcess
 					m_OnError(_Error);
 			}
 		}
+
 		NStr::CStr f_GetError() const
 		{
 			DMibLock(m_ErrorLock);
@@ -873,7 +875,9 @@ namespace NMib::NProcess
 					case EProcessLaunchState_Exited:
 						{
 							uint32 ExitCode = _State.f_Get<EProcessLaunchState_Exited>();
-							f_SetError(NStr::CStr::CFormat("The proxy server has exited with exit code {}: {}") << ExitCode << (m_ErrorData + m_BufferedData));
+							if (ExitCode != 0 || !m_StdErr.f_IsEmpty())
+								f_SetError(NStr::CStr::CFormat("The proxy server has exited with exit code {}: {}") << ExitCode << (m_StdErr + m_ErrorData + m_BufferedData));
+
 							m_ServerExited.f_SetSignaled();
 						}
 						break;
@@ -887,7 +891,7 @@ namespace NMib::NProcess
 					if (_OutputType == EProcessLaunchOutputType_StdOut)
 						f_ReceiveData(_Output);
 					else
-						f_SetError("StdErr in launch proxy: " + _Output);
+						m_StdErr += _Output;
 				}
 			;
 
