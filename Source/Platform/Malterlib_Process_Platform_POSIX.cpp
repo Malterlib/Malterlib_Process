@@ -26,6 +26,8 @@ using namespace NMib;
 #include "Malterlib_Process_Platform_POSIX.h"
 
 #include <Mib/Core/PlatformSpecific/PosixErrNo>
+#include <Mib/Core/PlatformSpecific/PosixUser>
+
 #include "../Malterlib_Process_Platform.h"
 
 // *************************************************************************************************************************
@@ -44,9 +46,11 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerDomain()
 NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetUserName()
 {
 	auto UserID = getuid();
-	auto pUserPassword = getpwuid(UserID);
-	if (pUserPassword && pUserPassword->pw_name)
-    	return NMib::NStr::CStr(pUserPassword->pw_name);
+	NMib::NPlatform::CGetPwUidState State;
+	auto *pPasswd = fg_Helper_GetPwUid(UserID, State);
+	if (pPasswd && pPasswd->pw_name)
+    	return NMib::NStr::CStr(pPasswd->pw_name);
+
 	return NMib::NStr::CStr::fs_ToStr(UserID);
 }
 

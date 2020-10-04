@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <linux/limits.h>
+#include <unistd.h>
 
 bool NMib::NProcess::NPlatform::fg_Process_IsRunning(mint _ProcessID)
 {

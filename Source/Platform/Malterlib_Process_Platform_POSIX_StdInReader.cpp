@@ -14,6 +14,8 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <errno.h>
+#include <unistd.h>
 
 namespace NMib::NProcess::NPlatform
 {
