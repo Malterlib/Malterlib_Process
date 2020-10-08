@@ -11,7 +11,7 @@
 
 #include "Malterlib_Process_Platform_POSIX_PlatformSpecific.h"
 
-DMibDeprecatedSupressStart;
+DMibDeprecatedSuppressStart;
 
 namespace NMib::NProcess::NPlatform
 {
@@ -435,4 +435,4 @@ namespace NMib::NProcess::NPlatform
 	}
 }
 
-DMibDeprecatedSupressStop;
+DMibDeprecatedSuppressStop;
