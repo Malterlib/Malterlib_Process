@@ -444,7 +444,7 @@ namespace NMib::NProcess::NPlatform
 			bool bShouldSpawn = !mp_LastLaunchOptions.m_bForceFork;
 
 #ifdef DPlatformFamily_Linux
-			if (mp_LastLaunchOptions.m_bCreateNewProcessGroup && !fg_GLibcSupportsFastPosixSpawn())
+			if (!fg_GLibcSupportsFastPosixSpawn())
 				bShouldSpawn = false; // Would use fork anyway
 #endif
 
