@@ -354,7 +354,7 @@ namespace NMib::NProcess::NPlatform
 			DMibRefcountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 		private:
-			NThread::CEventAutoResetReportable mp_Event;
+			NThread::CEventAutoReset mp_Event;
 
 			NTime::CClock m_TimeSinceStart;
 
