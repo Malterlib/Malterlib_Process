@@ -178,6 +178,38 @@ namespace NMib::NProcess::NPlatform
 		}
 
 		template <typename tf_CStrType>
+		tf_CStrType fg_RemoveEscapeWinPath(tf_CStrType &_Str)
+		{
+			tf_CStrType Ret;
+			const typename tf_CStrType::CChar *pParse = _Str;
+			int Mode = 0;
+			while (*pParse)
+			{
+				if (Mode == 0)
+				{
+					if (*pParse == '"')
+					{
+						Mode = 1;
+						++pParse;
+						continue;
+					}
+				}
+				else if (Mode == 1)
+				{
+					if (*pParse == '"')
+					{
+						Mode = 0;
+						++pParse;
+						continue;
+					}
+				}
+				Ret.f_AddChar(*pParse);
+				++pParse;
+			}
+			return Ret;
+		}
+
+		template <typename tf_CStrType>
 		tf_CStrType fg_GetWinPathSepEscaped(tf_CStrType &_Str, const ch8 *_pSep)
 		{
 			tf_CStrType Ret;
@@ -237,39 +269,6 @@ namespace NMib::NProcess::NPlatform
 			}
 			return RetPath;
 		}
-
-		template <typename tf_CStrType>
-		tf_CStrType fg_RemoveEscapeWinPath(tf_CStrType &_Str)
-		{
-			tf_CStrType Ret;
-			const typename tf_CStrType::CChar *pParse = _Str;
-			int Mode = 0;
-			while (*pParse)
-			{
-				if (Mode == 0)
-				{
-					if (*pParse == '"')
-					{
-						Mode = 1;
-						++pParse;
-						continue;
-					}
-				}
-				else if (Mode == 1)
-				{
-					if (*pParse == '"')
-					{
-						Mode = 0;
-						++pParse;
-						continue;
-					}
-				}
-				Ret.f_AddChar(*pParse);
-				++pParse;
-			}
-			return Ret;
-		}
-
 
 		void fg_TerminateProcessTree(HANDLE _hProcess, NStr::CStr &_Log)
 		{
@@ -340,7 +339,7 @@ namespace NMib::NProcess::NPlatform
 
 		}
 
-		class CConsoleRedirector : public NThread::CThread, public NStorage::TCSharedPointerIntrusiveBase<>, CProcessLaunchLink
+		class CConsoleRedirector : public NThread::CThread, public NStorage::TCSharedPointerIntrusiveBase<>, public CProcessLaunchLink
 		{
 			friend class CMultiProgramStarter;
 		public:
@@ -1403,7 +1402,7 @@ namespace NMib::NProcess::NPlatform
 				si.dwFlags = STARTF_USESHOWWINDOW;
 				if (bRunAsUser)
 				{
-					si.lpDesktop = L"winsta0\\default";
+					si.lpDesktop = fg_AutoConstCast(L"winsta0\\default");
 					CreateProcessFlags |= CREATE_NEW_CONSOLE;
 				}
 
