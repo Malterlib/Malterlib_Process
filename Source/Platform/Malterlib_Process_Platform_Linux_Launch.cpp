@@ -20,52 +20,63 @@
 int fg_GetUnixOpenFlags();
 void fg_SetUnixHandleOptions(int _File);
 
-bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess::NPlatform::CPOSIXLaunchContext *_pLaunchContext, NMib::NProcess::CProcessLaunchParams &_Params, NMib::NStr::CStr &_Program, int& _StdErrRead, int& _StdErrWrite, int &_StdInRead, int &_StdInWrite, NMib::NStr::CStr &_Errors)
+bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess::NPlatform::CPOSIXLaunchContext *_pLaunchContext, NMib::NProcess::CProcessLaunchParams &o_Params, NMib::NStr::CStr &o_Program, int &o_StdErrRead, int &o_StdErrWrite, int &o_StdInRead, int &o_StdInWrite, NMib::NStr::CStr &o_Errors)
 {
-	bool bGKSUAvailable = fg_FindExecutable("gksu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gksu";
-	if (bGKSUAvailable)
-		_Program = "gksu";
+	if (fg_FindExecutable("pkexec", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "pkexec")
+	{
+		o_Program = "pkexec";
+
+		NStr::CStr Parameters = fg_Move(o_Params.m_Parameters);
+		fg_AddStrSepEscaped(o_Params.m_Parameters, o_Params.m_Target, ' ');
+		o_Params.m_bAllowExecutableLocate = true;
+		o_Params.m_Elevation = NProcess::EProcessLaunchElevation_None;
+
+		if (!Parameters.f_IsEmpty())
+		{
+			o_Params.m_Parameters += " ";
+			o_Params.m_Parameters += Parameters;
+		}
+
+		return true;
+	}
+	else if (fg_FindExecutable("gksu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gksu")
+		o_Program = "gksu";
+	else if (fg_FindExecutable("gnomesu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gnomesu")
+		o_Program = "gnomesu";
 	else
 	{
-		// Fall back to gnomesu.
-		bool bGNomeSUAvailable = fg_FindExecutable("gnomesu", true, NMib::NFile::EFileAttrib_File|NMib::NFile::EFileAttrib_Executable) != "gnomesu";
-		if (bGNomeSUAvailable)
-			_Program = "gnomesu";
-		else
-		{
-			_Errors += "Could not find either gksu or gnomesu to perform elevation.\n";
-			return false;
-		}
+		o_Errors += "Could not find either pkexec, gksu or gnomesu to perform elevation.\n";
+		return false;
 	}
 
-	NStr::CStr Executable = _Params.m_Target;
+	NStr::CStr Executable = o_Params.m_Target;
 	NStr::CStr InPipeName;
 
 	NStr::CStr Parameters;
-	if (_Params.m_bStdOutPID)
+	if (o_Params.m_bStdOutPID)
 	{
-		if (_StdErrWrite != -1)
+		if (o_StdErrWrite != -1)
 		{
-			close(_StdErrWrite);
-			_StdErrWrite = -1;
+			close(o_StdErrWrite);
+			o_StdErrWrite = -1;
 		}
 
-		if (_StdErrRead != -1)
+		if (o_StdErrRead != -1)
 		{
-			close(_StdErrRead);
-			_StdErrRead = -1;
+			close(o_StdErrRead);
+			o_StdErrRead = -1;
 		}
 
-		if (_StdInRead != -1)
+		if (o_StdInRead != -1)
 		{
-			close(_StdInRead);
-			_StdInRead = -1;
+			close(o_StdInRead);
+			o_StdInRead = -1;
 		}
 
-		if (_StdInWrite != -1)
+		if (o_StdInWrite != -1)
 		{
-			close(_StdInWrite);
-			_StdInWrite = -1;
+			close(o_StdInWrite);
+			o_StdInWrite = -1;
 		}
 
 		NStr::CStr RandomString = NMib::NCryptography::fg_GetSecureUuidString();
@@ -77,73 +88,73 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 
 		if (mkfifo(ReadPipeName.f_GetStr(), S_IRUSR|S_IWUSR) == 0)
 		{
-			_StdErrRead = open(ReadPipeName.f_GetStr(), fg_GetUnixOpenFlags() | O_NONBLOCK | O_RDONLY, S_IRUSR);
+			o_StdErrRead = open(ReadPipeName.f_GetStr(), fg_GetUnixOpenFlags() | O_NONBLOCK | O_RDONLY, S_IRUSR);
 
-			if (_StdErrRead == -1)
+			if (o_StdErrRead == -1)
 			{
-				_Errors += NMib::NPlatform::fg_FormatErrno("open (elevate stderr pipe)", errno);
+				o_Errors += NMib::NPlatform::fg_FormatErrno("open (elevate stderr pipe)", errno);
 				return false;
 			}
-			fg_SetUnixHandleOptions(_StdErrRead);
+			fg_SetUnixHandleOptions(o_StdErrRead);
 		}
 		else
 		{
-			_Errors += NMib::NPlatform::fg_FormatErrno("mkfifo (elevate stderr pipe)", errno);
+			o_Errors += NMib::NPlatform::fg_FormatErrno("mkfifo (elevate stderr pipe)", errno);
 			return false;
 		}
 
 		if (mkfifo(InPipeName.f_GetStr(), S_IRUSR|S_IWUSR) != 0)
 		{
-			_Errors += NMib::NPlatform::fg_FormatErrno("mkfifo (elevate stdin pipe)", errno);
+			o_Errors += NMib::NPlatform::fg_FormatErrno("mkfifo (elevate stdin pipe)", errno);
 			return false;
 		}
 
 		Parameters = NStr::CStr::CFormat("\"--OutputPID {}/{}\" ") << NMib::NFile::CFile::fs_GetUserLocalProgramDirectory() << RandomString;
 	}
 
-	Parameters += _Params.m_Parameters;
+	Parameters += o_Params.m_Parameters;
 
-	if (_Program == "gnomesu")
+	if (o_Program == "gnomesu")
 	{
-		_Params.m_Parameters = "--";
+		o_Params.m_Parameters = "--";
 
-		fg_AddStrSepEscaped(_Params.m_Parameters, Executable, ' ');
+		fg_AddStrSepEscaped(o_Params.m_Parameters, Executable, ' ');
 
 		if (!Parameters.f_IsEmpty())
 		{
-			_Params.m_Parameters += " ";
-			_Params.m_Parameters += Parameters;
+			o_Params.m_Parameters += " ";
+			o_Params.m_Parameters += Parameters;
 		}
 	}
-	else if (_Program == "gksu")
+	else if (o_Program == "gksu")
 	{
-		if (_Params.m_Prompt.f_IsEmpty())
+		if (o_Params.m_Prompt.f_IsEmpty())
 		{
-			NStr::CStr Target = _Params.m_Target;
+			NStr::CStr Target = o_Params.m_Target;
 			if (Target.f_StartsWith("/"))
 				Target = (NStr::CStr::CFormat(" {}") << Target).f_GetStr();
 
-			_Params.m_Parameters = "--description " + Target.f_EscapeStr();
+			o_Params.m_Parameters = "--description " + Target.f_EscapeStr();
 		}
 		else
 		{
-			NStr::CStr Prompt = _Params.m_Prompt;
+			NStr::CStr Prompt = o_Params.m_Prompt;
 			if (Prompt.f_StartsWith("/"))
 				Prompt = (NStr::CStr::CFormat(" {}") << Prompt).f_GetStr();
 
-			_Params.m_Parameters = "--message " + Prompt.f_EscapeStr();
+			o_Params.m_Parameters = "--message " + Prompt.f_EscapeStr();
 		}
 
-		_Params.m_Parameters += " --";
-		fg_AddStrSepEscaped(_Params.m_Parameters, Executable, ' ');
+		o_Params.m_Parameters += " --";
+		fg_AddStrSepEscaped(o_Params.m_Parameters, Executable, ' ');
 
 		if (!Parameters.f_IsEmpty())
-			_Params.m_Parameters += " " + Parameters;
+			o_Params.m_Parameters += " " + Parameters;
 	}
 
-	_Params.m_bAllowExecutableLocate = true;
-	_Params.m_Elevation = NProcess::EProcessLaunchElevation_None;
-	_Params.m_bSeparateStdErr = true;
+	o_Params.m_bAllowExecutableLocate = true;
+	o_Params.m_Elevation = NProcess::EProcessLaunchElevation_None;
+	o_Params.m_bSeparateStdErr = true;
 
 	struct CLaunchOutput
 	{
@@ -177,14 +188,14 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 	};
 
 	NStorage::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
-	pLaunchData->m_bReceivedPID = !_Params.m_bStdOutPID;
-	pLaunchData->m_fOnOutput = fg_Move(_Params.m_fOnOutput);
-	pLaunchData->m_fOnStateChange = fg_Move(_Params.m_fOnStateChange);
+	pLaunchData->m_bReceivedPID = !o_Params.m_bStdOutPID;
+	pLaunchData->m_fOnOutput = fg_Move(o_Params.m_fOnOutput);
+	pLaunchData->m_fOnStateChange = fg_Move(o_Params.m_fOnStateChange);
 	pLaunchData->m_StdInPipeName = fg_Move(InPipeName);
 	pLaunchData->m_pLaunchContext = _pLaunchContext;
 	pLaunchData->m_Executable = Executable;
 
-	_Params.m_fOnStateChange =
+	o_Params.m_fOnStateChange =
 		[pLaunchData](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 		{
 			DMibLock(pLaunchData->m_Lock);
@@ -266,7 +277,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 		}
 	;
 
-	_Params.m_fOnOutput =
+	o_Params.m_fOnOutput =
 		[pLaunchData](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 		{
 			DMibLock(pLaunchData->m_Lock);

@@ -792,7 +792,10 @@ namespace
 
 						{
 							NMib::NProcess::CProcessLaunch Launcher(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-							pLauncher = &Launcher;
+							{
+								DMibLock(Lock);
+								pLauncher = &Launcher;
+							}
 						}
 
 						{
@@ -800,9 +803,7 @@ namespace
 							DMibTestPath("Block on exit");
 							StdOut = StdOut.f_Trim();
 							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-#ifndef DPlatformFamily_Linux // Buggy gksu does not forward exit code
 							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-#endif
 							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
 							DMibTest(DMibExpr(StdOut) == DMibExpr(RandomString));
 						}
@@ -894,9 +895,7 @@ namespace
 							DMibLock(Lock);
 							DMibTestPath("Block on exit");
 							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-#ifndef DPlatformFamily_Linux // Buggy gksu does not forward exit code
 							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-#endif
 							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
 							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
 						}
@@ -917,11 +916,18 @@ namespace
 
 						{
 							DMibLock(Lock);
-							DMibTestPath("Block on exit");
+							DMibTestPath("Non existing target");
+#ifdef DPlatformFamily_Linux
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(127));
+							DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Error accessing /Blah: No such file or directory"));
+							DMibTest(DMibExpr(StdOut) == DMibExpr(""));
+#else
 							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
 							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(66));
 							DMibTest(DMibExpr(StdErr) == DMibExpr(""));
 							DMibTest(DMibExpr(StdOut) == DMibExpr(""));
+#endif
 						}
 
 						{
@@ -943,9 +949,7 @@ namespace
 							DMibLock(Lock);
 							DMibTestPath("Wait for exit");
 							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-#ifndef DPlatformFamily_Linux // Buggy gksu does not forward exit code
 							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-#endif
 							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
 							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
 						}
@@ -984,9 +988,7 @@ namespace
 							DMibLock(Lock);
 							DMibTestPath("Wait for exit with dispatch");
 							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-#ifndef DPlatformFamily_Linux // Buggy gksu does not forward exit code
 							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-#endif
 							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
 							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
 						}
@@ -1687,8 +1689,7 @@ namespace
 						DMibLock(Lock);
 						DMibTest(DMibExpr(Failed.f_Load()));
 						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
-						DMibTrace("FailedMessage = \"{}\"", FailedMessage);
-						DMibTraceRaw("Expect = \"Launching a document or URL elevated is not supported on Linux.\"");
+						DMibExpect(FailedMessage.f_Trim(), ==, "Launching a document or URL elevated is not supported on Linux.");
 					}
 					else
 				#endif
@@ -2068,7 +2069,7 @@ namespace
 						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(255));
 #ifndef DPlatformFamily_Windows
-						DMibTest(DMibExpr(StdErr) == DMibExpr("Process terminated due to signal 9\n")); // (ETestFlag_NoValues);
+						DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 9")); // (ETestFlag_NoValues);
 #endif
 					}
 				};

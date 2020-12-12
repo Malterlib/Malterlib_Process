@@ -27,7 +27,11 @@ extern "C"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#ifdef DPlatformFamily_Linux
+#include <linux/sysctl.h>
+#else
 #include <sys/sysctl.h>
+#endif
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -242,8 +246,7 @@ namespace NMib::NProcess::NPlatform
 
 #ifdef DPlatformFamily_Linux
 
-		if (mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_Document
-			||	mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_URL )
+		if (mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_Document || mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_URL)
 		{
 			if (!fg_Linux_LaunchDocumentOrURL(mp_LastLaunchOptions, Program, _Errors))
 			{
@@ -260,9 +263,7 @@ namespace NMib::NProcess::NPlatform
 #endif
 
 #ifndef DPlatformFamily_Linux
-
-		if (		mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_Document
-					||	mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_URL )
+		if (mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_Document || mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_URL)
 		{
 
 			if (mp_LastLaunchOptions.m_bSandboxed)
