@@ -99,7 +99,7 @@ namespace
 			else
 				Params.m_Parameters = "--DoesNotExist";
 
-			Params.m_bStdOutPID = 1;
+			Params.m_bStdOutPID = true;
 
 			m_pProxyClient = NMib::fg_Construct
 				(
@@ -1432,13 +1432,6 @@ namespace
 				{
 					DMibConErrOutRaw(fp_GetLongOutput());
 					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
-
-/*					NMib::NMisc::CRandomShiftRNG Random;
-					for (auto i = 0; i < 256; ++i)
-						DMibConOut("{nfh,sj*,sf0}", Random.f_GetValue<uint32>() << i);
-
-					DMibConOutRaw("\n");*/
-
 				}
 				else
 				{
@@ -1450,16 +1443,15 @@ namespace
 
 					Params.m_bThreaded = true;
 					NMib::NThread::CMutual Lock;
-					Params.m_fOnStateChange
-						= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
 							DMibLock(Lock);
 							switch (_State.f_GetTypeID())
 							{
-								case NMib::NProcess::EProcessLaunchState_Launched:
+							case NMib::NProcess::EProcessLaunchState_Launched:
 								{
 								}
-									break;
+								break;
 							case NMib::NProcess::EProcessLaunchState_Exited:
 								{
 									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
@@ -1476,8 +1468,7 @@ namespace
 						}
 					;
 
-					Params.m_fOnOutput
-						= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 						{
 							DMibLock(Lock);
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
@@ -1496,11 +1487,11 @@ namespace
 						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(StdOut == fp_GetLongOutput()));
 						#if 0
-						if (StdOut != fp_GetLongOutput())
-						{
-							NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Actual.txt"), StdOut);
-							NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Expected.txt"), fp_GetLongOutput());
-						}
+							if (StdOut != fp_GetLongOutput())
+							{
+								NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Actual.txt"), StdOut);
+								NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Expected.txt"), fp_GetLongOutput());
+							}
 						#endif
 						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 					}
@@ -1552,10 +1543,7 @@ namespace
 
 				Launches.f_Clear();
 				while (Finished.f_Load() != nCores*2)
-				{
 					Event.f_Wait();
-				}
-
 			};
 		}
 

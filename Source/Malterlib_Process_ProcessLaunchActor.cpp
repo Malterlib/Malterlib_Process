@@ -154,7 +154,7 @@ namespace NMib::NProcess
 		pState->m_SimpleFlags = _SimpleLaunch.m_SimpleFlags;
 
 		CLaunch Params{_SimpleLaunch};
-		Params.m_Params.m_fOnStateChange = [pState](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
+		Params.m_Params.m_fOnStateChange = [pState, bSeparateStdErr = _SimpleLaunch.m_Params.m_bSeparateStdErr](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
 			{
 				switch (_StateChange.f_GetTypeID())
 				{
@@ -172,7 +172,21 @@ namespace NMib::NProcess
 					{
 						int32 ExitCode = _StateChange.f_Get<EProcessLaunchState_Exited>();
 						if (ExitCode && (pState->m_SimpleFlags & ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode))
-							pState->m_Promise.f_SetException(DMibErrorInstance(fg_Format("Launch exited with {}: {}", ExitCode, pState->m_LaunchResult.f_GetErrorOut())));
+						{
+							pState->m_Promise.f_SetException
+								(
+									DMibErrorInstance
+									(
+										fg_Format
+										(
+											"Launch exited with {}: {}"
+											, ExitCode
+											, bSeparateStdErr ? pState->m_LaunchResult.f_GetErrorOut() : pState->m_LaunchResult.f_GetCombinedOut()
+										)
+									)
+								)
+							;
+						}
 						else
 						{
 							pState->m_LaunchResult.m_ExitCode = ExitCode;

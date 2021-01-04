@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -13,10 +13,10 @@
 bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, int& _hStdOutRead, int& _hStdInWrite, NMib::NStr::CStr& _Errors)
 {
 	NStr::CStr Executable = _Params.m_Target;
-	
+
 	NContainer::TCVector<NStr::CStr> Parameters;
 	NContainer::TCVector<ch8 *> ParametersList;
-	
+
 	//ParametersList.f_Insert(Executable.f_GetStrUniqueWritable());
 	NStr::CStr Params = _Params.m_Parameters;
 	while (!Params.f_IsEmpty())
@@ -24,39 +24,36 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 		NStr::CStr Param = fg_GetStrSepEscaped(Params, " ");
 		ParametersList.f_Insert(Parameters.f_Insert(Param).f_GetStrUniqueWritable());
 	}
-	
+
 	if (_Params.m_bStdOutPID)
 	{
 		ParametersList.f_Insert((ch8*)"--OutputPID");
-		ParametersList.f_Insert((ch8*)"--NoStdErr");
+		if (_Params.m_bSeparateStdErr)
+			ParametersList.f_Insert((ch8*)"--NoStdErr");
+		else
+			ParametersList.f_Insert((ch8*)"--OutputStdErrToStdOut");
 	}
-	
+
 	ParametersList.f_Insert((ch8 *)nullptr);
-	
-	
-	char* ToolPath = Executable.f_GetStrUniqueWritable();
-	
+
+	char *ToolPath = Executable.f_GetStrUniqueWritable();
+
 	AuthorizationRef Authorization;
-	
-	auto fl_OnExit = fg_OnScopeExit([&] ()
-									{
-										AuthorizationFree(Authorization, kAuthorizationFlagDestroyRights);
-									});
-	
-	OSStatus Status = AuthorizationCreate(NULL,
-										  kAuthorizationEmptyEnvironment,
-										  kAuthorizationFlagDefaults,
-										  &Authorization);
-	
-	
+
+	auto OnExit = g_OnScopeExit > [&]()
+		{
+			AuthorizationFree(Authorization, kAuthorizationFlagDestroyRights);
+		}
+	;
+
+	OSStatus Status = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment, kAuthorizationFlagDefaults, &Authorization);
 	if (Status != errAuthorizationSuccess)
 	{
 		_Errors += NMib::NPlatform::fg_FormatOSStatus("AuthorizationCreate (launch elevated)", Status);
 		_Errors += DMibNewLine;
 		return false;
 	}
-	
-	
+
 	AuthorizationRights Rights = {0};
 	AuthorizationItem Right;
 	if (CSystem::ms_PlatformVersion >= 10'07'00)
@@ -65,11 +62,12 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 		Rights.count = 1;
 		Rights.items = &Right;
 	}
+
 	AuthorizationFlags Flags =	kAuthorizationFlagInteractionAllowed|kAuthorizationFlagPreAuthorize|kAuthorizationFlagExtendRights;
-	
+
 	NStr::CStr Prompt = _Params.m_Prompt;
 	NStr::CStr IconPath = _Params.m_IconPath;
-	
+
 	AuthorizationEnvironment Environment = {0};
 	AuthorizationItem EnvironmentItems[2];
 	if (CSystem::ms_PlatformVersion >= 10'07'00)
@@ -78,12 +76,12 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 		EnvironmentItems[0].valueLength = (size_t)Prompt.f_GetLen();
 		EnvironmentItems[0].value = (void*)Prompt.f_GetStrUniqueWritable();
 		EnvironmentItems[0].flags = 0;
-		
+
 		EnvironmentItems[1].name = kAuthorizationEnvironmentIcon;
 		EnvironmentItems[1].valueLength = (size_t)IconPath.f_GetLen();
 		EnvironmentItems[1].value = (void*)IconPath.f_GetStrUniqueWritable();
 		EnvironmentItems[1].flags = 0;
-		
+
 		Environment.count = 2;
 		Environment.items = EnvironmentItems;
 	}
@@ -95,15 +93,14 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 		_Errors += DMibNewLine;
 		return false;
 	}
-	
-	FILE* _Pipe = NULL;
+
+	FILE *pPipe = NULL;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-	Status = AuthorizationExecuteWithPrivileges(Authorization, ToolPath, kAuthorizationFlagDefaults, ParametersList.f_GetArray(), &_Pipe);
+	Status = AuthorizationExecuteWithPrivileges(Authorization, ToolPath, kAuthorizationFlagDefaults, ParametersList.f_GetArray(), &pPipe);
 #pragma clang diagnostic pop
-	
-	
+
 	if (Status != errAuthorizationSuccess)
 	{
 		_Errors += NMib::NPlatform::fg_FormatOSStatus("AuthorizationExecuteWithPrivileges (launch elevated)", Status);
@@ -112,30 +109,29 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 
 	close(_hStdOutRead);
 	close(_hStdInWrite);
-	
-	_hStdOutRead = dup(fileno(_Pipe));
-	_hStdInWrite = dup(fileno(_Pipe));
 
-	fclose(_Pipe);
-	
+	_hStdOutRead = dup(fileno(pPipe));
+	_hStdInWrite = dup(fileno(pPipe));
+
+	fclose(pPipe);
+
 	if (_Params.m_bStdOutPID)
 	{
 		char Buffer[17];
 		int BytesRead = 0;
-		
+
 		while (BytesRead < 16)
 			BytesRead += read (_hStdOutRead, Buffer + BytesRead, 16 - BytesRead);
-									
+
 		NMib::NStr::CStr ProcessID(Buffer, BytesRead);
 		ProcessID = "0x" + ProcessID;
 		_oPID = ProcessID.f_ToInt();
 	}
-	
 
 #ifdef F_SETNOSIGPIPE
 	fcntl(_hStdOutRead, F_SETNOSIGPIPE, 1);
 	fcntl(_hStdInWrite, F_SETNOSIGPIPE, 1);
 #endif
-	
+
 	return true;
-}		
+}
