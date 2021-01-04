@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -15,7 +15,7 @@ DMibDeprecatedSuppressStart;
 
 namespace NMib::NProcess::NPlatform
 {
-	bool fg_MacOSX_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
+	bool fg_MacOSX_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr &o_Errors)
 	{
 		CAutoReleasePool ARPool;
 
@@ -28,12 +28,12 @@ namespace NMib::NProcess::NPlatform
 		LSApplicationParameters Params;
 
 		FSRef ApplicationRef;
-		Boolean isDirectory;
-		OSStatus Result = FSPathMakeRef((const UInt8 *)UTF8Target.f_GetStr(), &ApplicationRef, &isDirectory);
+		Boolean bIsDirectory;
+		OSStatus Result = FSPathMakeRef((const UInt8 *)UTF8Target.f_GetStr(), &ApplicationRef, &bIsDirectory);
 		if (Result < 0)
 		{
-			_Errors += NMib::NPlatform::fg_FormatOSStatus("FSPathMakeRef (launch UI executable)", Result);
-			_Errors += "\n";
+			o_Errors += NMib::NPlatform::fg_FormatOSStatus("FSPathMakeRef (launch UI executable)", Result);
+			o_Errors += "\n";
 			return false;
 		}
 
@@ -42,23 +42,26 @@ namespace NMib::NProcess::NPlatform
 		Params.application = &ApplicationRef;
 		Params.asyncLaunchRefCon = nullptr;      /* The client refCon which will appear in subsequent launch notifications */
 		Params.environment = nullptr;
+		NSMutableDictionary *pEnv = nullptr;
 
 		if (!_Params.m_Environment.f_IsEmpty())
 		{ // Set environment
-			NSMutableDictionary* pEnv = [[NSMutableDictionary alloc] init];
+			pEnv = [[NSMutableDictionary alloc] init];
 
-			for (auto EIter = _Params.m_Environment.f_GetIterator()
-				 ;EIter
-				 ;++EIter)
+			for (auto &EnvironmentVar : _Params.m_Environment)
 			{
-				[pEnv setObject: NMib::NPlatform::fg_MaxOSX_GetString(*EIter) forKey: NMib::NPlatform::fg_MaxOSX_GetString(EIter.f_GetKey())];
+				[
+					pEnv setObject: NMib::NPlatform::fg_MaxOSX_GetString(EnvironmentVar)
+					forKey: NMib::NPlatform::fg_MaxOSX_GetString(_Params.m_Environment.fs_GetKey(EnvironmentVar))
+				];
 			}
 
-			Params.environment = (CFDictionaryRef)pEnv;
+			Params.environment = (__bridge CFDictionaryRef)pEnv;
 		}
+		NSMutableArray *pArgs = nullptr;
 
 		{ // Set Arguments
-			NContainer::TCVector<NStr::CStr> lArgs;
+			NContainer::TCVector<NStr::CStr> Arguments;
 
 			{
 				NStr::CStr ParamStr = _Params.m_Parameters;
@@ -66,23 +69,17 @@ namespace NMib::NProcess::NPlatform
 				while(!ParamStr.f_IsEmpty())
 				{
 					CurParam = NStr::fg_GetStrSepEscaped<'\"'>(ParamStr, " ");
-
-					lArgs.f_Insert(CurParam);
+					Arguments.f_Insert(CurParam);
 				}
 			}
 
-			NSMutableArray* pArgs = [NSMutableArray arrayWithCapacity:lArgs.f_GetLen()];
+			pArgs = [NSMutableArray arrayWithCapacity:Arguments.f_GetLen()];
 
-			for (auto AIter = lArgs.f_GetIterator()
-				 ;AIter
-				 ;++AIter)
-			{
-				[pArgs addObject: NMib::NPlatform::fg_MaxOSX_GetString(*AIter)];
-			}
+			for (auto &Argument : Arguments)
+				[pArgs addObject: NMib::NPlatform::fg_MaxOSX_GetString(Argument)];
 
-			Params.argv = (CFArrayRef)pArgs;
+			Params.argv = (__bridge CFArrayRef)pArgs;
 		}
-
 
 		Params.initialEvent = nullptr;
 
@@ -94,28 +91,24 @@ namespace NMib::NProcess::NPlatform
 			Result = GetProcessPID(&PSN, &PID);
 
 			if (Result >= 0)
-			{
 				_oPID = PID;
-			}
 			else
 			{
-				_Errors += NMib::NPlatform::fg_FormatOSStatus("GetProcessPID (launch UI executable)", Result);
-				_Errors += "\n";
-				// bReturn ?
+				o_Errors += NMib::NPlatform::fg_FormatOSStatus("GetProcessPID (launch UI executable)", Result);
+				o_Errors += "\n";
 			}
-
 		}
 		else
 		{
-			_Errors += NMib::NPlatform::fg_FormatOSStatus("LSOpenApplication (launch UI executable)", Result);
-			_Errors += "\n";
+			o_Errors += NMib::NPlatform::fg_FormatOSStatus("LSOpenApplication (launch UI executable)", Result);
+			o_Errors += "\n";
 			bReturn = false;
 		}
 
 		return bReturn;
 	}
 
-	bool fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
+	bool fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr &o_Errors)
 	{
 		CAutoReleasePool ARPool;
 
@@ -140,22 +133,20 @@ namespace NMib::NProcess::NPlatform
 		else
 		{
 			NSString *pNSPath = NMib::NPlatform::fg_MaxOSX_GetString(NMib::NFile::CFile::fs_GetPath(Target));
-
 			[[NSWorkspace sharedWorkspace] selectFile:pNSTarget inFileViewerRootedAtPath:pNSPath];
 		}
 
 		return true;
 	}
 
-	bool fg_MacOSX_LaunchDocument(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr& _Errors)
+	bool fg_MacOSX_LaunchDocument(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr &o_Errors)
 	{
 		NMib::CAutoReleasePool ARPool;
 
 		NMib::NStr::CStr Document = _Params.m_Target;
 		NMib::NStr::CStr Program;
 
-		if (_Params.m_LaunchType == NMib::NProcess::EProcessLaunchType_Document &&
-			_Params.m_Target.f_Find(".app") != -1 && !_Params.m_Parameters.f_IsEmpty())
+		if (_Params.m_LaunchType == NMib::NProcess::EProcessLaunchType_Document && _Params.m_Target.f_Find(".app") != -1 && !_Params.m_Parameters.f_IsEmpty())
 		{
 			Program = _Params.m_Target;
 			Document = _Params.m_Parameters;
@@ -174,14 +165,8 @@ namespace NMib::NProcess::NPlatform
 				while (*pParse)
 				{
 					// Check for allowed RFC 1738 scheme chars
-					if (NMib::NStr::fg_CharIsAlphabetical(*pParse)
-						|| NMib::NStr::fg_CharIsNumber(*pParse)
-						|| *pParse == '+'
-						|| *pParse == '.'
-						|| *pParse == '-')
-					{
+					if (NMib::NStr::fg_CharIsAlphabetical(*pParse) || NMib::NStr::fg_CharIsNumber(*pParse) || *pParse == '+' || *pParse == '.' || *pParse == '-')
 						++pParse;
-					}
 					else
 					{
 						bSchemeExist = false;
@@ -190,6 +175,7 @@ namespace NMib::NProcess::NPlatform
 
 				}
 			}
+
 			if (!bSchemeExist)
 				Document = (NMib::NStr::CStr::CFormat("http://{}") << Document).f_GetStr();
 		}
@@ -202,9 +188,7 @@ namespace NMib::NProcess::NPlatform
 		else if (_Params.m_LaunchType == NMib::NProcess::EProcessLaunchType_URL)
 			pURL = [[NSURL alloc] initWithString: pNSTarget];
 		else
-		{
 			return false;
-		}
 
 		if (!pURL)
 			return false;
@@ -217,16 +201,7 @@ namespace NMib::NProcess::NPlatform
 		OSStatus Result;
 
 		if (Program.f_IsEmpty())
-		{
-			Result = LSOpenURLsWithRole(
-						(CFArrayRef)pURLArray
-						,	kLSRolesAll
-						,	NULL
-						,	NULL
-						,	&PSN // ProcessSerialNumber *outPSNs
-						,	1	// CFIndex inMaxPSNCount
-						);
-		}
+			Result = LSOpenURLsWithRole((__bridge CFArrayRef)pURLArray, kLSRolesAll, NULL, NULL, &PSN, 1);
 		else
 		{
 			NSString* pPath = NMib::NPlatform::fg_MaxOSX_GetString(Program);
@@ -236,15 +211,7 @@ namespace NMib::NProcess::NPlatform
 				return false;
 
 			LSApplicationParameters AppParams = { 0, kLSLaunchDefaults, &AppRef, NULL };
-
-			Result = LSOpenURLsWithRole(
-										(CFArrayRef)pURLArray
-										,	kLSRolesAll
-										,	NULL
-										,	&AppParams
-										,	&PSN // ProcessSerialNumber *outPSNs
-										,	1	// CFIndex inMaxPSNCount
-										);
+			Result = LSOpenURLsWithRole((__bridge CFArrayRef)pURLArray, kLSRolesAll, NULL, &AppParams, &PSN, 1);
 		}
 
 		if (Result >= 0)
@@ -253,20 +220,14 @@ namespace NMib::NProcess::NPlatform
 			Result = GetProcessPID(&PSN, &PID);
 
 			if (Result >= 0)
-			{
 				_oPID = PID;
-			}
 			else
-			{
-				_Errors += "Failed to get launched process' PID.\n";
-				// bReturn ?
-			}
-
+				o_Errors += "Failed to get launched process' PID.\n";
 		}
 		else
 		{
-			_Errors += NMib::NPlatform::fg_FormatOSStatus("LSOpenURLsWithRole (launch document)", Result);
-			_Errors += "\n";
+			o_Errors += NMib::NPlatform::fg_FormatOSStatus("LSOpenURLsWithRole (launch document)", Result);
+			o_Errors += "\n";
 			bReturn = false;
 		}
 
@@ -280,11 +241,14 @@ namespace NMib::NProcess::NPlatform
 
 		NStr::CStr const &Exe = _ExePath;
 
-		CFURLRef AppURL = CFURLCreateFromFileSystemRepresentation (
-					NULL
-				,	(UInt8 const*)Exe.f_GetStr()
-				,	Exe.f_GetLen()
-				,	FALSE);
+		CFURLRef AppURL = CFURLCreateFromFileSystemRepresentation
+			(
+				NULL
+				, (UInt8 const*)Exe.f_GetStr()
+				, Exe.f_GetLen()
+				, FALSE
+			)
+		;
 
 		OSStatus Result;
 
@@ -296,15 +260,18 @@ namespace NMib::NProcess::NPlatform
 
 		NStr::CStr const &Scheme = _Protocol;
 
-		CFStringRef CFScheme = CFStringCreateWithBytes (
-					NULL
-				,	(UInt8 const*)Scheme.f_GetStr()
-				,	Scheme.f_GetLen()
-				,	kCFStringEncodingUTF8
-				,	FALSE);
+		CFStringRef CFScheme = CFStringCreateWithBytes
+			(
+				NULL
+				, (UInt8 const*)Scheme.f_GetStr()
+				, Scheme.f_GetLen()
+				, kCFStringEncodingUTF8
+				, FALSE
+			)
+		;
 
-		CFStringRef bundleID = (CFStringRef)[[NSBundle mainBundle] bundleIdentifier];
-		Result = LSSetDefaultHandlerForURLScheme(CFScheme, bundleID);
+		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
+		Result = LSSetDefaultHandlerForURLScheme(CFScheme, (__bridge CFStringRef)BundleID);
 
 		CFRelease(CFScheme);
 
@@ -315,17 +282,12 @@ namespace NMib::NProcess::NPlatform
 	{
 		NStr::CStr const &Scheme = _Protocol;
 
-		CFStringRef CFScheme = CFStringCreateWithBytes (
-					NULL
-				,	(UInt8 const*)Scheme.f_GetStr()
-				,	Scheme.f_GetLen()
-				,	kCFStringEncodingUTF8
-				,	FALSE);
+		CFStringRef SchemeRef = CFStringCreateWithBytes(NULL, (UInt8 const*)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
 
-		CFStringRef bundleID = (CFStringRef)[[NSBundle mainBundle] bundleIdentifier];
-		OSStatus Result = LSSetDefaultHandlerForURLScheme(CFScheme, bundleID);
+		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
+		OSStatus Result = LSSetDefaultHandlerForURLScheme(SchemeRef, (__bridge CFStringRef)BundleID);
 
-		CFRelease(CFScheme);
+		CFRelease(Scheme);
 
 		return Result >= 0;
 	}
@@ -334,16 +296,13 @@ namespace NMib::NProcess::NPlatform
 	bool fg_MacOSX_Process_RegisterAtStartup(NStr::CStr const& _ExePath, NStr::CStr const &_Params, NStr::CStr const& _Name)
 	{
 		if (!_Params.f_IsEmpty())
-		{
 			DMibError("Registering for startup with parameters is not supported on OSX.");
-		}
 
 		NStr::CStr ExePath = _ExePath;
 		int iAppBundle = _ExePath.f_FindReverse(".app");
 		if (iAppBundle == -1)
-		{
 			DMibError("Registering for startup is only supported for bundles on OSX.");
-		}
+
 		ExePath = ExePath.f_Left(iAppBundle + 4);
 
 		CAutoReleasePool ARPool;
@@ -355,16 +314,18 @@ namespace NMib::NProcess::NPlatform
 
 		CFArrayRef LoginItemsArray = LSSharedFileListCopySnapshot(LoginItems, &SeedValue);
 
-		NSString* BundlePath = NMib::NPlatform::fg_MaxOSX_GetString(ExePath);
+		NSString *BundlePath = NMib::NPlatform::fg_MaxOSX_GetString(ExePath);
 		bool bFound = false;
 
-		for (id Item in (NSArray*)LoginItemsArray)
+		for (id Item in (__bridge NSArray*)LoginItemsArray)
 		{
-			LSSharedFileListItemRef ItemRef = (LSSharedFileListItemRef)Item;
+			LSSharedFileListItemRef ItemRef = (__bridge LSSharedFileListItemRef)Item;
 			if (LSSharedFileListItemResolve(ItemRef, 0, (CFURLRef*) &ThePath, NULL) == noErr)
 			{
-				if ([[(NSURL *)ThePath path] hasPrefix:BundlePath])
+				if ([[(__bridge NSURL *)ThePath path] hasPrefix:BundlePath])
 				{
+					if (ThePath != NULL)
+						CFRelease(ThePath);
 					// Already exists.
 					bFound = true;
 					break;
@@ -374,12 +335,13 @@ namespace NMib::NProcess::NPlatform
 					CFRelease(ThePath);
 			}
 		}
+
 		if (LoginItemsArray != NULL)
 			CFRelease(LoginItemsArray);
 
-		CFURLRef URL = (CFURLRef)[NSURL fileURLWithPath:BundlePath];
+		auto URL = [NSURL fileURLWithPath:BundlePath];
 
-		LSSharedFileListItemRef Item = LSSharedFileListInsertItemURL(LoginItems, kLSSharedFileListItemLast, NULL, NULL, URL, NULL, NULL);
+		LSSharedFileListItemRef Item = LSSharedFileListInsertItemURL(LoginItems, kLSSharedFileListItemLast, NULL, NULL, (__bridge CFURLRef)URL, NULL, NULL);
 		if (Item)
 			CFRelease(Item);
 
@@ -388,7 +350,7 @@ namespace NMib::NProcess::NPlatform
 		return true;
 	}
 
-	bool fg_MacOSX_Process_DeRegisterAtStartup(NStr::CStr const& _ExePath, NStr::CStr const &_Params, NStr::CStr const& _Name)
+	bool fg_MacOSX_Process_DeRegisterAtStartup(NStr::CStr const &_ExePath, NStr::CStr const &_Params, NStr::CStr const &_Name)
 	{
 		if (!_Params.f_IsEmpty())
 		{
@@ -398,9 +360,8 @@ namespace NMib::NProcess::NPlatform
 		NStr::CStr ExePath = _ExePath;
 		int iAppBundle = _ExePath.f_FindReverse(".app");
 		if (iAppBundle == -1)
-		{
 			DMibError("Registering for startup is only supported for bundles on OSX.");
-		}
+
 		ExePath = ExePath.f_Left(iAppBundle + 4);
 
 		CAutoReleasePool ARPool;
@@ -414,18 +375,19 @@ namespace NMib::NProcess::NPlatform
 
 		NSString* BundlePath = NMib::NPlatform::fg_MaxOSX_GetString(ExePath);
 
-		for (id Item in (NSArray*)LoginItemsArray)
+		for (id Item in (__bridge NSArray *)LoginItemsArray)
 		{
-			LSSharedFileListItemRef ItemRef = (LSSharedFileListItemRef)Item;
-			if (LSSharedFileListItemResolve(ItemRef, 0, (CFURLRef*) &ThePath, NULL) == noErr)
+			LSSharedFileListItemRef ItemRef = (__bridge LSSharedFileListItemRef)Item;
+			if (LSSharedFileListItemResolve(ItemRef, 0, (CFURLRef *)&ThePath, NULL) == noErr)
 			{
-				if ([[(NSURL *)ThePath path] hasPrefix:BundlePath])
+				if ([[(__bridge NSURL *)ThePath path] hasPrefix:BundlePath])
 					LSSharedFileListItemRemove(LoginItems, ItemRef);
 
 				if (ThePath != NULL)
 					CFRelease(ThePath);
 			}
 		}
+
 		if (LoginItemsArray != NULL)
 			CFRelease(LoginItemsArray);
 

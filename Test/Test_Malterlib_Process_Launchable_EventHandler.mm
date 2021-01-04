@@ -31,13 +31,9 @@
 @end
 
 COSXEventHandler* g_pOSXEventHandler = nullptr;
-NSAutoreleasePool *pAutoReleasePool = nullptr;
-
 
 void fg_CreateOSXEventHandler(FOnOpenURL *_pfOnOpenURL)
 {
-	pAutoReleasePool = [[NSAutoreleasePool alloc] init];
-
 	g_pOSXEventHandler = [[COSXEventHandler alloc] init];
 
 	[g_pOSXEventHandler setOnOpenURL: _pfOnOpenURL];
@@ -60,10 +56,7 @@ void fg_CreateOSXEventHandler(FOnOpenURL *_pfOnOpenURL)
 
 void fg_DestroyOSXEventHandler()
 {
-	[g_pOSXEventHandler release];
 	g_pOSXEventHandler = nullptr;
-
-	[pAutoReleasePool release];
 }
 
 void fg_RunApplicationMain(int argc, char *argv[])
@@ -76,8 +69,6 @@ void fg_RunApplicationMain(int argc, char *argv[])
 //	NMib::NSys::fg_Thread_Sleep(1.0);
 
 	NMib::NSys::fg_TerminateProcess(0);
-
-	[NSApp release];
 
 //	NSApplicationMain(0, nullptr);
 

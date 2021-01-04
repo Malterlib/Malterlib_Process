@@ -36,52 +36,41 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 	_VersionInfo.m_Branch = NStr::CStr();
 
 	CAutoReleasePool ARPool;
-	
+
 	NSString *pFileName = NMib::NPlatform::fg_MaxOSX_GetString(CanonicalFile);
 	NSURL *pURL = [NSURL fileURLWithPath: pFileName];
-	
+
 	if (pURL)
 	{
-		NSDictionary *pPList = (NSDictionary *)CFBundleCopyInfoDictionaryForURL((CFURLRef)pURL);
-		
+		NSDictionary *pPList = (NSDictionary *)CFBridgingRelease(CFBundleCopyInfoDictionaryForURL((CFURLRef)pURL));
+
 		if (!pPList)
 			return;
-		auto Cleanup1 = g_OnScopeExit > [&]
-			{
-				CFRelease(pPList);
-			}
-		;
-		
-		{
-			NStr::CStr BundleVersion = fg_GetDictionaryValue(pPList, "CFBundleShortVersionString", NStr::CStr::fs_ToStr(_VersionInfo.m_Major));
-			
-			NStr::CStr BundleMajor = fg_GetStrSep(BundleVersion, ".");
-			NStr::CStr BundleMinor = fg_GetStrSep(BundleVersion, ".");
-			NStr::CStr BundleRevision = fg_GetStrSep(BundleVersion, ".");					
-			if (!BundleMajor.f_IsEmpty())
-				_VersionInfo.m_Major = BundleMajor.f_ToInt(uint16(0));
-			if (!BundleMinor.f_IsEmpty())
-				_VersionInfo.m_Minor = BundleMinor.f_ToInt(uint16(0));
-			if (!BundleRevision.f_IsEmpty())
-				_VersionInfo.m_Revision = BundleRevision.f_ToInt(uint16(0));
 
-			NStr::CStr BuildTime = fg_GetDictionaryValue(pPList, "BuildTime", "");
-			NStr::CStr BuildTimeSeconds = fg_GetStrSep(BuildTime, ":");
-			NStr::CStr BuildTimeFraction = fg_GetStrSep(BuildTime, ":");
-			
-			if (!BuildTimeSeconds.f_IsEmpty())
-			{
-				_VersionInfo.m_BuildTime = NMib::NTime::CTime::fs_Create(BuildTimeSeconds.f_ToInt(int64(0)), BuildTimeFraction.f_ToInt(uint64(0)));
-			}
-			
-			_VersionInfo.m_Major = fg_GetDictionaryValue(pPList, "ProductVersionMajor", NStr::CStr::fs_ToStr(_VersionInfo.m_Major)).f_ToInt(uint16(0));
-			_VersionInfo.m_Minor = fg_GetDictionaryValue(pPList, "ProductVersionMinor", NStr::CStr::fs_ToStr(_VersionInfo.m_Minor)).f_ToInt(uint16(0));
-			_VersionInfo.m_Revision = fg_GetDictionaryValue(pPList, "ProductVersionRevision", NStr::CStr::fs_ToStr(_VersionInfo.m_Revision)).f_ToInt(uint16(0));
-			_VersionInfo.m_Branch = fg_GetDictionaryValue(pPList, "MalterlibBranch", _VersionInfo.m_Branch);
-			_VersionInfo.m_GitBranch = fg_GetDictionaryValue(pPList, "MalterlibGitBranch", _VersionInfo.m_GitBranch);
-			_VersionInfo.m_GitCommit = fg_GetDictionaryValue(pPList, "MalterlibGitCommit", "");
+		NStr::CStr BundleVersion = fg_GetDictionaryValue(pPList, "CFBundleShortVersionString", NStr::CStr::fs_ToStr(_VersionInfo.m_Major));
 
-			return;
-		}
-	}			
+		NStr::CStr BundleMajor = fg_GetStrSep(BundleVersion, ".");
+		NStr::CStr BundleMinor = fg_GetStrSep(BundleVersion, ".");
+		NStr::CStr BundleRevision = fg_GetStrSep(BundleVersion, ".");
+		if (!BundleMajor.f_IsEmpty())
+			_VersionInfo.m_Major = BundleMajor.f_ToInt(uint16(0));
+		if (!BundleMinor.f_IsEmpty())
+			_VersionInfo.m_Minor = BundleMinor.f_ToInt(uint16(0));
+		if (!BundleRevision.f_IsEmpty())
+			_VersionInfo.m_Revision = BundleRevision.f_ToInt(uint16(0));
+
+		NStr::CStr BuildTime = fg_GetDictionaryValue(pPList, "BuildTime", "");
+		NStr::CStr BuildTimeSeconds = fg_GetStrSep(BuildTime, ":");
+		NStr::CStr BuildTimeFraction = fg_GetStrSep(BuildTime, ":");
+
+		if (!BuildTimeSeconds.f_IsEmpty())
+			_VersionInfo.m_BuildTime = NMib::NTime::CTime::fs_Create(BuildTimeSeconds.f_ToInt(int64(0)), BuildTimeFraction.f_ToInt(uint64(0)));
+
+		_VersionInfo.m_Major = fg_GetDictionaryValue(pPList, "ProductVersionMajor", NStr::CStr::fs_ToStr(_VersionInfo.m_Major)).f_ToInt(uint16(0));
+		_VersionInfo.m_Minor = fg_GetDictionaryValue(pPList, "ProductVersionMinor", NStr::CStr::fs_ToStr(_VersionInfo.m_Minor)).f_ToInt(uint16(0));
+		_VersionInfo.m_Revision = fg_GetDictionaryValue(pPList, "ProductVersionRevision", NStr::CStr::fs_ToStr(_VersionInfo.m_Revision)).f_ToInt(uint16(0));
+		_VersionInfo.m_Branch = fg_GetDictionaryValue(pPList, "MalterlibBranch", _VersionInfo.m_Branch);
+		_VersionInfo.m_GitBranch = fg_GetDictionaryValue(pPList, "MalterlibGitBranch", _VersionInfo.m_GitBranch);
+		_VersionInfo.m_GitCommit = fg_GetDictionaryValue(pPList, "MalterlibGitCommit", "");
+	}
 }
