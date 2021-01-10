@@ -91,7 +91,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerName()
 
 	int Result = gethostname(Hostname, _POSIX_HOST_NAME_MAX);
 
-	if (Result == -1)
+	if (Result != 0)
 		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get computer name)", errno));
 
 	NMib::NStr::CStr HostnameStr = Hostname;
@@ -120,7 +120,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetHostName()
 
 	int Result = gethostname(Hostname, _POSIX_HOST_NAME_MAX);
 
-	if (Result == -1)
+	if (Result != 0)
 		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get host name)", errno));
 
 	return Hostname;
@@ -134,7 +134,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetFullyQualiedHostName()
 
 	int Result = gethostname(Hostname, _POSIX_HOST_NAME_MAX);
 
-	if (Result == -1)
+	if (Result != 0)
 		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get host name)", errno));
 
 #ifdef DPlatformFamily_OSX
@@ -150,7 +150,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetFullyQualiedHostName()
 
 	Result = getaddrinfo(Hostname, NULL, &HintAddrInfo, &pAddrInfo);
 
-	if (Result == -1)
+	if (Result != 0 || !pAddrInfo)
 		DMibError(NMib::NPlatform::fg_FormatErrno("getaddrinfo (get host name)", errno));
 
 	CStr FullyQualifiedName = pAddrInfo->ai_canonname;
