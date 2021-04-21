@@ -385,6 +385,16 @@ namespace NMib::NProcess
 		return Params;
 	}
 
+	NStr::CStr CProcessLaunchParams::fs_GetParamsBash(NContainer::TCVector<NStr::CStr> const &_Params)
+	{
+		NStr::CStr Ret;
+
+		for (auto &Param : _Params)
+			fg_AddStrSep(Ret, NStr::fg_StrEscapeBashDoubleQuotes(Param), " ");
+
+		return Ret;
+	}
+
 	NStr::CStr CProcessLaunchParams::fs_GetParamsWindows(NContainer::TCVector<NStr::CStr> const &_Params)
 	{
 		// Rules:

@@ -37,7 +37,6 @@ void OnOpenURL(NStr::CStr const& _URL)
 
 int calling_convention_c main(int _ArgC, char ** _pArgV)
 {
-
 	DMibConOutRaw("Launchable!\n");
 
 	NContainer::TCVector<NStr::CStr> CommandLineArgs;
