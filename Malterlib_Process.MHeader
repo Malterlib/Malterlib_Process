@@ -22,7 +22,7 @@ Import "../Core/Lib_Malterlib.MTarget"
 			{
 				Compile.Disabled true
 				{
-					!PlatformFamily "@(PlatformFamilyFromFile)"
+					!PlatformFamily PlatformFamilyFromFile
 				}
 			}
 		}
@@ -39,20 +39,13 @@ Import "../Core/Lib_Malterlib.MTarget"
 
 Property
 {
-	MalterlibLibrary_Process true
-	{
-		&
-		{
-			MalterlibLibrary_Process ""
-			MalterlibLibrary_All true
-		}
-	}
-	MalterlibSubLibraries "Process;@(MalterlibSubLibraries)"
+	MalterlibLibrary_Process define bool = MalterlibLibrary_All
+	MalterlibSubLibraries =+ "Process"
 	{
 		!!MalterlibLibrary_Process true
 	}
-//	MalterlibSubLibrarySeparate_Lib_Malterlib_Process true
-	MalterlibIncludeRoots "@('Include'->MakeAbsolute());@(MalterlibIncludeRoots)"
+//	MalterlibSubLibrarySeparate_Lib_Malterlib_Process define bool = true
+	MalterlibIncludeRoots =+ "Include"->MakeAbsolute()
 	{
 		!!MalterlibLibrary_Process true
 	}
@@ -75,7 +68,7 @@ Property
 	Compile
 	{
 		!!CompileDialect "C"
-		PrefixHeader ""
+		PrefixHeader undefined
 	}
 	%File "Test/Test_Malterlib_Process_DllMain.cpp"
 	%Dependency "Lib_Malterlib"
@@ -86,19 +79,25 @@ Property
 {
 	Property
 	{
-		URLScheme "@(Builtin.Function->GetProperty('Property', 'URLScheme', 'Target:*.Parent.Parent.Parent.Group:Tests.Target:Malterlib_Process.Target:Malterlib_Process'))"
+		URLSchemeUnique define string = MalterlibFinalModuleDestination->HashUUID("AlphaNum")
+		URLScheme define string
+		URLScheme `mib@(URLSchemeUnique->Format("{sm6}"))`
 
-		MalterlibURLScheme "@(URLScheme),Viewer,@(ProductCompany->Sanitize()).@(Target:Target.Name->Sanitize()).Link, "
+		MalterlibURLScheme =+ {
+			Protocols: [URLScheme]
+			, Role: "Viewer"
+			, Name: `@(ProductCompany->Sanitize()).@(Target:Target.Name->Sanitize()).Link`
+		}
 		{
 			!!PlatformFamily "OSX"
 		}
-		MalterlibBundleIdentifier "@(ProductCompanyUniqueIdentifier->Sanitize()).@(Target:Target.Name->Sanitize()).@(MalterlibFinalModuleDestination->HashUUID(AlphaNum))"
+
+		MalterlibBundleIdentifier `@(ProductCompanyUniqueIdentifier->Sanitize()).@(Target:Target.Name->Sanitize()).@(MalterlibFinalModuleDestination->HashUUID("AlphaNum"))`
 		{
 			!!PlatformFamily "OSX"
 		}
 
-		MalterlibBuildSpecifics "@(MalterlibBuildSpecifics)\r\n"\
-								"#define DLaunchableScheme \"@(URLScheme)\"\r\n"
+		MalterlibBuildSpecifics =+ `#define DLaunchableScheme "@(URLScheme)"\r\n`
 		{
 		}
 
@@ -133,38 +132,32 @@ Property
 {
 	!!MalterlibEnableInternalTests true
 	
-	MalterlibTests "Malterlib_Helper_Process;@(MalterlibTests)"
-	MalterlibTestExtraGroups_Malterlib_Helper_Process "{Test}/{Malterlib_Helper_Process}"
-	MalterlibTestAutoAdd_Malterlib_Helper_Process false
-
+	MalterlibTests =+ "Malterlib_Helper_Process"
+	MalterlibTestExtraGroups_Malterlib_Helper_Process define [string] = ["{Test}/{Malterlib_Helper_Process}"]
+	MalterlibTestAutoAdd_Malterlib_Helper_Process define bool = false
 }
-
 
 %Group "{Test}/{Malterlib_Process}"
 {
 	Property
 	{
-		URLSchemeUnique "@(MalterlibFinalModuleDestination->HashUUID(AlphaNum))"
-		URLScheme "mib@(URLSchemeUnique->FormatString({sm6}))"
+		HelperAvailable define bool = HasProperty("Property", "URLScheme", "Workspace:*.Group:Helpers.Target:Malterlib_Helper_Process.Target:Malterlib_Helper_Process")
+		
+		URLScheme define string = HelperAvailable ? GetProperty("Property", "URLScheme", "Workspace:*.Group:Helpers.Target:Malterlib_Helper_Process.Target:Malterlib_Helper_Process") : "DummyScheme"
 
-		MalterlibBuildSpecifics "@(MalterlibBuildSpecifics)\r\n"\
-								"#define DLaunchableScheme \"@(URLScheme)\"\r\n"
+		MalterlibBuildSpecifics =+ `#define DLaunchableScheme "@(URLScheme)"\r\n`
 
 		ProductVersionMajor "1"
 		ProductVersionMinor "2"
 		ProductVersionRevision "345"
 		
-		MalterlibUseLauncher true
-		
-		MalterlibExtraPListContents "@(MalterlibExtraPListContents)"\
-									"	<key>SecTaskAccess</key>\n"\
-									"		<array>\n"\
-									"			<string>allowed</string>\n"\
-									"		</array>\n"
+		MalterlibExtraPListContents =+	"	<key>SecTaskAccess</key>\n"\
+										"		<array>\n"\
+										"			<string>allowed</string>\n"\
+										"		</array>\n"
 		{
 			!!PlatformFamily "OSX"
 		}
-
 	}
 	%Group "Tests"
 	{
@@ -173,7 +166,12 @@ Property
 		%File "Test/Test_Malterlib_Process_StdIn.cpp"
 		%File "Test/Test_Malterlib_Process_Info.cpp"
 	}
-	%Dependency "Malterlib_Helper_Process=Exe_Test_Malterlib_Helper_Process"
+	%Dependency {
+		Name: "Exe_Test_Malterlib_Helper_Process"
+		, Properties: {
+			Dependency.Target: "Malterlib_Helper_Process"
+		}
+	}
 	{
 		!!PlatformFamily "OSX"
 		Dependency.Link false
@@ -188,7 +186,6 @@ Property
 {
 	!!MalterlibEnableInternalTests true
 	
-	MalterlibTests "Malterlib_Process;@(MalterlibTests)"
-	MalterlibTestExtraGroups_Malterlib_Process "{Test}/{Malterlib_Process}"
+	MalterlibTests =+ "Malterlib_Process"
+	MalterlibTestExtraGroups_Malterlib_Process define [string] = ["{Test}/{Malterlib_Process}"]
 }
-
