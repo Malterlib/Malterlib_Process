@@ -108,7 +108,6 @@ Property
 		}
 		MalterlibSigning false
 		MalterlibTestOwnMain true
-		MalterlibExeIcon "/Users/erik/Downloads/Mac Icon.icns"
 	}
 	Target
 	{
