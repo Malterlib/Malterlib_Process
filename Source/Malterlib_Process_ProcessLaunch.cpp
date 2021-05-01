@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -387,12 +387,16 @@ namespace NMib::NProcess
 
 	NStr::CStr CProcessLaunchParams::fs_GetParamsBash(NContainer::TCVector<NStr::CStr> const &_Params)
 	{
-		NStr::CStr Ret;
-
+		NStr::CStr Params;
 		for (auto &Param : _Params)
-			fg_AddStrSep(Ret, NStr::fg_StrEscapeBashDoubleQuotes(Param), " ");
+		{
+			if (fg_StrEscapeBashQuotesNeeded(Param))
+				NStr::fg_AddStrSep(Params, fg_StrEscapeBashDoubleQuotes(Param), ' ');
+			else
+				NStr::fg_AddStrSep(Params, Param, ' ');
+		}
 
-		return Ret;
+		return Params;
 	}
 
 	NStr::CStr CProcessLaunchParams::fs_GetParamsWindows(NContainer::TCVector<NStr::CStr> const &_Params)
