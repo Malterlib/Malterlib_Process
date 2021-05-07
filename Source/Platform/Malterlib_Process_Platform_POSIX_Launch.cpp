@@ -652,19 +652,19 @@ namespace NMib::NProcess::NPlatform
 			{
 				try
 				{
-					auto fCallPosixSpawnApi = [&](auto &&_fFunction, ch8 const *_pFunctionName, auto &&...p_Params)
+					auto fCallPosixSpawnApi = [&](auto &&_fFunction, ch8 const *_pFunctionName, ch8 const *_pParams, auto &&...p_Params)
 						{
 							using namespace NStr;
 							int ErrNo = _fFunction(p_Params...);
 							if (ErrNo)
-								DMibError(NMib::NPlatform::fg_FormatErrno("{} (launch process)"_f << _pFunctionName, ErrNo));
+								DMibError(NMib::NPlatform::fg_FormatErrno("{}({}) in launch process"_f << _pFunctionName << _pParams, ErrNo));
 						}
 					;
 
-					#define DCallPosixSpawnApi(d_Function, ...) fCallPosixSpawnApi(&d_Function, DMibStringize(d_Function), __VA_ARGS__)
+					#define DCallPosixSpawnApi(d_Function, d_Params, ...) fCallPosixSpawnApi(&d_Function, DMibStringize(d_Function), d_Params, __VA_ARGS__)
 
 					posix_spawn_file_actions_t SpawnFileActions;
-					DCallPosixSpawnApi(posix_spawn_file_actions_init, &SpawnFileActions);
+					DCallPosixSpawnApi(posix_spawn_file_actions_init, "", &SpawnFileActions);
 
 					auto Cleanup = g_OnScopeExit > [&]
 						{
@@ -673,7 +673,7 @@ namespace NMib::NProcess::NPlatform
 					;
 
 					posix_spawnattr_t SpawnAttributes;
-					DCallPosixSpawnApi(posix_spawnattr_init, &SpawnAttributes);
+					DCallPosixSpawnApi(posix_spawnattr_init, "", &SpawnAttributes);
 
 					auto Cleanup2 = g_OnScopeExit > [&]
 						{
@@ -684,16 +684,16 @@ namespace NMib::NProcess::NPlatform
 					auto fDestroyPipe = [&](int _Handle)
 						{
 							if (_Handle != -1)
-								DCallPosixSpawnApi(posix_spawn_file_actions_addclose, &SpawnFileActions, _Handle);
+								DCallPosixSpawnApi(posix_spawn_file_actions_addclose, "", &SpawnFileActions, _Handle);
 						}
 					;
 
 					auto fCloseOrDup = [&](int _Handle, int _DestinationHandle)
 						{
 							if (_Handle == -1)
-								DCallPosixSpawnApi(posix_spawn_file_actions_addclose, &SpawnFileActions, _DestinationHandle);
+								DCallPosixSpawnApi(posix_spawn_file_actions_addclose, "", &SpawnFileActions, _DestinationHandle);
 							else
-								DCallPosixSpawnApi(posix_spawn_file_actions_adddup2, &SpawnFileActions, _Handle, _DestinationHandle);
+								DCallPosixSpawnApi(posix_spawn_file_actions_adddup2, "", &SpawnFileActions, _Handle, _DestinationHandle);
 						}
 					;
 
@@ -714,12 +714,12 @@ namespace NMib::NProcess::NPlatform
 					fDestroyPipe(_hStdErrWrite);
 
 					short PreviousFlags = 0;
-					DCallPosixSpawnApi(posix_spawnattr_getflags, &SpawnAttributes, &PreviousFlags);
+					DCallPosixSpawnApi(posix_spawnattr_getflags, "", &SpawnAttributes, &PreviousFlags);
 					short NewFlags = PreviousFlags;
 
 					if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
 					{
-						DCallPosixSpawnApi(posix_spawnattr_setpgroup, &SpawnAttributes, 0);
+						DCallPosixSpawnApi(posix_spawnattr_setpgroup, "", &SpawnAttributes, 0);
 						NewFlags |= POSIX_SPAWN_SETPGROUP;
 					}
 
@@ -735,6 +735,7 @@ namespace NMib::NProcess::NPlatform
 								DCallPosixSpawnApi
 									(
 										posix_spawnattr_set_qos_class_np
+										, ""
 										, &SpawnAttributes
 										, QosClass
 									)
@@ -744,14 +745,14 @@ namespace NMib::NProcess::NPlatform
 					}
 #endif
 					if (NewFlags != PreviousFlags)
-						DCallPosixSpawnApi(posix_spawnattr_setflags, &SpawnAttributes, NewFlags);
+						DCallPosixSpawnApi(posix_spawnattr_setflags, "", &SpawnAttributes, NewFlags);
 
 					auto pExecutable = ProgramToLaunch.f_GetStr();
 					if (bNeedsTwoPhaseSpawn)
 						pExecutable = SpawnHelperExecutable.f_GetStr();
 
 					pid_t Pid = -1;
-					DCallPosixSpawnApi(posix_spawn, &Pid, pExecutable, &SpawnFileActions, &SpawnAttributes, ParametersList.f_GetArray(), EnvList.f_GetArray());
+					DCallPosixSpawnApi(posix_spawn, pExecutable, &Pid, pExecutable, &SpawnFileActions, &SpawnAttributes, ParametersList.f_GetArray(), EnvList.f_GetArray());
 
 					mp_hStdinWrite = _hStdInWrite;
 					mp_hStdoutRead = _hStdOutRead;
