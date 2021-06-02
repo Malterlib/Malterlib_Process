@@ -1211,6 +1211,9 @@ namespace
 		{
 			DMibTestSuite("Sandbox")
 			{
+				if (!NMib::NFile::CFile::fs_FileExists(NMib::NFile::CFile::fs_GetProgramDirectory() / "MalterlibSandbox_x64.dll"))
+					return;
+
 #ifdef DPlatformFamily_Windows
 				NMib::NStr::CStr Sandbox = "X:";
 #else
