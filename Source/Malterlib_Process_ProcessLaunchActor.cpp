@@ -318,6 +318,7 @@ namespace NMib::NProcess
 									}
 #if (DMibSysLogSeverities) != 0
 									auto LogScope = fs_LogScope(LogName);
+									DMibLogOperation(StdOut);
 									DMibLog(Info, "{}", Output.f_TrimRight());
 #endif
 								}
@@ -334,6 +335,7 @@ namespace NMib::NProcess
 									}
 #if (DMibSysLogSeverities) != 0
 									auto LogScope = fs_LogScope(LogName);
+									DMibLogOperation(StdErr);
 									DMibLog(Error, "{}", Output.f_TrimRight());
 #endif
 								}
