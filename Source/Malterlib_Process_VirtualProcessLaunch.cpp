@@ -72,34 +72,39 @@ namespace NMib::NProcess
 		Params.m_fOnStateChange
 			= [_bDelayOutput, pDestroyedNotification, this, pInfo](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
 			{
-				DMibLock(pDestroyedNotification->m_DestroyLock);
-
-				if (pDestroyedNotification->m_Destroyed.f_Load())
-					return; // No longer valid
-
-				if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited)
+				NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> fOnStateChange;
 				{
-					if (_bDelayOutput && pInfo->m_LaunchParams.m_fOnOutput)
+					DMibLock(pDestroyedNotification->m_DestroyLock);
+
+					if (pDestroyedNotification->m_Destroyed.f_Load())
+						return; // No longer valid
+
+					if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited)
 					{
-						DMibLock(pInfo->m_DelayedOutputLock);
-						for (auto &Delayed : pInfo->m_DelayedOutput)
-							pInfo->m_LaunchParams.m_fOnOutput(Delayed.m_Type, Delayed.m_Output);
+						if (_bDelayOutput && pInfo->m_LaunchParams.m_fOnOutput)
+						{
+							DMibLock(pInfo->m_DelayedOutputLock);
+							for (auto &Delayed : pInfo->m_DelayedOutput)
+								pInfo->m_LaunchParams.m_fOnOutput(Delayed.m_Type, Delayed.m_Output);
+						}
+					}
+
+					fOnStateChange = pInfo->m_LaunchParams.m_fOnStateChange;
+
+					if (_StateChange.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
+					{
+						pInfo->m_Done.f_Exchange(1);
+						pInfo->fp_Clear();
+					}
+					else if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited)
+					{
+						pInfo->m_Done.f_Exchange(1);
+						pInfo->fp_Clear();
 					}
 				}
+				if (fOnStateChange)
+					fOnStateChange(_StateChange, _TimeSinceLaunch);
 
-				if (pInfo->m_LaunchParams.m_fOnStateChange)
-					pInfo->m_LaunchParams.m_fOnStateChange(_StateChange, _TimeSinceLaunch);
-
-				if (_StateChange.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
-				{
-					pInfo->m_Done.f_Exchange(1);
-					pInfo->fp_Clear();
-				}
-				else if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited)
-				{
-					pInfo->m_Done.f_Exchange(1);
-					pInfo->fp_Clear();
-				}
 				m_LaunchChanged.f_Signal();
 			}
 		;
