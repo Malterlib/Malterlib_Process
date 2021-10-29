@@ -216,8 +216,15 @@ namespace NMib::NProcess
 		if (m_pProcessLaunch)
 		{
 			m_DestructFlags = _CloseFlags;
-			NPlatform::fg_ProcessLaunch_Close(m_pProcessLaunch, _CloseFlags);
-			m_pProcessLaunch = nullptr;
+			auto Cleanup = g_OnScopeExit / [this, pLastValue = m_pProcessLaunch]
+				{
+					m_pProcessLaunch = pLastValue;
+				}
+			;
+
+			NPlatform::fg_ProcessLaunch_Close(fg_Exchange(m_pProcessLaunch, nullptr), _CloseFlags);
+
+			Cleanup.f_Clear();
 		}
 	}
 
