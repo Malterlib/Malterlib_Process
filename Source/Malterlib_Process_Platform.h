@@ -17,6 +17,7 @@ namespace NMib::NProcess
 		, EProcessLaunchCloseFlag_LingerUntilDone = DMibBit(1)
 		, EProcessLaunchCloseFlag_BlockOnExit = DMibBit(2)
 		, EProcessLaunchCloseFlag_StopProcess = DMibBit(3)
+		, EProcessLaunchCloseFlag_CloseInProgress = DMibBit(4)
 	};
 
 	enum EProcessElevation

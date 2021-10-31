@@ -21,7 +21,7 @@ namespace NMib::NProcess
 
 	CProcessLaunch::CProcessLaunch(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags)
 		: m_pProcessLaunch(nullptr)
-		, m_DestructFlags(_DestructFlags)
+		, m_DestructFlags(_DestructFlags & ~EProcessLaunchCloseFlag_CloseInProgress)
 	{
 		m_pProcessLaunch = NPlatform::fg_ProcessLaunch_Open(_Params);
 		if (_Params.m_bThreaded)
@@ -213,16 +213,19 @@ namespace NMib::NProcess
 
 	void CProcessLaunch::f_Close(EProcessLaunchCloseFlag _CloseFlags)
 	{
-		if (m_pProcessLaunch)
+		if (m_pProcessLaunch && !(m_DestructFlags & EProcessLaunchCloseFlag_CloseInProgress))
 		{
 			m_DestructFlags = _CloseFlags;
-			auto Cleanup = g_OnScopeExit / [this, pLastValue = m_pProcessLaunch]
+			m_DestructFlags |= EProcessLaunchCloseFlag_CloseInProgress;
+
+			auto Cleanup = g_OnScopeExit / [this]
 				{
-					m_pProcessLaunch = pLastValue;
+					m_DestructFlags = m_DestructFlags & ~EProcessLaunchCloseFlag_CloseInProgress;
 				}
 			;
 
-			NPlatform::fg_ProcessLaunch_Close(fg_Exchange(m_pProcessLaunch, nullptr), _CloseFlags);
+			NPlatform::fg_ProcessLaunch_Close(m_pProcessLaunch, _CloseFlags);
+			m_pProcessLaunch = nullptr;
 
 			Cleanup.f_Clear();
 		}
