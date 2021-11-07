@@ -407,6 +407,10 @@ namespace NMib::NProcess
 				if (!ThisActor)
 					return; // Already deleted
 
+				auto LaunchState = _State.f_GetTypeID();
+				if (LaunchState == NProcess::EProcessLaunchState_Exited || LaunchState == NProcess::EProcessLaunchState_LaunchFailed)
+					pState->f_FlushOutput();
+
 				ThisActor
 					(
 						&CActor::f_Dispatch
@@ -496,6 +500,7 @@ namespace NMib::NProcess
 #endif
 										for (auto &Pending : Internal.m_PendingProcessStops)
 											Pending.m_fOnStop(-1);
+
 										Internal.m_PendingProcessStops.f_Clear();
 										Internal.m_bProcessExited = true;
 									}
