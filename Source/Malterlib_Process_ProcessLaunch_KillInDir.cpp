@@ -32,6 +32,8 @@ namespace NMib::NProcess
 
 	mint CProcessLaunch::fs_KillProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags, fp64 _Timeout)
 	{
+		using namespace NMib::NStr;
+
 		NContainer::TCVector<mint> ProcessIDs = fg_GetProcesses(_fProcessFilter, _InfoFlags);
 
 		NContainer::TCSet<mint> Killed;
@@ -88,7 +90,7 @@ namespace NMib::NProcess
 
 			// Fail and report failure
 			if (!ProcessIDs.f_IsEmpty())
-				DMibError("Failed to kill all processes");
+				DMibError("Failed to kill all processes: {vs}"_f << ProcessIDs);
 		}
 		return Killed.f_GetLen();
 	}
