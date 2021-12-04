@@ -179,7 +179,7 @@ namespace NMib::NProcess
 	{
 	}
 
-	NConcurrency::TCFuture<void> CStdInActor::fp_Destory()
+	NConcurrency::TCFuture<void> CStdInActor::fp_Destroy()
 	{
 		f_AbortReads();
 		auto &Internal = *mp_pInternal;

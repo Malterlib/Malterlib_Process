@@ -33,7 +33,7 @@ namespace NMib::NProcess
 		void f_AbortReads();
 
 	private:
-		NConcurrency::TCFuture<void> fp_Destory();
+		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		struct CInternal;
 
