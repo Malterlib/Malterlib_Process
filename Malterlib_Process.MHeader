@@ -34,17 +34,27 @@ Import "../Core/Lib_Malterlib.MTarget"
 	%Dependency "Lib_Malterlib_Concurrency"
 	{
 		Dependency.Indirect true
-	}	
+	}
+	%Dependency "Security"
+	{
+		!!PlatformIsDarwin true
+
+		Dependency
+		{
+			Type "Framework"
+			Indirect true
+		}
+	}
 }
 
 Property
 {
-	MalterlibLibrary_Process define bool = MalterlibLibrary_All
+	MalterlibLibrary_Process: bool = MalterlibLibrary_All
 	MalterlibSubLibraries =+ "Process"
 	{
 		!!MalterlibLibrary_Process true
 	}
-//	MalterlibSubLibrarySeparate_Lib_Malterlib_Process define bool = true
+//	MalterlibSubLibrarySeparate_Lib_Malterlib_Process: bool = true
 	MalterlibIncludeRoots =+ "Include"->MakeAbsolute()
 	{
 		!!MalterlibLibrary_Process true
@@ -79,8 +89,8 @@ Property
 {
 	Property
 	{
-		URLSchemeUnique define string = MalterlibFinalModuleDestination->HashUUID("AlphaNum")
-		URLScheme define string
+		URLSchemeUnique: string = MalterlibFinalModuleDestination->HashUUID("AlphaNum")
+		URLScheme: string
 		URLScheme `mib@(URLSchemeUnique->Format("{sm6}"))`
 
 		MalterlibURLScheme =+ {
@@ -133,17 +143,17 @@ Property
 	!!MalterlibEnableInternalTests true
 	
 	MalterlibTests =+ "Malterlib_Helper_Process"
-	MalterlibTestExtraGroups_Malterlib_Helper_Process define [string] = ["{Test}/{Malterlib_Helper_Process}"]
-	MalterlibTestAutoAdd_Malterlib_Helper_Process define bool = false
+	MalterlibTestExtraGroups_Malterlib_Helper_Process: [string] = ["{Test}/{Malterlib_Helper_Process}"]
+	MalterlibTestAutoAdd_Malterlib_Helper_Process: bool = false
 }
 
 %Group "{Test}/{Malterlib_Process}"
 {
 	Property
 	{
-		HelperAvailable define bool = HasProperty("Property", "URLScheme", "Workspace:*.Group:Helpers.Target:Malterlib_Helper_Process.Target:Malterlib_Helper_Process")
+		HelperAvailable: bool = HasProperty(&URLScheme, "Workspace:*.Group:Helpers.Target:Malterlib_Helper_Process.Target:Malterlib_Helper_Process")
 		
-		URLScheme define string = HelperAvailable ? GetProperty("Property", "URLScheme", "Workspace:*.Group:Helpers.Target:Malterlib_Helper_Process.Target:Malterlib_Helper_Process") : "DummyScheme"
+		URLScheme: string = HelperAvailable ? GetProperty(&URLScheme, "Workspace:*.Group:Helpers.Target:Malterlib_Helper_Process.Target:Malterlib_Helper_Process") : "DummyScheme"
 
 		MalterlibBuildSpecifics =+ `#define DLaunchableScheme "@(URLScheme)"\r\n`
 
@@ -187,5 +197,5 @@ Property
 	!!MalterlibEnableInternalTests true
 	
 	MalterlibTests =+ "Malterlib_Process"
-	MalterlibTestExtraGroups_Malterlib_Process define [string] = ["{Test}/{Malterlib_Process}"]
+	MalterlibTestExtraGroups_Malterlib_Process: [string] = ["{Test}/{Malterlib_Process}"]
 }
