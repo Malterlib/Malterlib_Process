@@ -235,13 +235,13 @@ namespace NMib::NProcess
 
 		enum : uint32
 		{
-			EProtocolVersion = 0x107
+			EProtocolVersion_Current = 0x107
 		};
 
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const
 		{
-			_Stream << EProtocolVersion;
+			_Stream << EProtocolVersion_Current;
 			_Stream << m_Operation;
 			_Stream << m_Target;
 			_Stream << m_Parameters;
@@ -301,7 +301,7 @@ namespace NMib::NProcess
 		{
 			uint32 Version;
 			_Stream >> Version;
-			if (Version > EProtocolVersion || Version < 0x101)
+			if (Version > EProtocolVersion_Current || Version < 0x101)
 				DMibError("Invalid process launch params protocol version");
 
 			_Stream >> m_Operation;

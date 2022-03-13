@@ -13,7 +13,7 @@ namespace NMib::NProcess::NPrivate
 {
 	enum : uint32
 	{
-		EProtocolVersion = 0x105
+		EProtocolVersion_Current = 0x105
 	};
 
 	struct CHandleMessageVisitor;
@@ -80,7 +80,7 @@ namespace NMib::NProcess::NPrivate
 		friend struct CHandleMessageVisitor;
 	public:
 		CConnect()
-			: m_Version(EProtocolVersion)
+			: m_Version(EProtocolVersion_Current)
 		{
 		}
 
@@ -89,7 +89,7 @@ namespace NMib::NProcess::NPrivate
 		struct CResponse
 		{
 			CResponse()
-				: m_Version(EProtocolVersion)
+				: m_Version(EProtocolVersion_Current)
 			{
 			}
 
