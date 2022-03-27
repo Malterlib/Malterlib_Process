@@ -1227,6 +1227,17 @@ namespace NMib::NProcess::NPlatform
 		return true;
 	}
 
+	bool fg_StopProcessGroup(pid_t _ProcessID, NStr::CStr &_Errors)
+	{
+		if (kill(-_ProcessID, SIGTERM))
+		{
+			int ErrNo = errno;
+			_Errors += NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("kill({}) when stopping launch process group") << (-_ProcessID), ErrNo);
+			return false;
+		}
+		return true;
+	}
+
 	bool fg_TerminateProcessTree(pid_t _ProcessID, NStr::CStr &_Errors)
 	{
 #ifdef DPlatformFamily_OSX
@@ -1941,6 +1952,14 @@ fp64 NMib::NProcess::NPlatform::fg_ProcessLaunch_GetRunningTime(void *_pLaunch)
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_GetRunningTime();
+}
+
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_StopGroup(void *_pLaunch)
+{
+	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
+	NMib::NStr::CStr Error;
+	if (!NPlatform::fg_StopProcessGroup(pLaunch->f_GetID(), Error))
+		DMibError(Error);
 }
 
 void NMib::NProcess::NPlatform::fg_ProcessLaunch_Stop(void *_pLaunch)

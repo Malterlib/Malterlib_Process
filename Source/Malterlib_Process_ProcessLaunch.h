@@ -402,6 +402,7 @@ namespace NMib::NProcess
 		fp64 f_GetRunningTime() const;
 		mint f_GetProcessID() const;
 		void f_StopProcess() const; // Soft termination
+		void f_StopProcessGroup() const;
 
 		CProcessStatistics f_GetExecutionStatistics() const;
 		CProcessStatistics f_GetMemoryStatistics() const;

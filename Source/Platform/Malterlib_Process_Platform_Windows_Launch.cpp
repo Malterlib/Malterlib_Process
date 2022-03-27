@@ -2784,7 +2784,13 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Stop(void *_pLaunch)
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 
 	pLaunch->f_StopProcess();
+}
 
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_StopGroup(void *_pLaunch)
+{
+	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
+
+	pLaunch->f_StopProcess();
 }
 
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetExecutionStatistics(void *_pLaunch)

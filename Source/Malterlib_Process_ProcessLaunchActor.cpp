@@ -654,7 +654,7 @@ namespace NMib::NProcess
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_StopProcess() const
+	NConcurrency::TCFuture<uint32> CProcessLaunchActor::fp_StopProcess(bool _bGroup) const
 	{
 		NConcurrency::TCPromise<uint32> Promise;
 
@@ -668,7 +668,10 @@ namespace NMib::NProcess
 		{
 			try
 			{
-				Internal.m_pProcessLaunch->f_StopProcess();
+				if (_bGroup)
+					Internal.m_pProcessLaunch->f_StopProcessGroup();
+				else
+					Internal.m_pProcessLaunch->f_StopProcess();
 			}
 			catch (NException::CException const &)
 			{
@@ -689,6 +692,16 @@ namespace NMib::NProcess
 			}
 		;
 		return Promise.f_MoveFuture();
+	}
+
+	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_StopProcess() const
+	{
+		return fp_StopProcess(false);
+	}
+
+	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_StopProcessGroup() const
+	{
+		return fp_StopProcess(true);
 	}
 
 	template <typename tf_CType, typename tf_FToWrap>

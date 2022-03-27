@@ -284,6 +284,11 @@ namespace NMib::NProcess
 		NPlatform::fg_ProcessLaunch_Stop(m_pProcessLaunch);
 	}
 
+	void CProcessLaunch::f_StopProcessGroup() const
+	{
+		NPlatform::fg_ProcessLaunch_StopGroup(m_pProcessLaunch);
+	}
+
 	CProcessStatistics CProcessLaunch::f_GetExecutionStatistics() const
 	{
 		return NPlatform::fg_ProcessLaunch_GetExecutionStatistics(m_pProcessLaunch);

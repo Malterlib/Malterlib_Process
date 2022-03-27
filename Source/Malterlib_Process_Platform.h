@@ -150,6 +150,7 @@ namespace NMib::NProcess
 		fp64 fg_ProcessLaunch_GetRunningTime(void *_pLaunch);
 		mint fg_ProcessLaunch_GetID(void *_pLaunch);
 		void fg_ProcessLaunch_Stop(void *_pLaunch);
+		void fg_ProcessLaunch_StopGroup(void *_pLaunch);
 
 		mint fg_Process_GetMaxFilesPerProc();
 
