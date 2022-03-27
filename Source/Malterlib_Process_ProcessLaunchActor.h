@@ -96,6 +96,7 @@ namespace NMib::NProcess
 		NConcurrency::TCFuture<CProcessStatistics> f_GetOverallExecutionStatistics() const;
 		NConcurrency::TCFuture<CProcessStatistics> f_GetOverallMemoryStatistics() const;
 
+		static NConcurrency::TCFuture<CSimpleLaunchResult> fs_LaunchSimple(CSimpleLaunch _SimpleLaunch);
 
 	protected:
 		NConcurrency::TCFuture<void> fp_Destroy() override;

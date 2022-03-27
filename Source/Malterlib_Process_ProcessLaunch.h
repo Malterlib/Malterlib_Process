@@ -206,7 +206,7 @@ namespace NMib::NProcess
 			)
 		;
 
-		static CProcessLaunchParams fs_LaunchExecutable
+		static CProcessLaunchParams fs_LaunchExecutableRawParams
 			(
 				NMib::NStr::CStr const &_Executable
 				, NMib::NStr::CStr const &_Parameters

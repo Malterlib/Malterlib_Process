@@ -516,7 +516,7 @@ namespace NMib::NProcess
 		return Ret;
 	}
 
-	CProcessLaunchParams CProcessLaunchParams::fs_LaunchExecutable
+	CProcessLaunchParams CProcessLaunchParams::fs_LaunchExecutableRawParams
 		(
 			NMib::NStr::CStr const &_Executable
 			, NMib::NStr::CStr const &_Parameters
@@ -544,7 +544,7 @@ namespace NMib::NProcess
 			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_Dispatcher
 		)
 	{
-		return fs_LaunchExecutable(_Executable, fs_GetParams(_Parameters), _WorkingDirectory, _fOnStateChange, _Dispatcher);
+		return fs_LaunchExecutableRawParams(_Executable, fs_GetParams(_Parameters), _WorkingDirectory, _fOnStateChange, _Dispatcher);
 	}
 
 	CProcessLaunchParams &CProcessLaunchParams::operator =(CProcessLaunchParams const &_From)

@@ -805,4 +805,11 @@ namespace NMib::NProcess
 			Return += Output.m_Output;
 		return Return;
 	}
+
+	DMibSuppressUndefinedSanitizerLinux auto CProcessLaunchActor::fs_LaunchSimple(CSimpleLaunch _SimpleLaunch) -> NConcurrency::TCFuture<CSimpleLaunchResult>
+	{
+		NConcurrency::TCActor<CProcessLaunchActor> LaunchActor;
+		LaunchActor = fg_Construct();
+		co_return co_await LaunchActor(&CProcessLaunchActor::f_LaunchSimple, fg_Move(_SimpleLaunch));
+	}
 }

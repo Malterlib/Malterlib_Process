@@ -1737,7 +1737,7 @@ namespace NMib::NProcess::NPlatform
 
 						NStr::CStr SandboxInjecter = NFile::CFile::fs_GetPath(SandboxFullPath) + "/" + NFile::CFile::fs_GetFileNoExt(SandboxFullPath) + ".exe";
 
-						CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutable
+						CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutableRawParams
 							(
 								SandboxInjecter
 								, NStr::CStr::CFormat("0x{nfh} {}") << pi.dwProcessId << pi.dwThreadId
