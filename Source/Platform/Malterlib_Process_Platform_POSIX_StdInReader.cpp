@@ -396,12 +396,10 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 					DMibError("There is already a stdin reader opened for exclusive access");
 			}
 
-			bool bInit = false;
 			if (!pImp)
 			{
 				pNew = fg_Construct<CPOSIXStdInReaderImplementation>((Params.m_Flags & EStdInReaderFlag_ForcePolling) != 0);
 				pImp = (CPOSIXStdInReaderImplementation *)pNew.f_Get();
-				bInit = true;
 			}
 
 			pImp->m_Readers.f_Insert(*pReader);

@@ -112,6 +112,8 @@ namespace NMib::NProcess::NPlatform
 		CProcessStatistics mp_OverallMemoryStatistics;
 		CProcessStatistics mp_OverallExecutionStatistics;
 
+		NThread::CMutual mp_PipeLock;
+
 		int mp_hStdinWrite;	// write end of child's stdin pipe
 		int mp_hStdoutRead;	// read end of child's stdout pipe
 		int mp_hStderrRead;	// read end of child's stderr pipe

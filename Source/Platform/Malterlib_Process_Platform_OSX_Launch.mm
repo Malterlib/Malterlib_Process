@@ -315,7 +315,6 @@ namespace NMib::NProcess::NPlatform
 		CFArrayRef LoginItemsArray = LSSharedFileListCopySnapshot(LoginItems, &SeedValue);
 
 		NSString *BundlePath = NMib::NPlatform::fg_MaxOSX_GetString(ExePath);
-		bool bFound = false;
 
 		for (id Item in (__bridge NSArray*)LoginItemsArray)
 		{
@@ -327,7 +326,6 @@ namespace NMib::NProcess::NPlatform
 					if (ThePath != NULL)
 						CFRelease(ThePath);
 					// Already exists.
-					bFound = true;
 					break;
 				}
 

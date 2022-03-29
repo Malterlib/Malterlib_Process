@@ -171,7 +171,10 @@ namespace NMib::NProcess::NPlatform
 	{
 		if (mp_hStdinWrite != -1)
 			fp_DestroyPipe(mp_hStdinWrite );
-		mp_hStdinWrite = dup(_Pipe);
+		{
+			DMibLock(mp_PipeLock);
+			mp_hStdinWrite = dup(_Pipe);
+		}
 		fp_DestroyPipe(_Pipe);
 
 		if (mp_hStdinWrite == -1)
@@ -302,6 +305,7 @@ namespace NMib::NProcess::NPlatform
 
 			if (bRetVal)
 			{
+				DMibLock(mp_PipeLock);
 				mp_hStdinWrite = _hStdInWrite;
 				mp_hStdoutRead = _hStdOutRead;
 				_hStdInWrite = -1;
@@ -754,15 +758,18 @@ namespace NMib::NProcess::NPlatform
 					pid_t Pid = -1;
 					DCallPosixSpawnApi(posix_spawn, pExecutable, &Pid, pExecutable, &SpawnFileActions, &SpawnAttributes, ParametersList.f_GetArray(), EnvList.f_GetArray());
 
-					mp_hStdinWrite = _hStdInWrite;
-					mp_hStdoutRead = _hStdOutRead;
-					mp_hStderrRead = _hStdErrRead;
-					_hStdInWrite = -1;
-					_hStdOutRead = -1;
-					_hStdErrRead = -1;
-					fp_DestroyPipe(_hStdInRead);
-					fp_DestroyPipe(_hStdOutWrite);
-					fp_DestroyPipe(_hStdErrWrite);
+					{
+						DMibLock(mp_PipeLock);
+						mp_hStdinWrite = _hStdInWrite;
+						mp_hStdoutRead = _hStdOutRead;
+						mp_hStderrRead = _hStdErrRead;
+						_hStdInWrite = -1;
+						_hStdOutRead = -1;
+						_hStdErrRead = -1;
+						fp_DestroyPipe(_hStdInRead);
+						fp_DestroyPipe(_hStdOutWrite);
+						fp_DestroyPipe(_hStdErrWrite);
+					}
 
 					mp_ProcessID = Pid;
 				}
@@ -940,6 +947,7 @@ namespace NMib::NProcess::NPlatform
 				}
 				else
 				{
+					DMibLock(mp_PipeLock);
 					mp_hStdinWrite = _hStdInWrite;
 					mp_hStdoutRead = _hStdOutRead;
 					mp_hStderrRead = _hStdErrRead;
@@ -960,6 +968,7 @@ namespace NMib::NProcess::NPlatform
 
 	void CPOSIXLaunchContext::fp_Close()
 	{
+		DMibLock(mp_PipeLock);
 		fp_DestroyPipe(mp_hStdinWrite);
 		fp_DestroyPipe(mp_hStdoutRead);
 		fp_DestroyPipe(mp_hStderrRead);
@@ -1148,19 +1157,15 @@ namespace NMib::NProcess::NPlatform
 			while (!bStdOutEof || !bStdErrEof)
 			{
 				int nPoll = 0;
-				int iStdOutPoll = -1;
 				if (!bStdOutEof)
 				{
-					iStdOutPoll = nPoll;
 					ToPoll[nPoll].fd = mp_hStdoutRead;
 					ToPoll[nPoll].events = POLLRDNORM;
 					ToPoll[nPoll].revents = 0;
 					++nPoll;
 				}
-				int iStdErrPoll = -1;
 				if (!bStdErrEof)
 				{
-					iStdErrPoll = nPoll;
 					ToPoll[nPoll].fd = mp_hStderrRead;
 					ToPoll[nPoll].events = POLLRDNORM;
 					ToPoll[nPoll].revents = 0;
@@ -1294,19 +1299,15 @@ namespace NMib::NProcess::NPlatform
 				ToPoll[nPoll].events = POLLRDNORM;
 				ToPoll[nPoll].revents = 0;
 				++nPoll;
-				int iStdOutPoll = -1;
 				if (mp_hStdoutRead != -1)
 				{
-					iStdOutPoll = nPoll;
 					ToPoll[nPoll].fd = mp_hStdoutRead;
 					ToPoll[nPoll].events = POLLRDNORM;
 					ToPoll[nPoll].revents = 0;
 					++nPoll;
 				}
-				int iStdErrPoll = -1;
 				if (mp_hStderrRead != -1)
 				{
-					iStdErrPoll = nPoll;
 					ToPoll[nPoll].fd = mp_hStderrRead;
 					ToPoll[nPoll].events = POLLRDNORM;
 					ToPoll[nPoll].revents = 0;
@@ -1674,6 +1675,7 @@ namespace NMib::NProcess::NPlatform
 
 	void CPOSIXLaunchContext::f_SendText(NStr::CStrSecure const &_Text)
 	{
+		DMibLock(mp_PipeLock);
 		if (mp_hStdinWrite == -1)
 			return;
 
@@ -1682,6 +1684,7 @@ namespace NMib::NProcess::NPlatform
 
 	void CPOSIXLaunchContext::f_CloseStdIn()
 	{
+		DMibLock(mp_PipeLock);
 		if (mp_hStdinWrite == -1)
 			return;
 
@@ -1690,6 +1693,7 @@ namespace NMib::NProcess::NPlatform
 
 	void CPOSIXLaunchContext::f_SendBinary(NContainer::CSecureByteVector const &_Data)
 	{
+		DMibLock(mp_PipeLock);
 		if (mp_hStdinWrite == -1)
 			return;
 

@@ -364,6 +364,8 @@ namespace NMib::NProcess::NPlatform
 			static void WINAPI fs_StdErrReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
 
 		protected:
+			NThread::CMutual mp_PipeLock;
+			
 			HANDLE mp_hStdinWrite;	// write end of child's stdin pipe
 			HANDLE mp_hStdoutRead;	// read end of child's stdout pipe
 			HANDLE mp_hStderrRead;	// read end of child's stderr pipe
@@ -2452,23 +2454,27 @@ namespace NMib::NProcess::NPlatform
 							}
 						}
 
-						if
-							(
-								!::DuplicateHandle
-								(
-									::GetCurrentProcess()
-									, hStdinWriteTmp
-									, ::GetCurrentProcess()
-									, &mp_hStdinWrite
-									, 0
-									, FALSE		// make it uninheritable.
-									, DUPLICATE_SAME_ACCESS
-								)
-							)
 						{
-							DWORD dwOsErr = ::GetLastError();
-							_Errors += NStr::CStr::CFormat("DuplicateHandle failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr);
-							break;
+							DMibLock(mp_PipeLock);
+
+							if
+								(
+									!::DuplicateHandle
+									(
+										::GetCurrentProcess()
+										, hStdinWriteTmp
+										, ::GetCurrentProcess()
+										, &mp_hStdinWrite
+										, 0
+										, FALSE		// make it uninheritable.
+										, DUPLICATE_SAME_ACCESS
+									)
+								)
+							{
+								DWORD dwOsErr = ::GetLastError();
+								_Errors += NStr::CStr::CFormat("DuplicateHandle failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr);
+								break;
+							}
 						}
 
 						// Close inheritable copies of the handles we do not want to
@@ -2554,6 +2560,7 @@ namespace NMib::NProcess::NPlatform
 
 		void CConsoleRedirector::fp_Close()
 		{
+			DMibLock(mp_PipeLock);
 			fp_DestroyHandle(mp_hChildProcess);
 			fp_DestroyHandle(mp_hStdinWrite);
 			fp_DestroyHandle(mp_hStdoutRead);
@@ -2625,6 +2632,7 @@ namespace NMib::NProcess::NPlatform
 
 		bool CConsoleRedirector::f_SendText(NStr::CStrSecure const &_Data)
 		{
+			DMibLock(mp_PipeLock);
 			if (!mp_hStdinWrite)
 				return FALSE;
 
@@ -2644,6 +2652,7 @@ namespace NMib::NProcess::NPlatform
 
 		void CConsoleRedirector::f_CloseStdIn()
 		{
+			DMibLock(mp_PipeLock);
 			if (!mp_hStdinWrite)
 				return;
 
@@ -2652,6 +2661,7 @@ namespace NMib::NProcess::NPlatform
 
 		void CConsoleRedirector::f_SendBinary(NContainer::CSecureByteVector const &_Data)
 		{
+			DMibLock(mp_PipeLock);
 			if (!mp_hStdinWrite)
 				return;
 			DWORD dwWritten;
