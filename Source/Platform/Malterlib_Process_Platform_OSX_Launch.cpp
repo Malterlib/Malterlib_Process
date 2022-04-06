@@ -40,7 +40,7 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 
 	AuthorizationRef Authorization;
 
-	auto OnExit = g_OnScopeExit > [&]()
+	auto OnExit = g_OnScopeExit / [&]()
 		{
 			AuthorizationFree(Authorization, kAuthorizationFlagDestroyRights);
 		}

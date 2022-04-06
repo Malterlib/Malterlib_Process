@@ -586,7 +586,7 @@ namespace NMib::NProcess
 
 						NConcurrency::g_Dispatch(pThis) / [=]
 							{
-								auto HandleInput = g_OnScopeExit > [&]
+								auto HandleInput = g_OnScopeExit / [&]
 									{
 										f_HandleBufferedStdIn();
 									}
@@ -631,7 +631,7 @@ namespace NMib::NProcess
 
 						NConcurrency::g_Dispatch(pThis) / [=]
 							{
-								auto HandleInput = g_OnScopeExit > [&]
+								auto HandleInput = g_OnScopeExit / [&]
 									{
 										f_HandleBufferedStdInBinary();
 									}

@@ -220,7 +220,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 			sigaddset(&WaitSet, SIGINT);
 			pthread_sigmask(SIG_BLOCK, &WaitSet, &OldSet);
 
-			auto Cleanup = g_OnScopeExit > [&]
+			auto Cleanup = g_OnScopeExit / [&]
 				{
 					pthread_sigmask(SIG_SETMASK, &OldSet, nullptr);
 				}
@@ -233,7 +233,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 	auto fSigterm = signal(SIGTERM, (sig_t)fSigTermHandler);
 	auto fSigint = signal(SIGINT, (sig_t)fSigTermHandler);
 
-	return g_OnScopeExitShared > [fSigterm, fSigint]
+	return g_OnScopeExitShared / [fSigterm, fSigint]
 		{
 			signal(SIGTERM, fSigterm);
 			signal(SIGINT, fSigint);

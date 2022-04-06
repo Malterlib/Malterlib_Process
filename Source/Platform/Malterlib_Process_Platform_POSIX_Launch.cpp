@@ -670,7 +670,7 @@ namespace NMib::NProcess::NPlatform
 					posix_spawn_file_actions_t SpawnFileActions;
 					DCallPosixSpawnApi(posix_spawn_file_actions_init, "", &SpawnFileActions);
 
-					auto Cleanup = g_OnScopeExit > [&]
+					auto Cleanup = g_OnScopeExit / [&]
 						{
 							posix_spawn_file_actions_destroy(&SpawnFileActions);
 						}
@@ -679,7 +679,7 @@ namespace NMib::NProcess::NPlatform
 					posix_spawnattr_t SpawnAttributes;
 					DCallPosixSpawnApi(posix_spawnattr_init, "", &SpawnAttributes);
 
-					auto Cleanup2 = g_OnScopeExit > [&]
+					auto Cleanup2 = g_OnScopeExit / [&]
 						{
 							posix_spawnattr_destroy(&SpawnAttributes);
 						}

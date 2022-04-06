@@ -1059,7 +1059,7 @@ namespace NMib::NProcess::NPlatform
 						return false;
 					}
 
-					pCleanupToken = g_OnScopeExitShared > [hToken]
+					pCleanupToken = g_OnScopeExitShared / [hToken]
 						{
 							if (hToken)
 								CloseHandle(hToken);
@@ -1097,14 +1097,14 @@ namespace NMib::NProcess::NPlatform
 						return false;
 					}
 
-					pCleanupToken = g_OnScopeExitShared > [hToken]
+					pCleanupToken = g_OnScopeExitShared / [hToken]
 						{
 							if (hToken)
 								CloseHandle(hToken);
 						}
 					;
 
-					auto pCleanupLogonSid = g_OnScopeExitShared > [pLogonSid]
+					auto pCleanupLogonSid = g_OnScopeExitShared / [pLogonSid]
 						{
 							if (pLogonSid)
 								LocalFree(pLogonSid);
@@ -1124,7 +1124,7 @@ namespace NMib::NProcess::NPlatform
 
 					CleanupUserProfiles.f_Insert
 						(
-							g_OnScopeExitShared > [hToken, hProfile = ProfileInfo.hProfile, pCleanupToken]
+							g_OnScopeExitShared / [hToken, hProfile = ProfileInfo.hProfile, pCleanupToken]
 							{
 								if (!UnloadUserProfile(hToken, hProfile))
 								{
@@ -1143,7 +1143,7 @@ namespace NMib::NProcess::NPlatform
 						return false;
 					}
 
-					auto CleanupEnvBlock = g_OnScopeExit > [&]
+					auto CleanupEnvBlock = g_OnScopeExit / [&]
 						{
 							DestroyEnvironmentBlock(pEnvironmentVoid);
 						}
@@ -1173,7 +1173,7 @@ namespace NMib::NProcess::NPlatform
 						return false;
 					}
 
-					auto pCleanupWindowStation = g_OnScopeExitShared > [hWindowStation]
+					auto pCleanupWindowStation = g_OnScopeExitShared / [hWindowStation]
 						{
 							CloseWindowStation(hWindowStation);
 						}
@@ -1187,7 +1187,7 @@ namespace NMib::NProcess::NPlatform
 							return false;
 						}
 
-						auto CleanupWindowStation = g_OnScopeExit > [&]
+						auto CleanupWindowStation = g_OnScopeExit / [&]
 							{
 								if (!SetProcessWindowStation(hCurrentWindowStation))
 								{
@@ -1205,7 +1205,7 @@ namespace NMib::NProcess::NPlatform
 						return false;
 					}
 
-					auto pCleanupDesktop = g_OnScopeExitShared > [hDesktop]
+					auto pCleanupDesktop = g_OnScopeExitShared / [hDesktop]
 						{
 							CloseDesktop(hDesktop);
 						}
@@ -1222,7 +1222,7 @@ namespace NMib::NProcess::NPlatform
 					{
 						CleanupUserProfiles.f_Insert
 							(
-								g_OnScopeExitShared > [pCleanupWindowStation, pCleanupLogonSid, hWindowStation, pLogonSid]
+								g_OnScopeExitShared / [pCleanupWindowStation, pCleanupLogonSid, hWindowStation, pLogonSid]
 								{
 									bool bAdded;
 									if (!fg_ChangeAceToWindowStation(hWindowStation, pLogonSid, true, bAdded))
@@ -1246,7 +1246,7 @@ namespace NMib::NProcess::NPlatform
 					{
 						CleanupUserProfiles.f_Insert
 							(
-								g_OnScopeExitShared > [pCleanupDesktop, pCleanupLogonSid, hDesktop, pLogonSid]
+								g_OnScopeExitShared / [pCleanupDesktop, pCleanupLogonSid, hDesktop, pLogonSid]
 								{
 									bool bAdded;
 									if (!fg_ChangeAceToDesktop(hDesktop, pLogonSid, true, bAdded))
