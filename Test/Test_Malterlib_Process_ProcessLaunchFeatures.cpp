@@ -161,13 +161,16 @@ namespace
 					TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
 					RecursiveLaunchParams.f_Insert(fs_GetTestGroups());
 
+
 					{
 						DMibTestPath("Without Priority");
 						CProcessLaunchParams LaunchParams;
 						LaunchParams.m_bForceFork = _bForceFork;
 
+						int32 ThisPriority = NProcess::NPlatform::fg_Process_GetPriority();
+
 						int32 Priority = CProcessLaunch::fs_LaunchTool(CFile::fs_GetProgramPath(), RecursiveLaunchParams, LaunchParams).f_Trim().f_ToInt(int32(EExecutionPriority_Normal));
-						DMibExpect(Priority, ==, EExecutionPriority_Normal);
+						DMibExpect(Priority, ==, ThisPriority);
 					}
 					{
 						DMibTestPath("With Priority");
