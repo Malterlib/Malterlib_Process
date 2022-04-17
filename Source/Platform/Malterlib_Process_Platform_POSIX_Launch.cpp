@@ -755,8 +755,14 @@ namespace NMib::NProcess::NPlatform
 					if (bNeedsTwoPhaseSpawn)
 						pExecutable = SpawnHelperExecutable.f_GetStr();
 
+
 					pid_t Pid = -1;
-					DCallPosixSpawnApi(posix_spawn, pExecutable, &Pid, pExecutable, &SpawnFileActions, &SpawnAttributes, ParametersList.f_GetArray(), EnvList.f_GetArray());
+					{
+#ifdef DPlatformFamily_OSX // We need to take the fork lock here as macOS doesn't support opening pipes with FD_CLOSEEXEC
+						DMibLock(NMib::NPlatform::fg_ForkLock());
+#endif
+						DCallPosixSpawnApi(posix_spawn, pExecutable, &Pid, pExecutable, &SpawnFileActions, &SpawnAttributes, ParametersList.f_GetArray(), EnvList.f_GetArray());
+					}
 
 					{
 						DMibLock(mp_PipeLock);
@@ -1172,7 +1178,7 @@ namespace NMib::NProcess::NPlatform
 					++nPoll;
 				}
 
-				int PollReturn = poll(ToPoll, nPoll, -1);
+				int PollReturn = poll(ToPoll, nPoll, 1000);
 				if (PollReturn == -1)
 				{
 					int ErrNo = errno;
