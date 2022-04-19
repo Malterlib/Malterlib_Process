@@ -237,7 +237,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 		{
 			signal(SIGTERM, fSigterm);
 			signal(SIGINT, fSigint);
-			gs_TerminationFunction.f_Destruct();
+			gs_TerminationFunction.f_Clear();
 		}
 	;
 }
