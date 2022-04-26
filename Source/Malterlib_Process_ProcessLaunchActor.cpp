@@ -2,8 +2,9 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
+#include <Mib/Concurrency/ActorFunctorWeak>
+#include <Mib/Concurrency/ActorSubscription>
 #include "Malterlib_Process_ProcessLaunchActor.h"
-#include <Mib/Concurrency/ActorCallbackManager>
 
 #ifndef DPlatformFamily_Windows
 #include <Mib/Core/PlatformSpecific/PosixErrNo>
@@ -17,8 +18,8 @@ namespace NMib::NProcess
 	struct CProcessLaunchActor::CInternal : public NConcurrency::CActorInternal
 	{
 		NStorage::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
-		NConcurrency::TCActorSubscriptionManager<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
-		NConcurrency::TCActorSubscriptionManager<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_OnOutput;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_fOnOutput;
 
 		struct CPendingStop
 		{
@@ -35,12 +36,6 @@ namespace NMib::NProcess
 
 		bool m_bProcessRunning = false;
 		bool m_bProcessExited = false;
-
-		CInternal(NConcurrency::CActor *_pActor)
-			: m_fOnStateChange(_pActor, false)
-			, m_OnOutput(_pActor, false)
-		{
-		}
 
 		NConcurrency::TCFuture<void> f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> &&_fSend);
 	};
@@ -71,8 +66,8 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch || Internal.m_bProcessExited)
 		{
-			Internal.m_fOnStateChange.f_Clear();
-			Internal.m_OnOutput.f_Clear();
+			fg_Move(Internal.m_fOnStateChange).f_Destroy() > NConcurrency::fg_DiscardResult();
+			fg_Move(Internal.m_fOnOutput).f_Destroy() > NConcurrency::fg_DiscardResult();
 			Internal.m_PendingProcessStops.f_Clear();
 			co_return {};
 		}
@@ -226,7 +221,7 @@ namespace NMib::NProcess
 
 		DMibRequire(!mp_pInternal);
 
-		mp_pInternal = fg_Construct(this);
+		mp_pInternal = fg_Construct();
 		auto &Internal = *mp_pInternal;
 		Internal.m_DestructFlags = _Launch.m_DestructFlags;
 
@@ -359,7 +354,8 @@ namespace NMib::NProcess
 							}
 						}
 
-						Internal.m_OnOutput(_OutputType, Output) > NConcurrency::fg_DiscardResult();
+						if (Internal.m_fOnOutput)
+							Internal.m_fOnOutput(_OutputType, Output) > NConcurrency::fg_DiscardResult();
 					}
 					> NConcurrency::fg_DiscardResult()
 				;
@@ -392,16 +388,20 @@ namespace NMib::NProcess
 
 		Params.m_fDispatcher.f_Clear();
 
-		NStorage::TCUniquePointer<NConcurrency::CCombinedCallbackReference> pCombinedReference = fg_Construct();
-
-		bool bOnStateChangeRegistered = false;
 		if (Params.m_fOnStateChange)
 		{
-			bOnStateChangeRegistered = true;
-			pCombinedReference->m_References.f_Insert(Internal.m_fOnStateChange.f_Register(_CallbackActor, fg_Move(Params.m_fOnStateChange)));
+			Internal.m_fOnStateChange = NConcurrency::g_ActorFunctorWeak(_CallbackActor) / [fOnStateChange = fg_Move(Params.m_fOnStateChange)]
+				(CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+				-> NConcurrency::TCFuture<void>
+				{
+					fOnStateChange(_State, _TimeSinceStart);
+
+					co_return {};
+				}
+			;
 		}
 
-		Params.m_fOnStateChange = [this, bOnStateChangeRegistered, pState](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+		Params.m_fOnStateChange = [this, pState](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 			{
 				auto ThisActor = pState->m_ThisWeak.f_Lock();
 				if (!ThisActor)
@@ -416,12 +416,11 @@ namespace NMib::NProcess
 						&CActor::f_Dispatch
 						, NFunction::TCFunctionMovable<void ()>
 						(
-							//[this, _State, _TimeSinceStart, bOnStateChangeRegistered]
-							[this, _TimeSinceStart, bOnStateChangeRegistered, State = _State, pState]
+							[this, _TimeSinceStart, State = _State, pState]
 							{
 								auto &Internal = *mp_pInternal;
 
-								if (bOnStateChangeRegistered)
+								if (Internal.m_fOnStateChange)
 									Internal.m_fOnStateChange(State, _TimeSinceStart) > NConcurrency::fg_DiscardResult();
 
 								switch (State.f_GetTypeID())
@@ -517,7 +516,17 @@ namespace NMib::NProcess
 		if (fp_WillFilterOutput() || Params.m_fOnOutput || (pState->m_ToLog & (ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Error)))
 		{
 			if (Params.m_fOnOutput)
-				pCombinedReference->m_References.f_Insert(Internal.m_OnOutput.f_Register(_CallbackActor, fg_Move(Params.m_fOnOutput)));
+			{
+				Internal.m_fOnOutput = NConcurrency::g_ActorFunctorWeak(_CallbackActor) / [fOnOutput = fg_Move(Params.m_fOnOutput)]
+					(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+					-> NConcurrency::TCFuture<void>
+					{
+						fOnOutput(_OutputType, _Output);
+
+						co_return {};
+					}
+				;
+			}
 
 			Params.m_fOnOutput = [pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 				{
@@ -539,7 +548,25 @@ namespace NMib::NProcess
 		try
 		{
 			Internal.m_pProcessLaunch = fg_Construct(Params, Launch.m_DestructFlags);
-			Promise.f_SetResult(fg_Move(pCombinedReference));
+			Promise.f_SetResult
+				(
+					NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+					{
+						auto &Internal = *mp_pInternal;
+						NConcurrency::TCActorResultVector<void> Results;
+
+						if (!Internal.m_fOnOutput.f_IsEmpty())
+							fg_Move(Internal.m_fOnOutput).f_Destroy() > Results.f_AddResult();
+
+						if (!Internal.m_fOnStateChange.f_IsEmpty())
+							fg_Move(Internal.m_fOnStateChange).f_Destroy() > Results.f_AddResult();
+
+						co_await Results.f_GetResults();
+
+						co_return {};
+					}
+				)
+			;
 		}
 		catch (NException::CException const &_Exception)
 		{
