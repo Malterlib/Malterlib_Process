@@ -97,7 +97,7 @@ namespace NMib::NProcess::NPlatform
 
 		NMib::NProcess::CProcessLaunchParams mp_LastLaunchOptions;
 		uint32 mp_ReturnValue;
-		pid_t mp_ProcessID;
+		NAtomic::TCAtomic<pid_t> mp_ProcessID;
 		NThread::CMutual mp_NeedTerminationLock;
 		NMib::NProcess::EProcessLaunchCloseFlag mp_NeedTermination;
 		bool mp_bNeedWait;

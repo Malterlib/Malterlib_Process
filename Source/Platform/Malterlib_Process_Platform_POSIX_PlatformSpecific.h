@@ -11,10 +11,10 @@ extern "C"
 namespace NMib::NProcess::NPlatform
 {
 #ifdef DPlatformFamily_OSX
-	bool fg_MacOSX_LaunchDocument(CProcessLaunchParams const &_Params, pid_t &_oPID, NStr::CStr &_Errors);
-	bool fg_MacOSX_LaunchFinder(CProcessLaunchParams const &_Params, pid_t &_oPID, NStr::CStr &_Errors);
-	bool fg_MacOSX_LaunchUIExecutable(CProcessLaunchParams const &_Params, pid_t &_oPID, NStr::CStr &_Errors);
-	bool fg_MacOSX_LaunchExecutableWithRoot(CProcessLaunchParams const &_Params, pid_t &_oPID, int &_hStdOutRead, int &_hStdInWrite, NStr::CStr &_Errors);
+	bool fg_MacOSX_LaunchDocument(CProcessLaunchParams const &_Params, NAtomic::TCAtomic<pid_t> &o_PID, NStr::CStr &_Errors);
+	bool fg_MacOSX_LaunchFinder(CProcessLaunchParams const &_Params, NAtomic::TCAtomic<pid_t> &o_PID, NStr::CStr &_Errors);
+	bool fg_MacOSX_LaunchUIExecutable(CProcessLaunchParams const &_Params, NAtomic::TCAtomic<pid_t> &o_PID, NStr::CStr &_Errors);
+	bool fg_MacOSX_LaunchExecutableWithRoot(CProcessLaunchParams const &_Params, NAtomic::TCAtomic<pid_t> &o_PID, int &_hStdOutRead, int &_hStdInWrite, NStr::CStr &_Errors);
 	bool fg_MacOSX_RegisterURLHandler(NStr::CStr const &_Protocol, NStr::CStr const &_ExePath, NStr::CStr const &_Params);
 	bool fg_MacOSX_DeRegisterURLHandler(NStr::CStr const &_Protocol);
 	bool fg_MacOSX_Process_RegisterAtStartup(NStr::CStr const &_ExePath, NStr::CStr const &_Params, NStr::CStr const &_Name);

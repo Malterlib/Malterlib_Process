@@ -10,7 +10,14 @@
 
 #include "Malterlib_Process_Platform_POSIX_PlatformSpecific.h"
 
-bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, int& _hStdOutRead, int& _hStdInWrite, NMib::NStr::CStr& _Errors)
+bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot
+	(
+		NMib::NProcess::CProcessLaunchParams const &_Params
+		, NAtomic::TCAtomic<pid_t> &o_PID
+		, int &_hStdOutRead
+		, int &_hStdInWrite
+		, NMib::NStr::CStr& _Errors
+	)
 {
 	NStr::CStr Executable = _Params.m_Target;
 
@@ -125,7 +132,7 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot(NMib::NProces
 
 		NMib::NStr::CStr ProcessID(Buffer, BytesRead);
 		ProcessID = "0x" + ProcessID;
-		_oPID = ProcessID.f_ToInt();
+		o_PID.f_Store(ProcessID.f_ToInt());
 	}
 
 #ifdef F_SETNOSIGPIPE

@@ -369,7 +369,7 @@ namespace NMib::NProcess::NPlatform
 				return false;
 			}
 
-			mp_ProcessID = -1;
+			mp_ProcessID.f_Store(-1);
 
 
 			uid_t RunAsUser = -1;
@@ -522,7 +522,7 @@ namespace NMib::NProcess::NPlatform
 
 			ParametersList.f_Insert((ch8 *)nullptr);
 
-			DMibSafeCheck(mp_ProcessID == -1, "Error");
+			DMibSafeCheck(mp_ProcessID.f_Load() == -1, "Error");
 
 			NContainer::TCVector<NStr::CStr> Env;
 			NContainer::TCVector<ch8 *> EnvList;
@@ -777,7 +777,7 @@ namespace NMib::NProcess::NPlatform
 						fp_DestroyPipe(_hStdErrWrite);
 					}
 
-					mp_ProcessID = Pid;
+					mp_ProcessID.f_Store(Pid);
 				}
 				catch (NException::CException const &_Exception)
 				{
@@ -964,7 +964,7 @@ namespace NMib::NProcess::NPlatform
 					fp_DestroyPipe(_hStdOutWrite);
 					fp_DestroyPipe(_hStdErrWrite);
 
-					mp_ProcessID = ForkResult;
+					mp_ProcessID.f_Store(ForkResult);
 				}
 			}
 			return true;
@@ -1270,20 +1270,20 @@ namespace NMib::NProcess::NPlatform
 			return 0;
 		}
 
-		fp_OnLaunched(Errors, (void *)(mint)mp_ProcessID, true);
+		fp_OnLaunched(Errors, (void *)(mint)mp_ProcessID.f_Load(), true);
 
 		bool bExited = false;
 
 		int ExitCode = 255;
 
-		if (mp_ProcessID == -1)
+		if (mp_ProcessID.f_Load() == -1)
 		{
 			bExited = true;
 		}
 		else
 		{
 			if (mp_LastLaunchOptions.m_CPUUsage != 0.0 && mp_LastLaunchOptions.m_CPUUsage != 1.0)
-				mp_pCPULimiter = fg_GetCPULimiter(mp_LastLaunchOptions.m_ProcessGroup, mp_LastLaunchOptions.m_CPUUsage, mp_ProcessID);
+				mp_pCPULimiter = fg_GetCPULimiter(mp_LastLaunchOptions.m_ProcessGroup, mp_LastLaunchOptions.m_CPUUsage, mp_ProcessID.f_Load());
 
 #ifdef DPlatformFamily_OSX
 			proc_taskallinfo TaskInfoAll = {0};
@@ -1342,15 +1342,15 @@ namespace NMib::NProcess::NPlatform
 				// You have to get proc info before wait4 as the zombie process will be invalid after it
 #ifdef DPlatformFamily_OSX
 				int bytes = 0;
-				bytes = proc_pidinfo(mp_ProcessID, PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, PROC_PIDTASKINFO_SIZE );
+				bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, PROC_PIDTASKINFO_SIZE );
 
 				bool bAskForZombie = true;
 
 				if (NMib::CSystem::ms_PlatformVersion >= 10'05'00 && NMib::CSystem::ms_PlatformVersion < 10'06'00)
 					bAskForZombie = false; // On OSX 10.5 asking for a zombie process will cause a kernel panic
 
-				bytes = proc_pidinfo(mp_ProcessID, PROC_PIDTBSDINFO, bAskForZombie, &TaskInfoAll.pbsd, PROC_PIDTBSDINFO_SIZE);
-//						bytes = proc_pidinfo(mp_ProcessID, PROC_PIDTASKALLINFO, 1, &TaskInfoAll, sizeof(TaskInfoAll));
+				bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTBSDINFO, bAskForZombie, &TaskInfoAll.pbsd, PROC_PIDTBSDINFO_SIZE);
+//						bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTASKALLINFO, 1, &TaskInfoAll, sizeof(TaskInfoAll));
 
 				if (bytes <= 0)
 				{
@@ -1369,7 +1369,7 @@ namespace NMib::NProcess::NPlatform
 
 				rusage RUsage;
 				int Status = 0;
-				int WaitResult = wait4(mp_ProcessID, &Status, WNOHANG, &RUsage);
+				int WaitResult = wait4(mp_ProcessID.f_Load(), &Status, WNOHANG, &RUsage);
 
 				if (WaitResult == -1)
 				{
@@ -1456,16 +1456,16 @@ namespace NMib::NProcess::NPlatform
 						if (NeedTermination & EProcessLaunchCloseFlag_TerminateProcess)
 						{
 							NStr::CStr TempRet;
-							if (mp_ProcessID)
+							if (mp_ProcessID.f_Load())
 							{
 								if (mp_LastLaunchOptions.m_bSandboxed)
 								{
-									if (!fg_TerminateProcessTree(mp_ProcessID, TempRet))
+									if (!fg_TerminateProcessTree(mp_ProcessID.f_Load(), TempRet))
 										bNeedWait = false;
 								}
 								else
 								{
-									if (!fg_TerminateProcess(mp_ProcessID, TempRet))
+									if (!fg_TerminateProcess(mp_ProcessID.f_Load(), TempRet))
 										bNeedWait = false;
 								}
 							}
@@ -1480,9 +1480,9 @@ namespace NMib::NProcess::NPlatform
 						else if (NeedTermination & EProcessLaunchCloseFlag_StopProcess)
 						{
 							NStr::CStr TempRet;
-							if (mp_ProcessID)
+							if (mp_ProcessID.f_Load())
 							{
-								if (!fg_StopProcess(mp_ProcessID, TempRet))
+								if (!fg_StopProcess(mp_ProcessID.f_Load(), TempRet))
 									bNeedWait = false;
 							}
 							else
@@ -1717,7 +1717,7 @@ namespace NMib::NProcess::NPlatform
 
 	mint CPOSIXLaunchContext::f_GetID()
 	{
-		return mp_ProcessID;
+		return mp_ProcessID.f_Load();
 	}
 
 	void CPOSIXLaunchContext::f_Cancel()

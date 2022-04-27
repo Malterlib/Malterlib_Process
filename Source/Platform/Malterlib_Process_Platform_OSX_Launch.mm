@@ -15,7 +15,7 @@ DMibDeprecatedSuppressStart;
 
 namespace NMib::NProcess::NPlatform
 {
-	bool fg_MacOSX_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr &o_Errors)
+	bool fg_MacOSX_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const& _Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
 	{
 		CAutoReleasePool ARPool;
 
@@ -91,7 +91,7 @@ namespace NMib::NProcess::NPlatform
 			Result = GetProcessPID(&PSN, &PID);
 
 			if (Result >= 0)
-				_oPID = PID;
+				o_PID.f_Store(PID);
 			else
 			{
 				o_Errors += NMib::NPlatform::fg_FormatOSStatus("GetProcessPID (launch UI executable)", Result);
@@ -108,7 +108,7 @@ namespace NMib::NProcess::NPlatform
 		return bReturn;
 	}
 
-	bool fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr &o_Errors)
+	bool fg_MacOSX_LaunchFinder(NMib::NProcess::CProcessLaunchParams const& _Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
 	{
 		CAutoReleasePool ARPool;
 
@@ -127,7 +127,7 @@ namespace NMib::NProcess::NPlatform
 			if (!pURLArray)
 				return false;
 
-			_oPID = 0;
+			o_PID.f_Store(0);
 			[[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:pURLArray];
 		}
 		else
@@ -139,7 +139,7 @@ namespace NMib::NProcess::NPlatform
 		return true;
 	}
 
-	bool fg_MacOSX_LaunchDocument(NMib::NProcess::CProcessLaunchParams const& _Params, pid_t& _oPID, NMib::NStr::CStr &o_Errors)
+	bool fg_MacOSX_LaunchDocument(NMib::NProcess::CProcessLaunchParams const& _Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
 	{
 		NMib::CAutoReleasePool ARPool;
 
@@ -220,7 +220,7 @@ namespace NMib::NProcess::NPlatform
 			Result = GetProcessPID(&PSN, &PID);
 
 			if (Result >= 0)
-				_oPID = PID;
+				o_PID.f_Store(PID);
 			else
 				o_Errors += "Failed to get launched process' PID.\n";
 		}
