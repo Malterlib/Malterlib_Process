@@ -26,7 +26,7 @@ namespace NMib::NProcess::NPlatform
 
 	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths = {}, NStr::CStr const &_LocalPaths = {});
 
-	class CPOSIXLaunchContext : public NThread::CThread, public NStorage::TCSharedPointerIntrusiveBase<>, public CProcessLaunchLink
+	class CPOSIXLaunchContext : public NThread::CThread, public CProcessLaunchLink
 	{
 		using NThread::CThread::f_Start;
 	public:
@@ -58,8 +58,10 @@ namespace NMib::NProcess::NPlatform
 		CProcessStatistics f_OverallExecutionStatistics() const;
 		bool f_OverallStatsAvailable() const;
 
-		DMibRefcountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfRef);
-		DMibRefcountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
+		NStorage::CIntrusiveRefCount m_RefCount;
+
+		DMibRefCountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfRef);
+		DMibRefCountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 	private:
 		void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);

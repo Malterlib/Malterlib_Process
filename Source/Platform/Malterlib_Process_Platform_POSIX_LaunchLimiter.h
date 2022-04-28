@@ -7,8 +7,10 @@
 
 namespace NMib::NProcess::NPlatform
 {
-	struct CProcessLaunchLimiter : public NStorage::TCSharedPointerIntrusiveBase<>
+	struct CProcessLaunchLimiter
 	{
+		NStorage::CIntrusiveRefCount m_RefCount;
+
 		NThread::CMutual m_ProcessIDsLock;
 		NContainer::TCSet<pid_t> m_ProcessIDs;
 		fp32 m_CPULimit;

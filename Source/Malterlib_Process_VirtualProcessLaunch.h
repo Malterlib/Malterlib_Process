@@ -104,8 +104,10 @@ namespace NMib::NProcess
 
 		NContainer::TCLinkedList<CLaunchInfo> m_Launches;
 
-		struct CDestroyed : public NStorage::TCSharedPointerIntrusiveBase<>
+		struct CDestroyed
 		{
+			NStorage::CIntrusiveRefCount m_RefCount;
+
 			NThread::CMutual m_DestroyLock;
 			NAtomic::TCAtomic<smint> m_Destroyed;
 			CDestroyed()

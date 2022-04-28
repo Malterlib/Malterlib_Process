@@ -339,7 +339,7 @@ namespace NMib::NProcess::NPlatform
 
 		}
 
-		class CConsoleRedirector : public NThread::CThread, public NStorage::TCSharedPointerIntrusiveBase<>, public CProcessLaunchLink
+		class CConsoleRedirector : public NThread::CThread, public CProcessLaunchLink
 		{
 			friend class CMultiProgramStarter;
 		public:
@@ -349,8 +349,10 @@ namespace NMib::NProcess::NPlatform
 			NStr::CStr f_GetThreadName();
 			aint f_Main();
 
-			DMibRefcountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfRef);
-			DMibRefcountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
+			NStorage::CIntrusiveRefCount m_RefCount;
+
+			DMibRefCountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfRef);
+			DMibRefCountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 		private:
 			NThread::CEventAutoReset mp_Event;
@@ -2530,12 +2532,12 @@ namespace NMib::NProcess::NPlatform
 			// Increase ref count for thread
 			if (mp_LastLaunchOptions.m_bThreaded)
 			{
-				f_RefCountIncrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef));
+				m_RefCount.f_Increase(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef));
 				auto CleanupRef = fg_OnScopeExit
 					(
 						[&]()
 						{
-							f_RefCountDecrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef));
+							m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef));
 						}
 					)
 				;
@@ -2570,7 +2572,7 @@ namespace NMib::NProcess::NPlatform
 
 		bool CConsoleRedirector::f_DestroyThread()
 		{
-			if (f_RefCountDecrease(DMibRefcountDebuggingOnly(m_DebugSelfThreadRef)) == 0)
+			if (m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef)) == 0)
 			{
 				delete this;
 				return true;
@@ -2721,13 +2723,13 @@ void *NMib::NProcess::NPlatform::fg_ProcessLaunch_Open(CProcessLaunchParams cons
 {
 	NStorage::TCSharedPointer<CConsoleRedirector> pRedir = fg_Construct();
 
-	pRedir->f_RefCountIncrease(DMibRefcountDebuggingOnly(pRedir->m_DebugSelfRef));
+	pRedir->m_RefCount.f_Increase(DMibRefCountDebuggingOnly(pRedir->m_DebugSelfRef));
 
 	auto CleanupRef = fg_OnScopeExit
 		(
 			[&]()
 			{
-				pRedir->f_RefCountDecrease(DMibRefcountDebuggingOnly(pRedir->m_DebugSelfRef));
+				pRedir->m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(pRedir->m_DebugSelfRef));
 			}
 		)
 	;
@@ -2749,7 +2751,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessL
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_Close(_Flags);
-	if (pLaunch->f_RefCountDecrease(DMibRefcountDebuggingOnly(pLaunch->m_DebugSelfRef)) == 0)
+	if (pLaunch->m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(pLaunch->m_DebugSelfRef)) == 0)
 		delete pLaunch;
 }
 

@@ -228,7 +228,7 @@ namespace NMib::NProcess
 		CLaunch Launch = _Launch;
 		fp_ModifyLaunch(Launch);
 
-		struct CState : NStorage::TCSharedPointerIntrusiveBase<>
+		struct CState
 		{
 #if (DMibSysLogSeverities) != 0
 			static NMib::NLog::CSysLogCatScope fs_LogScope(NStr::CStr const &_LogName)
@@ -361,6 +361,7 @@ namespace NMib::NProcess
 				;
 			}
 
+			NStorage::CIntrusiveRefCount m_RefCount;
 			ELogFlag m_ToLog = ELogFlag_None;
 			NStr::CStr m_LogName;
 			NStr::CStr m_OutputBuffers[EProcessLaunchOutputType_Max];

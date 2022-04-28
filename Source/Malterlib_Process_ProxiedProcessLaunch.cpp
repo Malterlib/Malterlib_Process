@@ -1041,8 +1041,9 @@ namespace NMib::NProcess
 			)
 		;
 
-		struct CLaunchState : public NStorage::TCSharedPointerIntrusiveBase<>
+		struct CLaunchState
 		{
+			NStorage::CIntrusiveRefCount m_RefCount;
 			mutable NMib::NThread::CMutualManyRead mp_ServerLock;
 			CProxiedLaunchServer::CInternal *mp_pServer;
 			void f_SetServer(CProxiedLaunchServer::CInternal *_pServer)
