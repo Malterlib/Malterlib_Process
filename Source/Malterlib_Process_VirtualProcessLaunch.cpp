@@ -61,6 +61,7 @@ namespace NMib::NProcess
 		m_LaunchParams.m_fOnOutput.f_Clear();
 		m_LaunchParams.m_fOnStateChange.f_Clear();
 	}
+
 	CProcessLaunchHandler::CLaunchInfo *CProcessLaunchHandler::f_AddLaunch(CProcessLaunchParams const &_Params, bool _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory)
 	{
 		auto pInfo = &m_Launches.f_Insert(fg_Construct(_Params, _LaunchFactory));
@@ -201,7 +202,7 @@ namespace NMib::NProcess
 			if (_Timeout != 0.0 && BlockTime.f_GetTime() > _Timeout)
 				return false;
 
-			m_LaunchChanged.f_WaitTimeout(10.0);
+			m_LaunchChanged.f_WaitTimeout(_Timeout != 0.0 ? _Timeout / 10.0 : 10.0);
 		}
 	}
 
