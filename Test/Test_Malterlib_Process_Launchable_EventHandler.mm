@@ -5,7 +5,7 @@
 #import "AppKit/NSApplication.h"
 #include <Mib/Core/Core>
 
-@implementation COSXEventHandler
+@implementation CMacOSEventHandler
 
 - (void)getUrl:(NSAppleEventDescriptor *)event 
 	withReplyEvent:(NSAppleEventDescriptor *)replyEvent
@@ -30,33 +30,33 @@
 }
 @end
 
-COSXEventHandler* g_pOSXEventHandler = nullptr;
+CMacOSEventHandler* g_pMacOSEventHandler = nullptr;
 
-void fg_CreateOSXEventHandler(FOnOpenURL *_pfOnOpenURL)
+void fg_CreateMacOSEventHandler(FOnOpenURL *_pfOnOpenURL)
 {
-	g_pOSXEventHandler = [[COSXEventHandler alloc] init];
+	g_pMacOSEventHandler = [[CMacOSEventHandler alloc] init];
 
-	[g_pOSXEventHandler setOnOpenURL: _pfOnOpenURL];
+	[g_pMacOSEventHandler setOnOpenURL: _pfOnOpenURL];
 
 	NSAppleEventManager *pEventManager = [NSAppleEventManager sharedAppleEventManager];
 	[pEventManager 
-		setEventHandler:g_pOSXEventHandler 
+		setEventHandler:g_pMacOSEventHandler
 		andSelector:@selector(getUrl:withReplyEvent:) 
 		forEventClass:kInternetEventClass 
 		andEventID:kAEGetURL
 	];	
 
 	[pEventManager
-		setEventHandler:g_pOSXEventHandler 
+		setEventHandler:g_pMacOSEventHandler
 		andSelector:@selector(getUrl:withReplyEvent:) 
 		forEventClass:'WWW!' 
 		andEventID:'OURL'
 	];
 }
 
-void fg_DestroyOSXEventHandler()
+void fg_DestroyMacOSEventHandler()
 {
-	g_pOSXEventHandler = nullptr;
+	g_pMacOSEventHandler = nullptr;
 }
 
 void fg_RunApplicationMain(int argc, char *argv[])

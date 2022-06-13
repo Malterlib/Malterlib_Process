@@ -3,14 +3,14 @@
 
 #include <Mib/Core/Core>
 #include <Mib/Process/ProcessLaunch>
-#include <Mib/Core/PlatformSpecific/OSXOSStatus>
+#include <Mib/Core/PlatformSpecific/MacOSOSStatus>
 
 #include <Security/Authorization.h>
 #include <Security/Security.h>
 
 #include "Malterlib_Process_Platform_POSIX_PlatformSpecific.h"
 
-bool NMib::NProcess::NPlatform::fg_MacOSX_LaunchExecutableWithRoot
+bool NMib::NProcess::NPlatform::fg_MacOS_LaunchExecutableWithRoot
 	(
 		NMib::NProcess::CProcessLaunchParams const &_Params
 		, NAtomic::TCAtomic<pid_t> &o_PID

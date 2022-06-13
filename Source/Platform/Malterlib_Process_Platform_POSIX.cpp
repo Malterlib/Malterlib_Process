@@ -12,7 +12,7 @@ using namespace NMib;
 #include <sys/time.h>
 #include <sys/resource.h>
 #endif
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 #include <mach/mach_init.h>
 #include <mach/thread_policy.h>
 #include <mach/task_policy.h>
@@ -54,7 +54,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetUserName()
 	return NMib::NStr::CStr::fs_ToStr(UserID);
 }
 
-#ifndef DPlatformFamily_OSX
+#ifndef DPlatformFamily_macOS
 
 void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
 {
@@ -137,7 +137,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetFullyQualiedHostName()
 	if (Result != 0)
 		DMibError(NMib::NPlatform::fg_FormatErrno("gethostname (get host name)", errno));
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 	return Hostname;
 #else
 	struct addrinfo HintAddrInfo;
@@ -286,7 +286,7 @@ void NMib::NProcess::NPlatform::fg_Process_SetPriority(EExecutionPriority _Prior
 			break;
 	}
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 	{
 		struct task_category_policy TaskCategoryPolity;
 		if (_Priority > EExecutionPriority_Normal)

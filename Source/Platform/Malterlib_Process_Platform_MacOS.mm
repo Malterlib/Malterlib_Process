@@ -4,7 +4,7 @@
 #include <Mib/Core/Core>
 #include <Mib/Process/ProcessLaunch>
 
-#include <Mib/Core/PlatformSpecific/OSXObjC>
+#include <Mib/Core/PlatformSpecific/MacOSObjC>
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -14,10 +14,10 @@ namespace NMib::NProcess::NPlatform
 	{
 		NStr::CStr fg_GetDictionaryValue(NSDictionary *_pDict, NStr::CStr const &_Key, NStr::CStr const &_Default)
 		{
-			NSString *pObjectForKey = [_pDict objectForKey: NMib::NPlatform::fg_MaxOSX_GetString(_Key)];
+			NSString *pObjectForKey = [_pDict objectForKey: NMib::NPlatform::fg_MacOS_GetString(_Key)];
 			if (pObjectForKey)
 			{
-				return NMib::NPlatform::fg_MaxOSX_GetString(pObjectForKey);
+				return NMib::NPlatform::fg_MacOS_GetString(pObjectForKey);
 			}
 
 			return _Default;
@@ -37,7 +37,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 
 	CAutoReleasePool ARPool;
 
-	NSString *pFileName = NMib::NPlatform::fg_MaxOSX_GetString(CanonicalFile);
+	NSString *pFileName = NMib::NPlatform::fg_MacOS_GetString(CanonicalFile);
 	NSURL *pURL = [NSURL fileURLWithPath: pFileName];
 
 	if (pURL)

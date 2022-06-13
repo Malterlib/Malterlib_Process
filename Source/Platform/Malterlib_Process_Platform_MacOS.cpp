@@ -37,7 +37,7 @@ uint64 NMib::NProcess::NPlatform::fg_Process_GetPhysicalMemory()
 
 namespace
 {
-	NMib::NContainer::TCVector<kinfo_proc> fg_MacOSX_Process_GetAllRunning()
+	NMib::NContainer::TCVector<kinfo_proc> fg_MacOS_Process_GetAllRunning()
 	{
 		NMib::NContainer::TCVector<kinfo_proc> Return;
 		
@@ -171,14 +171,14 @@ namespace
 	}
 }
 
-bool NMib::NProcess::NPlatform::fg_MacOSX_Process_TerminateTree(pid_t _ProcessID, NStr::CStr &_Errors)
+bool NMib::NProcess::NPlatform::fg_MacOS_Process_TerminateTree(pid_t _ProcessID, NStr::CStr &_Errors)
 {
 	CProcessEntry Root;
 	while (true)
 	{
 		timeval ThisStartTime;
 		bool bFoundThis = false;
-		auto RunningProcesses = fg_MacOSX_Process_GetAllRunning();
+		auto RunningProcesses = fg_MacOS_Process_GetAllRunning();
 		for (auto iProcess = RunningProcesses.f_GetIterator(); iProcess; ++iProcess)
 		{
 			Root.f_MapProcess(iProcess->kp_proc.p_pid);
@@ -224,7 +224,7 @@ bool NMib::NProcess::NPlatform::fg_MacOSX_Process_TerminateTree(pid_t _ProcessID
 NMib::NContainer::TCVector<NMib::NProcess::NPlatform::CPOSIXProcessInfo> NMib::NProcess::NPlatform::fg_Posix_ImpSpecefic_EnumProcesses()
 {
 	NContainer::TCVector<NMib::NProcess::NPlatform::CPOSIXProcessInfo> Ret;
-	auto Processes = fg_MacOSX_Process_GetAllRunning();
+	auto Processes = fg_MacOS_Process_GetAllRunning();
 	for (auto iProcess = Processes.f_GetIterator(); iProcess; ++iProcess)
 	{
 		auto &Process = *iProcess;
@@ -259,7 +259,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	NContainer::CByteVector Data;
 	
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
-	auto Processes = fg_MacOSX_Process_GetAllRunning();
+	auto Processes = fg_MacOS_Process_GetAllRunning();
 	for (auto iProcess = Processes.f_GetIterator(); iProcess; ++iProcess)
 	{
 		auto &Process = *iProcess;
@@ -451,14 +451,14 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int
 	int Major, Minor, Fix;
 	NMib::EOperatingSystemArch Arch;
 	NMib::NSys::fg_System_GetOperatingSystemVersion(Major, Minor, Fix, Arch);
-			
+
 	if (Major > _MajorMax || (Major == _MajorMax && Minor > _MinorMax))
 	{
 		Major = _MajorMax;
 		Minor = _MinorMax;
 	}
 
-	return (NStr::CStr::CFormat("OSX{}.{}") << Major << Minor).f_GetStr();
+	return (NStr::CStr::CFormat("macOS{}.{}") << Major << Minor).f_GetStr();
 }
 
 NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescription()
@@ -467,7 +467,7 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 	NMib::EOperatingSystemArch Arch;
 	NMib::NSys::fg_System_GetOperatingSystemVersion(Major, Minor, Fix, Arch);
 
-	return (NStr::CStr::CFormat("Mac OSX {}.{}") << Major << Minor).f_GetStr();
+	return (NStr::CStr::CFormat("macOS {}.{}") << Major << Minor).f_GetStr();
 }
 
 mint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()

@@ -491,7 +491,7 @@ namespace
 		void f_TestDocument()
 		{
 /*
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 			return;
 #endif
 */
@@ -2122,7 +2122,7 @@ namespace
 				f_TestKillSandbox<t_ProxyType>();
 				f_TestExecutableFromDll<t_ProxyType>();
 #ifndef DPlatformFamily_Linux // Not supported on linux for now
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 				if (NMib::NProcess::NPlatform::fg_Process_GetElevation() >= NMib::NProcess::EProcessElevation_IsElevated) // Process pause is unreliable unless root is used for now
 #endif
 					f_TestLimits<t_ProxyType>();

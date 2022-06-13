@@ -7,7 +7,7 @@
 
 typedef void (FOnOpenURL)(NMib::NStr::CStr const& _URL);
 
-@interface COSXEventHandler : NSObject
+@interface CMacOSEventHandler : NSObject
 {
 
 	FOnOpenURL* m_pfOnOpenURL;

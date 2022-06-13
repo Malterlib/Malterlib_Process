@@ -145,8 +145,8 @@ namespace NMib::NProcess
 		NMib::NStr::CStr m_Parameters;
 		NMib::NStr::CStr m_WorkingDirectory;
 		NMib::NStr::CStr m_ProcessGroup;		// Only if the group is not already created
-		NMib::NStr::CStr m_IconPath;			// Path to icon file used by prompt on OSX elevation
-		NMib::NStr::CStr m_Prompt;				// Prompt text to use on OSX elevation
+		NMib::NStr::CStr m_IconPath;			// Path to icon file used by prompt on macOS elevation
+		NMib::NStr::CStr m_Prompt;				// Prompt text to use on macOS elevation
 
 		NContainer::TCMap<NMib::NStr::CStr, NMib::NStr::CStr> m_SandboxRoots; // On unix use empty key for setting chroot, on windows use one remapping per drive
 

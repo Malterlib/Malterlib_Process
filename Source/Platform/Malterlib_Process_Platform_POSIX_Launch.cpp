@@ -12,8 +12,8 @@
 #ifdef DPlatformFamily_Linux
 #	include <Mib/Core/PlatformSpecific/LinuxOptional>
 #endif
-#ifdef DPlatformFamily_OSX
-#	include <Mib/Core/PlatformSpecific/OSXQualityOfService>
+#ifdef DPlatformFamily_macOS
+#	include <Mib/Core/PlatformSpecific/MacOSQualityOfService>
 #endif
 #include <Mib/Process/ProcessLaunch>
 
@@ -44,7 +44,7 @@ extern "C"
 #include <spawn.h>
 #include <sys/ptrace.h>
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 #include <libproc.h>
 #include <pthread/spawn.h>
 #endif
@@ -275,13 +275,13 @@ namespace NMib::NProcess::NPlatform
 				return false;
 			}
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 			if (mp_LastLaunchOptions.m_Operation == "open folder")
 			{
-				return fg_MacOSX_LaunchFinder(mp_LastLaunchOptions, mp_ProcessID, _Errors);
+				return fg_MacOS_LaunchFinder(mp_LastLaunchOptions, mp_ProcessID, _Errors);
 			}
 
-			bool bRet = fg_MacOSX_LaunchDocument(mp_LastLaunchOptions, mp_ProcessID, _Errors);
+			bool bRet = fg_MacOS_LaunchDocument(mp_LastLaunchOptions, mp_ProcessID, _Errors);
 			return bRet;
 
 			_Errors += "Launching document is not implemented\n";
@@ -297,11 +297,11 @@ namespace NMib::NProcess::NPlatform
 				_Errors += "Launching sandboxed not supported for elevation launches implemented\n";
 				return false;
 			}
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 			fp_DestroyPipe(_hStdErrWrite);
 			fp_DestroyPipe(_hStdErrRead);
 
-			bool bRetVal = fg_MacOSX_LaunchExecutableWithRoot(mp_LastLaunchOptions, mp_ProcessID, _hStdOutRead, _hStdInWrite, _Errors);
+			bool bRetVal = fg_MacOS_LaunchExecutableWithRoot(mp_LastLaunchOptions, mp_ProcessID, _hStdOutRead, _hStdInWrite, _Errors);
 
 			if (bRetVal)
 			{
@@ -340,7 +340,7 @@ namespace NMib::NProcess::NPlatform
 
 			try
 			{
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 				NStr::CStr OriginalProgram = Program;
 				Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_Directory, {}, LocalPaths);
 				if (NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
@@ -354,7 +354,7 @@ namespace NMib::NProcess::NPlatform
 						}
 						auto NewLaunchOptions = mp_LastLaunchOptions;
 						NewLaunchOptions.m_Target = Program;
-						return fg_MacOSX_LaunchUIExecutable(NewLaunchOptions, mp_ProcessID, _Errors);
+						return fg_MacOS_LaunchUIExecutable(NewLaunchOptions, mp_ProcessID, _Errors);
 					}
 				}
 
@@ -727,7 +727,7 @@ namespace NMib::NProcess::NPlatform
 						NewFlags |= POSIX_SPAWN_SETPGROUP;
 					}
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 					if (mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default)
 					{
 						if (&posix_spawnattr_set_qos_class_np)
@@ -758,7 +758,7 @@ namespace NMib::NProcess::NPlatform
 
 					pid_t Pid = -1;
 					{
-#ifdef DPlatformFamily_OSX // We need to take the fork lock here as macOS doesn't support opening pipes with FD_CLOSEEXEC
+#ifdef DPlatformFamily_macOS // We need to take the fork lock here as macOS doesn't support opening pipes with FD_CLOSEEXEC
 						DMibLock(NMib::NPlatform::fg_ForkLock());
 #endif
 						DCallPosixSpawnApi(posix_spawn, pExecutable, &Pid, pExecutable, &SpawnFileActions, &SpawnAttributes, ParametersList.f_GetArray(), EnvList.f_GetArray());
@@ -985,7 +985,7 @@ namespace NMib::NProcess::NPlatform
 		DMibFastCheck(_Read == -1);
 		DMibFastCheck(_Write == -1);
 		int Pipes[2];
-#ifndef DPlatformFamily_OSX
+#ifndef DPlatformFamily_macOS
 		if (NLocal::g_f_pipe2)
 		{
 			if (NLocal::g_f_pipe2(Pipes, O_CLOEXEC))
@@ -1251,8 +1251,8 @@ namespace NMib::NProcess::NPlatform
 
 	bool fg_TerminateProcessTree(pid_t _ProcessID, NStr::CStr &_Errors)
 	{
-#ifdef DPlatformFamily_OSX
-		return fg_MacOSX_Process_TerminateTree(_ProcessID, _Errors);
+#ifdef DPlatformFamily_macOS
+		return fg_MacOS_Process_TerminateTree(_ProcessID, _Errors);
 #elif defined(DPlatformFamily_Linux)
 		return fg_Linux_Process_TerminateTree(_ProcessID, _Errors);
 #else
@@ -1285,7 +1285,7 @@ namespace NMib::NProcess::NPlatform
 			if (mp_LastLaunchOptions.m_CPUUsage != 0.0 && mp_LastLaunchOptions.m_CPUUsage != 1.0)
 				mp_pCPULimiter = fg_GetCPULimiter(mp_LastLaunchOptions.m_ProcessGroup, mp_LastLaunchOptions.m_CPUUsage, mp_ProcessID.f_Load());
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 			proc_taskallinfo TaskInfoAll = {0};
 #endif
 
@@ -1340,14 +1340,14 @@ namespace NMib::NProcess::NPlatform
 				fp_RedirectOutput(false);
 
 				// You have to get proc info before wait4 as the zombie process will be invalid after it
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 				int bytes = 0;
 				bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, PROC_PIDTASKINFO_SIZE );
 
 				bool bAskForZombie = true;
 
 				if (NMib::CSystem::ms_PlatformVersion >= 10'05'00 && NMib::CSystem::ms_PlatformVersion < 10'06'00)
-					bAskForZombie = false; // On OSX 10.5 asking for a zombie process will cause a kernel panic
+					bAskForZombie = false; // On macOS 10.5 asking for a zombie process will cause a kernel panic
 
 				bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTBSDINFO, bAskForZombie, &TaskInfoAll.pbsd, PROC_PIDTBSDINFO_SIZE);
 //						bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTASKALLINFO, 1, &TaskInfoAll, sizeof(TaskInfoAll));
@@ -1384,7 +1384,7 @@ namespace NMib::NProcess::NPlatform
 					fp_UpdateOverallStats
 						(
 							RUsage
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 							, TaskInfoAll
 #endif
 						)
@@ -1746,7 +1746,7 @@ namespace NMib::NProcess::NPlatform
 		void fg_ConvertMemoryStatistics(CProcessStatistics &_Dest, rusage const &_Info)
 		{
 			if (_Info.ru_maxrss)
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 				_Dest.m_Statistics("Max resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_maxrss, 1024 * 1024));
 #else
 				_Dest.m_Statistics("Max resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_maxrss * 1024, 1024 * 1024));
@@ -1771,7 +1771,7 @@ namespace NMib::NProcess::NPlatform
 				_Dest.m_Statistics("Application swapped", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.ru_nswap, 1, "times"));
 		}
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 
 		void fg_ConvertMemoryStatistics(CProcessStatistics &_Dest, proc_taskinfo const &_Info)
 		{
@@ -1793,13 +1793,13 @@ namespace NMib::NProcess::NPlatform
 			(
 				CProcessStatistics &_Dest
 				, rusage const &_Info
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 				, proc_taskallinfo const &_ProcInfo
 #endif
 			 )
 		{
 			fp64 RunTime = 0.0;
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 			if (_ProcInfo.pbsd.pbi_start_tvsec)
 			{
 				static NTime::CTime EpochStart = NTime::CTimeConvert::fs_CreateTime(1970, 1, 1);
@@ -1833,7 +1833,7 @@ namespace NMib::NProcess::NPlatform
 
 		}
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 		void fg_ConvertExecutionStatistics(CProcessStatistics &_Dest, proc_taskallinfo const &_ProcInfo)
 		{
 			fp64 RunTime = 0.0;
@@ -1874,7 +1874,7 @@ namespace NMib::NProcess::NPlatform
 	void CPOSIXLaunchContext::fp_UpdateOverallStats
 		(
 			rusage const &_RUsage
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 			, proc_taskallinfo const &_TaskInfo
 #endif
 		)
@@ -1887,7 +1887,7 @@ namespace NMib::NProcess::NPlatform
 				(
 					mp_OverallExecutionStatistics
 					, _RUsage
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 					, _TaskInfo
 #endif
 				)
@@ -1991,7 +1991,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 
 	CProcessStatistics Stats;
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	int bytes;
 	proc_taskallinfo TaskInfoAll = {0};
@@ -2022,7 +2022,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 
 	NMib::NProcess::CProcessStatistics Stats;
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 	NMib::NProcess::NPlatform::CPOSIXLaunchContext *pLaunch = NMib::fg_AutoStaticCast(_pLaunch);
 	int bytes;
 	proc_taskinfo TaskInfo = {0};
@@ -2062,7 +2062,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 
 void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 	mint ProcessID = (mint)_pProcess;
 	int bytes;
 	proc_taskinfo TaskInfo = {0};
@@ -2087,7 +2087,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pPr
 
 void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 	mint ProcessID = (mint)_pProcess;
 	int bytes;
 	proc_taskallinfo TaskInfoAll = {0};
@@ -2143,8 +2143,8 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_CancelAll()
 
 void NMib::NProcess::NPlatform::fg_Process_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params)
 {
-	#ifdef DPlatformFamily_OSX
-		NPlatform::fg_MacOSX_RegisterURLHandler(_Protocol, _ExePath, _Params);
+	#ifdef DPlatformFamily_macOS
+		NPlatform::fg_MacOS_RegisterURLHandler(_Protocol, _ExePath, _Params);
 	#elif defined(DPlatformFamily_Linux)
 		NPlatform::fg_Linux_RegisterURLHandler(_Protocol, _ExePath, _Params);
 	#endif
@@ -2152,8 +2152,8 @@ void NMib::NProcess::NPlatform::fg_Process_RegisterURLHandler(NMib::NStr::CStr c
 
 void NMib::NProcess::NPlatform::fg_Process_DeRegisterURLHandler(NMib::NStr::CStr const &_Protocol)
 {
-	#ifdef DPlatformFamily_OSX
-		NPlatform::fg_MacOSX_DeRegisterURLHandler(_Protocol);
+	#ifdef DPlatformFamily_macOS
+		NPlatform::fg_MacOS_DeRegisterURLHandler(_Protocol);
 	#elif defined(DPlatformFamily_Linux)
 		NPlatform::fg_Linux_DeRegisterURLHandler(_Protocol);
 	#endif
@@ -2161,8 +2161,8 @@ void NMib::NProcess::NPlatform::fg_Process_DeRegisterURLHandler(NMib::NStr::CStr
 
 void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name)
 {
-	#ifdef DPlatformFamily_OSX
-		NPlatform::fg_MacOSX_Process_RegisterAtStartup(_ExePath, _Params, _Name);
+	#ifdef DPlatformFamily_macOS
+		NPlatform::fg_MacOS_Process_RegisterAtStartup(_ExePath, _Params, _Name);
 	#elif defined(DPlatformFamily_Linux)
 		NPlatform::fg_Linux_Process_RegisterAtStartup(_ExePath, _Params, _Name);
 	#endif
@@ -2171,8 +2171,8 @@ void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr co
 
 void NMib::NProcess::NPlatform::fg_Process_DeRegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name)
 {
-	#ifdef DPlatformFamily_OSX
-		NPlatform::fg_MacOSX_Process_DeRegisterAtStartup(_ExePath, _Params, _Name);
+	#ifdef DPlatformFamily_macOS
+		NPlatform::fg_MacOS_Process_DeRegisterAtStartup(_ExePath, _Params, _Name);
 	#elif defined(DPlatformFamily_Linux)
 		NPlatform::fg_Linux_Process_DeRegisterAtStartup(_ExePath, _Params, _Name);
 	#endif

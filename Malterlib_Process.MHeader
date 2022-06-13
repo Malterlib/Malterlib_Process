@@ -89,12 +89,12 @@ Property
 			, Name: `@(ProductCompany->Sanitize()).@(Target:Target.Name->Sanitize()).Link`
 		}
 		{
-			!!PlatformFamily "OSX"
+			!!PlatformFamily "macOS"
 		}
 
 		MalterlibBundleIdentifier `@(ProductCompanyUniqueIdentifier->Sanitize()).@(Target:Target.Name->Sanitize()).@(MalterlibFinalModuleDestination->HashUUID("AlphaNum"))`
 		{
-			!!PlatformFamily "OSX"
+			!!PlatformFamily "macOS"
 		}
 
 		MalterlibBuildSpecifics =+ `#define DLaunchableScheme "@(URLScheme)"\r\n`
@@ -103,7 +103,7 @@ Property
 
 		MalterlibEnableBreakpad true
 		{
-			!!PlatformFamily "OSX"
+			!!PlatformFamily "macOS"
 		}
 		MalterlibSigning false
 		MalterlibTestOwnMain true
@@ -120,7 +120,7 @@ Property
 		{
 			Compile.Disabled true
 			{
-				!PlatformFamily "OSX"
+				!PlatformFamily "macOS"
 			}
 		}
 		%File "Test/Test_Malterlib_Process_Launchable_EventHandler.h"
@@ -156,7 +156,7 @@ Property
 										"			<string>allowed</string>\n"\
 										"		</array>\n"
 		{
-			!!PlatformFamily "OSX"
+			!!PlatformFamily "macOS"
 		}
 	}
 	%Group "Tests"
@@ -173,7 +173,7 @@ Property
 		}
 	}
 	{
-		!!PlatformFamily "OSX"
+		!!PlatformFamily "macOS"
 		Dependency.Link false
 	}
 	%Dependency "Dll_Test_Malterlib_Helper_Process"

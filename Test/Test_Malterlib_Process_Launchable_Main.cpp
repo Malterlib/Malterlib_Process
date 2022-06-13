@@ -10,9 +10,9 @@ using namespace NMib;
 
 typedef void (FOnOpenURL)(NStr::CStr const& _URL);
 
-#ifdef DPlatformFamily_OSX
-void fg_CreateOSXEventHandler(FOnOpenURL* _pfOnOpenURL);
-void fg_DestroyOSXEventHandler();
+#ifdef DPlatformFamily_macOS
+void fg_CreateMacOSEventHandler(FOnOpenURL* _pfOnOpenURL);
+void fg_DestroyMacOSEventHandler();
 void fg_RunApplicationMain(int argc, char *argv[]);
 #endif
 
@@ -85,13 +85,13 @@ int calling_convention_c main(int _ArgC, char ** _pArgV)
 	
 	CommandLineArgs.f_Clear();
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 	{
-		fg_CreateOSXEventHandler(OnOpenURL);
+		fg_CreateMacOSEventHandler(OnOpenURL);
 
 		fg_RunApplicationMain(_ArgC, _pArgV);
 
-		fg_DestroyOSXEventHandler();
+		fg_DestroyMacOSEventHandler();
 	}
 
 #endif

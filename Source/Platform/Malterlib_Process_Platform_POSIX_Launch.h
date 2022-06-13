@@ -3,7 +3,7 @@
 
 #pragma once
 
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 #include <libproc.h>
 #include <mach/mach_types.h>
 #elif defined(DPlatformFamily_Linux)
@@ -46,7 +46,7 @@ namespace NMib::NProcess::NPlatform
 		void f_SendBinary(NContainer::CSecureByteVector const &_Data);
 		fp64 f_GetRunningTime();
 		mint f_GetID();
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 		task_t f_MachTask();
 #endif
 		void f_Cancel();
@@ -87,7 +87,7 @@ namespace NMib::NProcess::NPlatform
 		void fp_UpdateOverallStats
 			(
 				rusage const &_RUsage
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 				, proc_taskallinfo const &_TaskInfo
 #endif
 			)
