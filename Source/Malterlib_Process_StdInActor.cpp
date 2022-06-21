@@ -662,7 +662,7 @@ namespace NMib::NProcess
 		;
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags, mint _MaxSize)
 	{
 		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
 		auto &Internal = *mp_pInternal;
@@ -672,9 +672,25 @@ namespace NMib::NProcess
 				(
 					CStdInReaderParams::fs_Create
 					(
-						[fOnInput = fg_Move(_fOnInput)](EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)
+						[fOnInput = fg_Move(_fOnInput), _MaxSize](EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)
 						{
-							fOnInput(_Type, _Input) > NConcurrency::fg_DiscardResult();
+							mint InputLen = _Input.f_GetLen();
+							if (InputLen > _MaxSize)
+							{
+								NMisc::fg_ChunkRange
+									(
+										mint(0)
+										, InputLen
+										, _MaxSize
+										, [&](mint _Start, mint _Len)
+										{
+											fOnInput(_Type, _Input.f_Extract(_Start, _Len)) > NConcurrency::fg_DiscardResult();
+										}
+									)
+								;
+							}
+							else
+								fOnInput(_Type, _Input) > NConcurrency::fg_DiscardResult();
 						}
 						, _Flags
 					)
@@ -700,7 +716,7 @@ namespace NMib::NProcess
 		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags, mint _MaxSize)
 	{
 		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
 		auto &Internal = *mp_pInternal;
@@ -710,9 +726,28 @@ namespace NMib::NProcess
 				(
 					CStdInReaderParams::fs_CreateBinary
 					(
-						[fOnInput = fg_Move(_fOnInput)](EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, CStr const &_Error)
+						[fOnInput = fg_Move(_fOnInput), _MaxSize](EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, CStr const &_Error)
 						{
-							fOnInput(_Type, _Input, _Error) > NConcurrency::fg_DiscardResult();
+							mint InputLen = _Input.f_GetLen();
+							if (InputLen > _MaxSize)
+							{
+								NMisc::fg_ChunkRange
+									(
+										mint(0)
+										, InputLen
+										, _MaxSize
+										, [&](mint _Start, mint _Len)
+										{
+											NContainer::CSecureByteVector ToSend;
+											ToSend.f_Insert(_Input.f_GetArray() + _Start, _Len);
+
+											fOnInput(_Type, fg_Move(ToSend), _Error) > NConcurrency::fg_DiscardResult();
+										}
+									)
+								;
+							}
+							else
+								fOnInput(_Type, _Input, _Error) > NConcurrency::fg_DiscardResult();
 						}
 						, _Flags
 					)

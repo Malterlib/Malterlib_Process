@@ -19,12 +19,12 @@ namespace NMib::NProcess
 		~CStdInActor();
 
 		using FOnInput = NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)>;
-		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags);
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags, mint _MaxSize);
 
 		using FOnBinaryInput
 			= NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, NStr::CStr const &_Error)>
 		;
-		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags);
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags, mint _MaxSize);
 
 		NConcurrency::TCFuture<NContainer::CSecureByteVector> f_ReadBinary();
 		NConcurrency::TCFuture<NStr::CStrSecure> f_ReadLine();
