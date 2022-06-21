@@ -263,12 +263,17 @@ namespace NMib::NProcess
 				NStr::CStr Output;
 
 				if (_bFlush)
+				{
 					Output = fg_Move(m_OutputBuffers[_OutputType]);
+					m_OutputBuffersParsedChars[_OutputType] = 0;
+				}
 				else
 				{
 					auto &OutputBuffer = m_OutputBuffers[_OutputType];
 					auto *pParse = OutputBuffer.f_GetStr();
 					auto *pFinishedOutput = pParse;
+					auto *pStartParse = pParse;
+					pParse += m_OutputBuffersParsedChars[_OutputType];
 					while (*pParse)
 					{
 						NStr::fg_ParseToEndOfLine(pParse);
@@ -279,11 +284,15 @@ namespace NMib::NProcess
 						else
 							break;
 					}
-					mint nFinishedChars = pFinishedOutput - OutputBuffer.f_GetStr();
+					mint nFinishedChars = pFinishedOutput - pStartParse;
 					if (!nFinishedChars)
+					{
+						m_OutputBuffersParsedChars[_OutputType] = pParse - pStartParse;
 						return;
+					}
 					Output = OutputBuffer.f_Extract(0, nFinishedChars);
 					fg_StrDelete(OutputBuffer, 0, nFinishedChars);
+					m_OutputBuffersParsedChars[_OutputType] = 0;
 				}
 
 				if (Output.f_IsEmpty())
@@ -365,6 +374,7 @@ namespace NMib::NProcess
 			ELogFlag m_ToLog = ELogFlag_None;
 			NStr::CStr m_LogName;
 			NStr::CStr m_OutputBuffers[EProcessLaunchOutputType_Max];
+			mint m_OutputBuffersParsedChars[EProcessLaunchOutputType_Max] = {};
 			NConcurrency::TCWeakActor<CProcessLaunchActor> m_ThisWeak;
 			CProcessLaunchActor *m_pThis = nullptr;
 			bool m_bWholeLineOutput = true;
