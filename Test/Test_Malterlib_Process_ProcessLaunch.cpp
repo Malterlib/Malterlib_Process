@@ -218,12 +218,27 @@ namespace
 				}
 				else
 				{
-					NMib::NStr::CStr WorkingDirectory = NMib::NFile::CFile::fs_GetProgramDirectory() / "ProcessWorkingDir";
+					using namespace NMib::NStr;
+
+					CStr ProxyType;
+					switch (t_ProxyType)
+					{
+					case EProxyType_None: ProxyType = "N"; break;
+					case EProxyType_Proxied: ProxyType = "P"; break;
+					case EProxyType_ElevatedProxied: ProxyType = "E"; break;
+					}
+
+					CStr WorkingDirectory = NMib::NFile::CFile::fs_GetProgramDirectory()
+						/ ("ProcessWorkingDir{}{}{}"_f << (_bThreaded ? "T" : "") << (_bForceFork ? "F" : "") << ProxyType)
+					;
+
+					fg_TestAddCleanupPath(WorkingDirectory);
+
 					NMib::NFile::CFile::fs_CreateDirectory(WorkingDirectory);
 
 					TCAtomic<EExitResult> Exited = EExitResult_None;
 					TCAtomic<uint32> ExitCode = 66;
-					NMib::NStr::CStr StdOut;
+					CStr StdOut;
 					NMib::NThread::CMutual Lock;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 					Params.m_bThreaded = _bThreaded;
@@ -255,7 +270,7 @@ namespace
 					;
 
 					Params.m_fOnOutput
-						= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+						= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, CStr const &_Output)
 						{
 							DMibLock(Lock);
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
