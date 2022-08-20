@@ -363,7 +363,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	for (auto iProcess = Processes.f_GetIterator(); iProcess; ++iProcess)
 	{
 		auto &Process = *iProcess;
-		if (auto pOld = OldInfo.f_FindEqual(Process.m_ProcessID))
+		if (auto pOld = OldInfo.f_FindEqual(mint(Process.m_ProcessID)))
 		{
 			if ((*pOld)->m_StartTime == Process.m_StartTime)
 			{

@@ -264,7 +264,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	{
 		auto &Process = *iProcess;
 		uint64 StartTime = uint64(Process.kp_proc.p_starttime.tv_sec) << 32 | uint64(Process.kp_proc.p_starttime.tv_usec);
-		if (auto pOld = OldInfo.f_FindEqual(Process.kp_proc.p_pid))
+		if (auto pOld = OldInfo.f_FindEqual(mint(Process.kp_proc.p_pid)))
 		{
 			if ((*pOld)->m_StartTime == StartTime)
 			{
