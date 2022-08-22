@@ -857,7 +857,7 @@ namespace NMib::NProcess
 		return Return;
 	}
 
-	DMibSuppressUndefinedSanitizerLinux auto CProcessLaunchActor::fs_LaunchSimple(CSimpleLaunch _SimpleLaunch) -> NConcurrency::TCFuture<CSimpleLaunchResult>
+	auto DMibWorkaroundUBSanSectionErrors CProcessLaunchActor::fs_LaunchSimple(CSimpleLaunch _SimpleLaunch) -> NConcurrency::TCFuture<CSimpleLaunchResult>
 	{
 		NConcurrency::TCActor<CProcessLaunchActor> LaunchActor;
 		LaunchActor = fg_Construct();
