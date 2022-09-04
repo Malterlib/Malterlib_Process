@@ -40,37 +40,62 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 	NSString *pFileName = NMib::NPlatform::fg_MacOS_GetString(CanonicalFile);
 	NSURL *pURL = [NSURL fileURLWithPath: pFileName];
 
-	if (pURL)
+	if (!pURL)
+		return;
+
+	NSDictionary *pPList = (NSDictionary *)CFBridgingRelease(CFBundleCopyInfoDictionaryForURL((CFURLRef)pURL));
+
+	if (!pPList)
 	{
-		NSDictionary *pPList = (NSDictionary *)CFBridgingRelease(CFBundleCopyInfoDictionaryForURL((CFURLRef)pURL));
+		do
+		{
+			auto Directory = NFile::CFile::fs_GetPath(CanonicalFile);
+			if (NFile::CFile::fs_GetFile(Directory) != "MacOS")
+				break;
+
+			Directory = NFile::CFile::fs_GetPath(Directory);
+			if (NFile::CFile::fs_GetFile(Directory) != "Contents")
+				break;
+
+			Directory = NFile::CFile::fs_GetPath(Directory);
+			if (NFile::CFile::fs_GetExtension(Directory) != "app")
+				break;
+
+			pFileName = NMib::NPlatform::fg_MacOS_GetString(Directory);
+			pURL = [NSURL fileURLWithPath: pFileName];
+			if (pURL)
+				pPList = (NSDictionary *)CFBridgingRelease(CFBundleCopyInfoDictionaryForURL((CFURLRef)pURL));
+		}
+		while (false)
+			;
 
 		if (!pPList)
 			return;
-
-		NStr::CStr BundleVersion = fg_GetDictionaryValue(pPList, "CFBundleShortVersionString", NStr::CStr::fs_ToStr(_VersionInfo.m_Major));
-
-		NStr::CStr BundleMajor = fg_GetStrSep(BundleVersion, ".");
-		NStr::CStr BundleMinor = fg_GetStrSep(BundleVersion, ".");
-		NStr::CStr BundleRevision = fg_GetStrSep(BundleVersion, ".");
-		if (!BundleMajor.f_IsEmpty())
-			_VersionInfo.m_Major = BundleMajor.f_ToInt(uint16(0));
-		if (!BundleMinor.f_IsEmpty())
-			_VersionInfo.m_Minor = BundleMinor.f_ToInt(uint16(0));
-		if (!BundleRevision.f_IsEmpty())
-			_VersionInfo.m_Revision = BundleRevision.f_ToInt(uint16(0));
-
-		NStr::CStr BuildTime = fg_GetDictionaryValue(pPList, "BuildTime", "");
-		NStr::CStr BuildTimeSeconds = fg_GetStrSep(BuildTime, ":");
-		NStr::CStr BuildTimeFraction = fg_GetStrSep(BuildTime, ":");
-
-		if (!BuildTimeSeconds.f_IsEmpty())
-			_VersionInfo.m_BuildTime = NMib::NTime::CTime::fs_Create(BuildTimeSeconds.f_ToInt(int64(0)), BuildTimeFraction.f_ToInt(uint64(0)));
-
-		_VersionInfo.m_Major = fg_GetDictionaryValue(pPList, "ProductVersionMajor", NStr::CStr::fs_ToStr(_VersionInfo.m_Major)).f_ToInt(uint16(0));
-		_VersionInfo.m_Minor = fg_GetDictionaryValue(pPList, "ProductVersionMinor", NStr::CStr::fs_ToStr(_VersionInfo.m_Minor)).f_ToInt(uint16(0));
-		_VersionInfo.m_Revision = fg_GetDictionaryValue(pPList, "ProductVersionRevision", NStr::CStr::fs_ToStr(_VersionInfo.m_Revision)).f_ToInt(uint16(0));
-		_VersionInfo.m_Branch = fg_GetDictionaryValue(pPList, "MalterlibBranch", _VersionInfo.m_Branch);
-		_VersionInfo.m_GitBranch = fg_GetDictionaryValue(pPList, "MalterlibGitBranch", _VersionInfo.m_GitBranch);
-		_VersionInfo.m_GitCommit = fg_GetDictionaryValue(pPList, "MalterlibGitCommit", "");
 	}
+
+	NStr::CStr BundleVersion = fg_GetDictionaryValue(pPList, "CFBundleShortVersionString", NStr::CStr::fs_ToStr(_VersionInfo.m_Major));
+
+	NStr::CStr BundleMajor = fg_GetStrSep(BundleVersion, ".");
+	NStr::CStr BundleMinor = fg_GetStrSep(BundleVersion, ".");
+	NStr::CStr BundleRevision = fg_GetStrSep(BundleVersion, ".");
+	if (!BundleMajor.f_IsEmpty())
+		_VersionInfo.m_Major = BundleMajor.f_ToInt(uint16(0));
+	if (!BundleMinor.f_IsEmpty())
+		_VersionInfo.m_Minor = BundleMinor.f_ToInt(uint16(0));
+	if (!BundleRevision.f_IsEmpty())
+		_VersionInfo.m_Revision = BundleRevision.f_ToInt(uint16(0));
+
+	NStr::CStr BuildTime = fg_GetDictionaryValue(pPList, "BuildTime", "");
+	NStr::CStr BuildTimeSeconds = fg_GetStrSep(BuildTime, ":");
+	NStr::CStr BuildTimeFraction = fg_GetStrSep(BuildTime, ":");
+
+	if (!BuildTimeSeconds.f_IsEmpty())
+		_VersionInfo.m_BuildTime = NMib::NTime::CTime::fs_Create(BuildTimeSeconds.f_ToInt(int64(0)), BuildTimeFraction.f_ToInt(uint64(0)));
+
+	_VersionInfo.m_Major = fg_GetDictionaryValue(pPList, "ProductVersionMajor", NStr::CStr::fs_ToStr(_VersionInfo.m_Major)).f_ToInt(uint16(0));
+	_VersionInfo.m_Minor = fg_GetDictionaryValue(pPList, "ProductVersionMinor", NStr::CStr::fs_ToStr(_VersionInfo.m_Minor)).f_ToInt(uint16(0));
+	_VersionInfo.m_Revision = fg_GetDictionaryValue(pPList, "ProductVersionRevision", NStr::CStr::fs_ToStr(_VersionInfo.m_Revision)).f_ToInt(uint16(0));
+	_VersionInfo.m_Branch = fg_GetDictionaryValue(pPList, "MalterlibBranch", _VersionInfo.m_Branch);
+	_VersionInfo.m_GitBranch = fg_GetDictionaryValue(pPList, "MalterlibGitBranch", _VersionInfo.m_GitBranch);
+	_VersionInfo.m_GitCommit = fg_GetDictionaryValue(pPList, "MalterlibGitCommit", "");
 }
