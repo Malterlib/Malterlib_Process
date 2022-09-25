@@ -159,8 +159,8 @@ namespace NMib::NProcess::NPlatform
 			if (SessionID != 0xFFFFffff)
 				return SessionID;
 
-	/*		if (NLocal::g_fWTSGetActiveConsoleSessionId)
-				return NLocal::g_fWTSGetActiveConsoleSessionId();*/
+	/*		if (NLocal::g_OptionalFunctions.m_fWTSGetActiveConsoleSessionId)
+				return NLocal::g_OptionalFunctions.m_fWTSGetActiveConsoleSessionId();*/
 
 			return 0;
 		}
@@ -655,16 +655,16 @@ namespace NMib::NProcess::NPlatform
 		{
 			void *pOldvalue = nullptr;
 
-			if (NLocal::g_fWow64DisableWow64FsRedirection)
-				NLocal::g_fWow64DisableWow64FsRedirection(&pOldvalue);
+			if (NLocal::g_OptionalFunctions.m_fWow64DisableWow64FsRedirection)
+				NLocal::g_OptionalFunctions.m_fWow64DisableWow64FsRedirection(&pOldvalue);
 
 			auto Cleanup
 				= fg_OnScopeExit
 				(
 					[&]
 					{
-						if (NLocal::g_fWow64RevertWow64FsRedirection)
-							NLocal::g_fWow64RevertWow64FsRedirection(pOldvalue);
+						if (NLocal::g_OptionalFunctions.m_fWow64RevertWow64FsRedirection)
+							NLocal::g_OptionalFunctions.m_fWow64RevertWow64FsRedirection(pOldvalue);
 					}
 				)
 			;
@@ -1429,7 +1429,7 @@ namespace NMib::NProcess::NPlatform
 				NStr::CWStr Params = NStr::NPlatform::fg_StrToWindows(ProgramPathFull.f_EscapeStr().f_Replace("\\\\", "\\") + " " + mp_LastLaunchOptions.m_Parameters);
 				if (hToken)
 				{
-					if (NLocal::g_fCreateProcessWithTokenW)
+					if (NLocal::g_OptionalFunctions.m_fCreateProcessWithTokenW)
 					{
 						if (!bRunAsUser)
 						{
@@ -1465,7 +1465,7 @@ namespace NMib::NProcess::NPlatform
 
 						if
 							(
-								!NLocal::g_fCreateProcessWithTokenW
+								!NLocal::g_OptionalFunctions.m_fCreateProcessWithTokenW
 								(
 									hToken
 									, 0
@@ -1697,21 +1697,21 @@ namespace NMib::NProcess::NPlatform
 					MemoryPrio.MemoryPriority = LowMemoryPriority;
 
 					auto Size = sizeof(MemoryPrio);
-					if (!NLocal::g_fSetProcessInformation || !NLocal::g_fSetProcessInformation(pi.hProcess, ProcessMemoryPriority, &MemoryPrio, sizeof(MemoryPrio)))
+					if (!NLocal::g_OptionalFunctions.m_fSetProcessInformation || !NLocal::g_OptionalFunctions.m_fSetProcessInformation(pi.hProcess, ProcessMemoryPriority, &MemoryPrio, sizeof(MemoryPrio)))
 					{
 						DMibTrace("Failed to set memory priority {}\n", NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
-						if (NLocal::g_fNtSetInformationProcess)
+						if (NLocal::g_OptionalFunctions.m_fNtSetInformationProcess)
 						{
-							auto Result = NLocal::g_fNtSetInformationProcess(pi.hProcess, (PROCESSINFOCLASS)ProcessPagePriority, &MemoryPrio, sizeof(MemoryPrio));
+							auto Result = NLocal::g_OptionalFunctions.m_fNtSetInformationProcess(pi.hProcess, (PROCESSINFOCLASS)ProcessPagePriority, &MemoryPrio, sizeof(MemoryPrio));
 							if (!NT_SUCCESS(Result))
 								DMibTrace("Failed to set memory priority {}\n", NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
 						}
 					}
 
-					if (NLocal::g_fNtSetInformationProcess)
+					if (NLocal::g_OptionalFunctions.m_fNtSetInformationProcess)
 					{
 						ULONG IoPrio = 0;
-						auto Result = NLocal::g_fNtSetInformationProcess(pi.hProcess, (PROCESSINFOCLASS)ProcessIoPriority, &IoPrio, sizeof(IoPrio));
+						auto Result = NLocal::g_OptionalFunctions.m_fNtSetInformationProcess(pi.hProcess, (PROCESSINFOCLASS)ProcessIoPriority, &IoPrio, sizeof(IoPrio));
 						if (!NT_SUCCESS(Result))
 							DMibTrace("Failed to set IO priority {}\n", NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
 					}

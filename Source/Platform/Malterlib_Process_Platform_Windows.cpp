@@ -294,7 +294,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 					UndocumentedPEB Peb;
 					PROCESS_BASIC_INFORMATION BasicInfo;
 					ULONG RetLen = 0;
-					if (NLocal::g_fNtQueryInformationProcess && !NLocal::g_fNtQueryInformationProcess(pThisProcess, ProcessBasicInformation, &BasicInfo, sizeof(BasicInfo), &RetLen) && RetLen == sizeof(BasicInfo))
+					if (NLocal::g_OptionalFunctions.m_fNtQueryInformationProcess && !NLocal::g_OptionalFunctions.m_fNtQueryInformationProcess(pThisProcess, ProcessBasicInformation, &BasicInfo, sizeof(BasicInfo), &RetLen) && RetLen == sizeof(BasicInfo))
 					{
 						SIZE_T ReadBytes = 0;
 						if (ReadProcessMemory(pThisProcess, BasicInfo.PebBaseAddress, &Peb, sizeof(Peb), &ReadBytes) && ReadBytes == sizeof(Peb))

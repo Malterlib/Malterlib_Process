@@ -33,7 +33,7 @@ namespace NMib::NProcess::NPlatform
 			if (_bForcePolling)
 				m_bDoPolling = true;
 			else
-				m_bDoPolling = NLocal::g_fCancelSynchronousIo == nullptr || NLocal::g_fCancelIoEx == nullptr;
+				m_bDoPolling = NLocal::g_OptionalFunctions.m_fCancelSynchronousIo == nullptr || NLocal::g_OptionalFunctions.m_fCancelIoEx == nullptr;
 			mp_hStdInFile = GetStdHandle(STD_INPUT_HANDLE);
 		}
 		~CWindowsStdInReaderImplementation()
@@ -43,12 +43,12 @@ namespace NMib::NProcess::NPlatform
 			else
 			{
 				f_Stop(false);
-				NLocal::g_fCancelSynchronousIo(f_GetThread());
-				NLocal::g_fCancelIoEx(mp_hStdInFile, nullptr);
+				NLocal::g_OptionalFunctions.m_fCancelSynchronousIo(f_GetThread());
+				NLocal::g_OptionalFunctions.m_fCancelIoEx(mp_hStdInFile, nullptr);
 				while (f_GetState() >= NThread::EThreadState_Running)
 				{
-					NLocal::g_fCancelSynchronousIo(f_GetThread());
-					NLocal::g_fCancelIoEx(mp_hStdInFile, nullptr);
+					NLocal::g_OptionalFunctions.m_fCancelSynchronousIo(f_GetThread());
+					NLocal::g_OptionalFunctions.m_fCancelIoEx(mp_hStdInFile, nullptr);
 					NSys::fg_Thread_SmallestSleep();
 				}
 				f_Stop(true);
