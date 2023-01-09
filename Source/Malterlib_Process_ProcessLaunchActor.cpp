@@ -176,7 +176,7 @@ namespace NMib::NProcess
 										(
 											"Launch exited with {}: {}"
 											, ExitCode
-											, bSeparateStdErr ? pState->m_LaunchResult.f_GetErrorOut() : pState->m_LaunchResult.f_GetCombinedOut()
+											, (bSeparateStdErr ? pState->m_LaunchResult.f_GetErrorOut() : pState->m_LaunchResult.f_GetCombinedOut()).f_Trim()
 										)
 									)
 								)
