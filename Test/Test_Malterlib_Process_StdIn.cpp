@@ -233,7 +233,7 @@ namespace
 								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 									{
 										NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
-										DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+										DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 									}
 									break;
 								case NMib::NProcess::EProcessLaunchState_Launched:
@@ -270,7 +270,7 @@ namespace
 								}
 								else
 								{
-									DMibDTrace("Unexpected output: {}\r\n", _Output);
+									DMibConErrOut("Unexpected output: {}\r\n", _Output);
 								}
 							}
 						;

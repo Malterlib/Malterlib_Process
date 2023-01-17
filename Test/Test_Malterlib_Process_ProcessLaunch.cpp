@@ -260,7 +260,7 @@ namespace
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
 									Exited = EExitResult_NotLaunched;
-									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_Launched:
@@ -276,7 +276,7 @@ namespace
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 								StdOut += _Output;
 							else
-								DMibDTrace("Unexpected output: {}\r\n", _Output);
+								DMibConErrOut("Unexpected output: {}\r\n", _Output);
 						}
 					;
 					{
@@ -431,7 +431,7 @@ namespace
 						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 							{
 								Exited = EExitResult_NotLaunched;
-								DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+								DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 							}
 							break;
 						case NMib::NProcess::EProcessLaunchState_Launched:
@@ -447,7 +447,7 @@ namespace
 						if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 							StdOut += _Output;
 						else
-							DMibDTrace("Unexpected output: {}\r\n", _Output);
+							DMibConErrOut("Unexpected output: {}\r\n", _Output);
 					}
 				;
 				CTestPerformanceMeasure MalterlibTime("Malterlib");
@@ -1049,7 +1049,7 @@ namespace
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
 									Exited = EExitResult_NotLaunched;
-									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_Launched:
@@ -1148,7 +1148,7 @@ namespace
 									case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 										{
 											Exited = EExitResult_NotLaunched;
-											DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+											DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 										}
 										break;
 									case NMib::NProcess::EProcessLaunchState_Launched:
@@ -1299,7 +1299,7 @@ namespace
 								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 									{
 										Exited = EExitResult_NotLaunched;
-										DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+										DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 									}
 									break;
 								case NMib::NProcess::EProcessLaunchState_Launched:
@@ -1315,7 +1315,7 @@ namespace
 								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 									StdOut += _Output;
 								else
-									DMibDTrace("Unexpected output: {}\r\n", _Output);
+									DMibConErrOut("Unexpected output: {}\r\n", _Output);
 							}
 						;
 
@@ -1382,7 +1382,7 @@ namespace
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
 									Exited = EExitResult_NotLaunched;
-									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_Launched:
@@ -1405,7 +1405,7 @@ namespace
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 								StdOut += _Output;
 							else
-								DMibDTrace("Unexpected output: {}\r\n", _Output);
+								DMibConErrOut("Unexpected output: {}\r\n", _Output);
 						}
 					;
 					{
@@ -1479,7 +1479,7 @@ namespace
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
 									Exited = EExitResult_NotLaunched;
-									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
 							}
@@ -1492,7 +1492,7 @@ namespace
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
 								StdOut += _Output;
 							else
-								DMibDTrace("Unexpected output: {}\n", _Output);
+								DMibConErrOut("Unexpected output: {}\n", _Output);
 						}
 					;
 					{
@@ -1805,7 +1805,7 @@ namespace
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 								StdOut += _Output;
 							else
-								DMibDTrace("Unexpected output: {}\r\n", _Output);
+								DMibConErrOut("Unexpected output: {}\r\n", _Output);
 						}
 					;
 					{
@@ -1978,7 +1978,7 @@ namespace
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
 									Exited = EExitResult_NotLaunched;
-									DMibDTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_Launched:
