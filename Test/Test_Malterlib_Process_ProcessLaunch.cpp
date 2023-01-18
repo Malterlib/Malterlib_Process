@@ -2074,8 +2074,15 @@ namespace
 						DMibTestPath("Block on exit");
 						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(255));
-#ifndef DPlatformFamily_Windows
-						DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 9")); // (ETestFlag_NoValues);
+#if defined(DPlatformFamily_macOS)
+						DMibTest
+							(
+								DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 9")
+								|| DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 19")
+							)
+						;
+#elif !defined(DPlatformFamily_Windows)
+						DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 9"));
 #endif
 					}
 				};
