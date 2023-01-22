@@ -253,10 +253,11 @@ namespace NMib::NProcess::NPlatform
 		OSStatus Result;
 
 		Result = LSRegisterURL(AppURL, false);
-		if (Result < 0)
-			return false;
 
 		CFRelease(AppURL);
+
+		if (Result < 0)
+			return false;
 
 		NStr::CStr const &Scheme = _Protocol;
 
@@ -287,7 +288,7 @@ namespace NMib::NProcess::NPlatform
 		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
 		OSStatus Result = LSSetDefaultHandlerForURLScheme(SchemeRef, (__bridge CFStringRef)BundleID);
 
-		CFRelease(Scheme);
+		CFRelease(SchemeRef);
 
 		return Result >= 0;
 	}

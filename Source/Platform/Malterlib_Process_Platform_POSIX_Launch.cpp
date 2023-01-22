@@ -1341,7 +1341,7 @@ namespace NMib::NProcess::NPlatform
 
 				// You have to get proc info before wait4 as the zombie process will be invalid after it
 #ifdef DPlatformFamily_macOS
-				int bytes = 0;
+				[[maybe_unused]] int bytes = 0;
 				bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, PROC_PIDTASKINFO_SIZE );
 
 				bool bAskForZombie = true;
@@ -1993,7 +1993,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 
 #ifdef DPlatformFamily_macOS
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
-	int bytes;
+	[[maybe_unused]] int bytes;
 	proc_taskallinfo TaskInfoAll = {0};
 	bytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));
 	bytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTBSDINFO, 0, &TaskInfoAll.pbsd, sizeof(TaskInfoAll.pbsd));
@@ -2089,7 +2089,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 {
 #ifdef DPlatformFamily_macOS
 	mint ProcessID = (mint)_pProcess;
-	int bytes;
+	[[maybe_unused]] int bytes;
 	proc_taskallinfo TaskInfoAll = {0};
 	bytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));
 	bytes = proc_pidinfo(ProcessID, PROC_PIDTBSDINFO, 0, &TaskInfoAll.pbsd, sizeof(TaskInfoAll.pbsd));
