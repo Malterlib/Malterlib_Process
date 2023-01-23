@@ -40,21 +40,32 @@ namespace NMib::NProcess
 
 	struct CProcessStat
 	{
+		CProcessStat(EProcessStatUnit _Unit, fp64 _Value, fp64 _IdealScale = 1.0, NMib::NStr::CStr const &_CustomUnit = NMib::NStr::CStr());
+
+		fp64 f_GetValueWithScaledUnit(NStr::CStr &o_Unit) const;
+
+		template <typename tf_CStr>
+		void f_Format(tf_CStr &o_Str) const
+		{
+			NStr::CStr Unit;
+			auto Value = f_GetValueWithScaledUnit(Unit);
+			o_Str += typename tf_CStr::CFormat("{} {}") << Value << Unit;
+		}
+
 		EProcessStatUnit m_Unit;
 		NMib::NStr::CStr m_CustomUnit;
 		fp64 m_Value;
 		fp64 m_IdealScale;
-		CProcessStat(EProcessStatUnit _Unit, fp64 _Value, fp64 _IdealScale = 1.0, NMib::NStr::CStr const &_CustomUnit = NMib::NStr::CStr())
-			: m_Unit(_Unit)
-			, m_CustomUnit(_CustomUnit)
-			, m_Value(_Value)
-			, m_IdealScale(_IdealScale)
-		{
-		}
 	};
 
 	struct CProcessStatistics
 	{
+		template <typename tf_CStr>
+		void f_Format(tf_CStr &o_Str) const
+		{
+			o_Str += typename tf_CStr::CFormat("{}") << m_Statistics;
+		}
+
 		NMib::NContainer::TCMap<NMib::NStr::CStr, CProcessStat> m_Statistics;
 	};
 

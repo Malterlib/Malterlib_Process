@@ -88,7 +88,7 @@ namespace NMib::NProcess::NPlatform
 			(
 				rusage const &_RUsage
 #ifdef DPlatformFamily_macOS
-				, proc_taskallinfo const &_TaskInfo
+				, proc_taskallinfo const *_pTaskInfo
 #endif
 			)
 		;
@@ -98,7 +98,6 @@ namespace NMib::NProcess::NPlatform
 		NTime::CClock m_TimeSinceStart;
 
 		NMib::NProcess::CProcessLaunchParams mp_LastLaunchOptions;
-		uint32 mp_ReturnValue;
 		NAtomic::TCAtomic<pid_t> mp_ProcessID;
 		NThread::CMutual mp_NeedTerminationLock;
 		NMib::NProcess::EProcessLaunchCloseFlag mp_NeedTermination;
@@ -111,9 +110,10 @@ namespace NMib::NProcess::NPlatform
 
 		mutable NThread::CMutual mp_OverallStatsLock;
 
-		CProcessStatistics mp_OverallMemoryStatistics;
-		CProcessStatistics mp_OverallExecutionStatistics;
-
+		NStorage::TCOptional<rusage> mp_Overall_RUsage;
+#ifdef DPlatformFamily_macOS
+		NStorage::TCOptional<proc_taskallinfo> mp_Overall_TaskInfo;
+#endif
 		NThread::CMutual mp_PipeLock;
 
 		int mp_hStdinWrite;	// write end of child's stdin pipe

@@ -366,6 +366,14 @@ namespace NMib::NProcess::NPlatform
 			static void WINAPI fs_StdErrReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
 
 		protected:
+			struct COverallExecution
+			{
+				FILETIME m_CreateTime = {0};
+				FILETIME m_ExitTime = {0};
+				FILETIME m_KernelTime = {0};
+				FILETIME m_UserTime = {0};
+			};
+
 			NThread::CMutual mp_PipeLock;
 			
 			HANDLE mp_hStdinWrite;	// write end of child's stdin pipe
@@ -384,12 +392,18 @@ namespace NMib::NProcess::NPlatform
 
 			NContainer::TCVector<COnScopeExitShared> mp_CleanupLoadedProfiles;
 
-			uint32 mp_ReturnValue;
 			uint32 mp_ProcessID;
 			NThread::CMutual mp_NeedTerminationLock;
 			NMib::NProcess::EProcessLaunchCloseFlag mp_NeedTermination;
 			bool mp_bNeedWait;
 			bool mp_bStarted;
+
+			NThread::CMutual mp_OverallLock;
+
+			NStorage::TCOptional<PROCESS_MEMORY_COUNTERS_EX> mp_OverallStats_Memory;
+			NStorage::TCOptional<COverallExecution> mp_OverallStats_Execution;
+
+			void fp_UpdateOverall();
 
 			bool fp_LaunchChild(HANDLE _hStdOut, HANDLE _hStdIn, HANDLE _hStdErr, NStr::CStr &_Errors);
 			int fp_RedirectStdout();
@@ -412,13 +426,15 @@ namespace NMib::NProcess::NPlatform
 			void f_Close(NMib::NProcess::EProcessLaunchCloseFlag _Flags);
 			void f_Cancel();
 			fp64 f_GetRunningTime();
-			uint32 f_GetExitCode();
 			bool f_IsRunning();
 			bool f_SendText(NStr::CStrSecure const &_Data);
 			void f_CloseStdIn();
 			void f_SendBinary(NContainer::CSecureByteVector const &_Data);
 			void f_StopProcess();
 			mint f_GetID() const;
+			NMib::NProcess::CProcessStatistics f_GetOverallExecutionStatistics();
+			NMib::NProcess::CProcessStatistics f_GetOverallMemoryStatistics();
+
 			HANDLE f_GetChildProcess() const
 			{
 				return mp_hChildProcess;
@@ -450,7 +466,6 @@ namespace NMib::NProcess::NPlatform
 			, m_ExitTime(-1.0)
 		{
 			m_TimeSinceStart.f_Start();
-			mp_ReturnValue = ~uint32(0);
 
 			auto &SubSystem = *g_SubSystem_Process_Platform_Windows_Launch;
 			{
@@ -2052,6 +2067,7 @@ namespace NMib::NProcess::NPlatform
 
 			if (bExited)
 			{
+				fp_UpdateOverall();
 				if (mp_LastLaunchOptions.m_fOnStateChange)
 				{
 					DWORD ExitCode = 255;
@@ -2570,6 +2586,74 @@ namespace NMib::NProcess::NPlatform
 			fp_DestroyHandle(mp_hSandboxJob);
 		}
 
+		NMib::NProcess::CProcessStatistics CConsoleRedirector::f_GetOverallExecutionStatistics()
+		{
+			DMibLock(mp_OverallLock);
+
+			if (!mp_OverallStats_Execution)
+				return {};
+
+			auto &Stats = *mp_OverallStats_Execution;
+
+			NTime::CTime CreateTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(Stats.m_CreateTime);
+			NTime::CTime ExitTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(Stats.m_ExitTime);
+			NTime::CTimeSpan KernelTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(Stats.m_KernelTime);
+			NTime::CTimeSpan UserTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(Stats.m_UserTime);
+			NTime::CTimeSpan RunTime = ExitTime - CreateTime;
+
+			fp64 KernelSeconds = KernelTime.f_GetSecondsFraction();
+			fp64 UserSeconds = UserTime.f_GetSecondsFraction();
+			fp64 RunSeconds = RunTime.f_GetSecondsFraction();
+
+			CProcessStatistics Return;
+			Return.m_Statistics("CPU utilization Total", CProcessStat(EProcessStatUnit_Fraction, (KernelSeconds + UserSeconds) / RunSeconds));
+			Return.m_Statistics("CPU utilization User", CProcessStat(EProcessStatUnit_Fraction, UserSeconds / RunSeconds));
+			Return.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, KernelSeconds / RunSeconds));
+
+			return Return;
+		}
+
+		NMib::NProcess::CProcessStatistics CConsoleRedirector::f_GetOverallMemoryStatistics()
+		{
+			DMibLock(mp_OverallLock);
+
+			if (!mp_OverallStats_Memory)
+				return {};
+
+			auto &Stats = *mp_OverallStats_Memory;
+
+			CProcessStatistics Return;
+			Return.m_Statistics("Total page faults", CProcessStat(EProcessStatUnit_GeneralNumber, Stats.PageFaultCount, 1.0, "faults"));
+			Return.m_Statistics("Peak working set size", CProcessStat(EProcessStatUnit_Bytes, Stats.PeakWorkingSetSize, 1024 * 1024));
+			Return.m_Statistics("Peak paged pool usage", CProcessStat(EProcessStatUnit_Bytes, Stats.QuotaPeakPagedPoolUsage, 1024));
+			Return.m_Statistics("Peak non paged pool usage", CProcessStat(EProcessStatUnit_Bytes, Stats.QuotaPeakNonPagedPoolUsage, 1024));
+			Return.m_Statistics("Peak page file usage", CProcessStat(EProcessStatUnit_Bytes, Stats.PeakPagefileUsage, 1024 * 1024));
+
+			return Return;
+		}
+
+		void CConsoleRedirector::fp_UpdateOverall()
+		{
+			DMibLock(mp_OverallLock);
+
+			if (!mp_hChildProcess)
+				return;
+
+			{
+				COverallExecution OverallExecution;
+				if (GetProcessTimes(mp_hChildProcess, &OverallExecution.m_CreateTime, &OverallExecution.m_ExitTime, &OverallExecution.m_KernelTime, &OverallExecution.m_UserTime))
+					mp_OverallStats_Execution = OverallExecution;
+			}
+
+			{
+				PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
+				NMemory::fg_MemClear(MemoryInfo);
+
+				if (GetProcessMemoryInfo(mp_hChildProcess, (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
+					mp_OverallStats_Memory = MemoryInfo;
+			}
+		}
+
 		bool CConsoleRedirector::f_DestroyThread()
 		{
 			if (m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef)) == 0)
@@ -2620,11 +2704,6 @@ namespace NMib::NProcess::NPlatform
 			}
 			if (_Flags & NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit || !bNeedWait)
 				f_Stop(true);
-		}
-
-		uint32 CConsoleRedirector::f_GetExitCode()
-		{
-			return mp_ReturnValue;
 		}
 
 		bool CConsoleRedirector::f_IsRunning()
@@ -2860,53 +2939,13 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetOverallExecutionStatistics(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
-	CProcessStatistics Return;
-	if (pLaunch->f_GetChildProcess())
-	{
-		FILETIME CreateTime1;
-		FILETIME ExitTime1;
-		FILETIME KernelTime1;
-		FILETIME UserTime1;
-
-		if (GetProcessTimes(pLaunch->f_GetChildProcess(), &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
-		{
-			NTime::CTime CreateTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(CreateTime1);
-			NTime::CTime ExitTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(ExitTime1);
-			NTime::CTimeSpan KernelTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(KernelTime1);
-			NTime::CTimeSpan UserTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(UserTime1);
-			NTime::CTimeSpan RunTime = ExitTime - CreateTime;
-
-			fp64 KernelSeconds = KernelTime.f_GetSecondsFraction();
-			fp64 UserSeconds = UserTime.f_GetSecondsFraction();
-			fp64 RunSeconds = RunTime.f_GetSecondsFraction();
-
-			Return.m_Statistics("CPU utilization Total", CProcessStat(EProcessStatUnit_Fraction, (KernelSeconds + UserSeconds) / RunSeconds));
-			Return.m_Statistics("CPU utilization User", CProcessStat(EProcessStatUnit_Fraction, UserSeconds / RunSeconds));
-			Return.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, KernelSeconds / RunSeconds));
-		}
-	}
-	return Return;
+	return pLaunch->f_GetOverallExecutionStatistics();
 }
 
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetOverallMemoryStatistics(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
-	CProcessStatistics Return;
-	if (pLaunch->f_GetChildProcess())
-	{
-		PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
-		NMemory::fg_MemClear(MemoryInfo);
-
-		if (GetProcessMemoryInfo(pLaunch->f_GetChildProcess(), (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
-		{
-			Return.m_Statistics("Total page faults", CProcessStat(EProcessStatUnit_GeneralNumber, MemoryInfo.PageFaultCount, 1.0, "faults"));
-			Return.m_Statistics("Peak working set size", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.PeakWorkingSetSize, 1024 * 1024));
-			Return.m_Statistics("Peak paged pool usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.QuotaPeakPagedPoolUsage, 1024));
-			Return.m_Statistics("Peak non paged pool usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.QuotaPeakNonPagedPoolUsage, 1024));
-			Return.m_Statistics("Peak page file usage", CProcessStat(EProcessStatUnit_Bytes, MemoryInfo.PeakPagefileUsage, 1024 * 1024));
-		}
-	}
-	return Return;
+	return pLaunch->f_GetOverallMemoryStatistics();
 }
 
 

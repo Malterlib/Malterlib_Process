@@ -138,12 +138,17 @@ namespace NMib::NProcess
 		return pInfo;
 	}
 
-	void CProcessLaunchHandler::f_TerminateAll(bool _bBlock)
+	void CProcessLaunchHandler::f_TerminateAll(bool _bBlock, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats)
 	{
 		for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 		{
 			if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
+			{
+				if (o_pMemoryStats)
+					o_pMemoryStats->f_Insert(Iter->m_pProcessLaunch->f_GetOverallMemoryStatistics());
+
 				Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_TerminateProcess | (_bBlock ? EProcessLaunchCloseFlag_BlockOnExit : EProcessLaunchCloseFlag_LingerUntilDone));
+			}
 		}
 	}
 
@@ -175,29 +180,38 @@ namespace NMib::NProcess
 			return m_LaunchChanged.f_WaitTimeout(_Timeout);
 	}
 
-	bool CProcessLaunchHandler::f_BlockOnExit(fp32 _Timeout)
+	bool CProcessLaunchHandler::f_BlockOnExit(fp32 _Timeout, mint _nMaxRunning, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats)
 	{
 		NTime::CClock BlockTime;
 		BlockTime.f_Start();
 		while (1)
 		{
-			bool bDone = true;
+			mint nRunning = 0;
 			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 			{
 				if (!Iter->m_Done.f_Load() && Iter->fp_Lingering())
 				{
-					bDone = false;
-					break;
+					++nRunning;
+					if (nRunning > _nMaxRunning)
+						break;
 				}
 			}
-			if (bDone)
+			if (nRunning <= _nMaxRunning)
 			{
 				for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 				{
-					if (Iter->m_pProcessLaunch->f_IsOpen())
-						Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_BlockOnExit);
+					if (Iter->m_Done.f_Load() || !Iter->fp_Lingering())
+					{
+						if (Iter->m_pProcessLaunch->f_IsOpen())
+						{
+							if (o_pMemoryStats)
+								o_pMemoryStats->f_Insert(Iter->m_pProcessLaunch->f_GetOverallMemoryStatistics());
+
+							Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_BlockOnExit);
+						}
+					}
 				}
-				return true;;
+				return true;
 			}
 			if (_Timeout != 0.0 && BlockTime.f_GetTime() > _Timeout)
 				return false;

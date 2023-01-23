@@ -55,6 +55,139 @@ extern "C"
 
 namespace NMib::NProcess::NPlatform
 {
+	namespace
+	{
+		fp64 fg_TimeValToSeconds(timeval const &_Time)
+		{
+			return fp64(_Time.tv_sec) + fp64(_Time.tv_usec) * fp64(0.000001);
+		}
+
+		void fg_ConvertMemoryStatistics(CProcessStatistics &_Dest, rusage const &_Info)
+		{
+			if (_Info.ru_maxrss)
+#ifdef DPlatformFamily_macOS
+				_Dest.m_Statistics("Max resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_maxrss, 1024 * 1024));
+#else
+				_Dest.m_Statistics("Max resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_maxrss * 1024, 1024 * 1024));
+#endif
+
+			if (_Info.ru_ixrss)
+				_Dest.m_Statistics("Shared text segment", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_ixrss * 1024, 1024 * 1024));
+
+			if (_Info.ru_idrss)
+				_Dest.m_Statistics("Unshared text segment", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_idrss * 1024, 1024 * 1024));
+
+			if (_Info.ru_isrss)
+				_Dest.m_Statistics("Unshared stack segment", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_idrss * 1024, 1024 * 1024));
+
+			if (_Info.ru_minflt)
+				_Dest.m_Statistics("Soft page faults", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.ru_minflt, 1, "faults"));
+
+			if (_Info.ru_majflt)
+				_Dest.m_Statistics("Hard page faults", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.ru_majflt, 1, "faults"));
+
+			if (_Info.ru_nswap)
+				_Dest.m_Statistics("Application swapped", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.ru_nswap, 1, "times"));
+		}
+
+#ifdef DPlatformFamily_macOS
+		void fg_ConvertMemoryStatistics(CProcessStatistics &_Dest, proc_taskinfo const &_Info)
+		{
+			_Dest.m_Statistics("Virtual size", CProcessStat(EProcessStatUnit_Bytes, _Info.pti_virtual_size, 1024 * 1024));
+			_Dest.m_Statistics("Resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.pti_resident_size, 1024 * 1024));
+
+			if (_Info.pti_faults)
+				_Dest.m_Statistics("Page faults", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.pti_faults, 1, "faults"));
+
+			if (_Info.pti_pageins)
+				_Dest.m_Statistics("Page ins", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.pti_pageins, 1, "faults"));
+
+			if (_Info.pti_cow_faults)
+				_Dest.m_Statistics("Page faults COW", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.pti_cow_faults, 1, "faults"));
+		}
+#endif
+
+		void fg_ConvertExecutionStatistics
+			(
+				CProcessStatistics &_Dest
+				, rusage const &_Info
+#ifdef DPlatformFamily_macOS
+				, proc_taskallinfo const *_pProcInfo
+#endif
+			)
+		{
+			fp64 RunTime = 0.0;
+#ifdef DPlatformFamily_macOS
+			if (_pProcInfo && _pProcInfo->pbsd.pbi_start_tvsec)
+			{
+				static NTime::CTime EpochStart = NTime::CTimeConvert::fs_CreateTime(1970, 1, 1);
+				int64 Seconds = _pProcInfo->pbsd.pbi_start_tvsec;
+				fp64 Fraction = fp64(_pProcInfo->pbsd.pbi_start_tvusec) / fp64(1000000);
+				NTime::CTime StartTime = EpochStart + NTime::CTimeSpanConvert_BabylonianCommon::fs_CreateSpan(0, 0, 0, 0, Seconds, Fraction);
+
+				RunTime = (NTime::CTime::fs_NowUTC() - StartTime).f_GetSecondsFraction();
+			}
+#endif
+
+			fp64 UserTime = fg_TimeValToSeconds(_Info.ru_utime);
+			fp64 SystemTime = fg_TimeValToSeconds(_Info.ru_stime);
+
+			if (RunTime > 0.0)
+			{
+				_Dest.m_Statistics("CPU utilization   Total", CProcessStat(EProcessStatUnit_Fraction, (SystemTime + UserTime) / RunTime));
+				_Dest.m_Statistics("CPU utilization  User", CProcessStat(EProcessStatUnit_Fraction, UserTime / RunTime));
+				_Dest.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, SystemTime / RunTime));
+			}
+			else
+			{
+				_Dest.m_Statistics("CPU time   Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
+				_Dest.m_Statistics("CPU time  User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
+				_Dest.m_Statistics("CPU time Kernel", CProcessStat(EProcessStatUnit_Seconds, SystemTime, 0.001));
+			}
+
+			auto ContextSwitches = _Info.ru_nvcsw + _Info.ru_nivcsw;
+			if (ContextSwitches)
+				_Dest.m_Statistics("Context switches", CProcessStat(EProcessStatUnit_GeneralNumber, ContextSwitches, 1, "times"));
+
+		}
+
+#ifdef DPlatformFamily_macOS
+		void fg_ConvertExecutionStatistics(CProcessStatistics &_Dest, proc_taskallinfo const &_ProcInfo)
+		{
+			fp64 RunTime = 0.0;
+			if (_ProcInfo.pbsd.pbi_start_tvsec)
+			{
+				static NTime::CTime EpochStart = NTime::CTimeConvert::fs_CreateTime(1970, 1, 1);
+				int64 Seconds = _ProcInfo.pbsd.pbi_start_tvsec;
+				fp64 Fraction = fp64(_ProcInfo.pbsd.pbi_start_tvusec) / fp64(1000000);
+				NTime::CTime StartTime = EpochStart + NTime::CTimeSpanConvert_BabylonianCommon::fs_CreateSpan(0, 0, 0, 0, Seconds, Fraction);
+
+				RunTime = (NTime::CTime::fs_NowUTC() - StartTime).f_GetSecondsFraction();
+			}
+
+			fp64 UserTime = fp64(_ProcInfo.ptinfo.pti_total_user) / fp64(1000000000.0);
+			fp64 SystemTime = fp64(_ProcInfo.ptinfo.pti_total_system) / fp64(1000000000.0);
+
+			if (RunTime > 0.0)
+			{
+				_Dest.m_Statistics("CPU utilization   Total", CProcessStat(EProcessStatUnit_Fraction, (SystemTime + UserTime) / RunTime));
+				_Dest.m_Statistics("CPU utilization  User", CProcessStat(EProcessStatUnit_Fraction, UserTime / RunTime));
+				_Dest.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, SystemTime / RunTime));
+			}
+			else
+			{
+				_Dest.m_Statistics("CPU time   Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
+				_Dest.m_Statistics("CPU time  User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
+				_Dest.m_Statistics("CPU time Kernel", CProcessStat(EProcessStatUnit_Seconds, SystemTime, 0.001));
+			}
+
+			auto ContextSwitches = _ProcInfo.ptinfo.pti_csw;
+			if (ContextSwitches)
+				_Dest.m_Statistics("Context switches", CProcessStat(EProcessStatUnit_GeneralNumber, ContextSwitches, 1, "times"));
+		}
+#endif
+	}
+
 	struct CSubSystem_Process_Platform_POSIX_Launch : public CSubSystem
 	{
 		NThread::CMutual m_LaunchesLock;
@@ -127,7 +260,6 @@ namespace NMib::NProcess::NPlatform
 		, mp_bNeedWait(false)
 		, mp_ProcessID(-1)
 		, m_ExitTime(-1.0)
-		, mp_ReturnValue(~uint32(0))
 		, mp_hStdinWrite(-1)
 		, mp_hStdoutRead(-1)
 		, mp_hStderrRead(-1)
@@ -157,14 +289,33 @@ namespace NMib::NProcess::NPlatform
 
 	CProcessStatistics CPOSIXLaunchContext::f_OverallMemoryStatistics() const
 	{
+		CProcessStatistics Return;
+
 		DMibLock(mp_OverallStatsLock);
-		return mp_OverallMemoryStatistics;
+		if (mp_Overall_RUsage)
+			fg_ConvertMemoryStatistics(Return, *mp_Overall_RUsage);
+		return Return;
 	}
 
 	CProcessStatistics CPOSIXLaunchContext::f_OverallExecutionStatistics() const
 	{
+		CProcessStatistics Return;
+
 		DMibLock(mp_OverallStatsLock);
-		return mp_OverallExecutionStatistics;
+		if (mp_Overall_RUsage)
+		{
+			fg_ConvertExecutionStatistics
+				(
+					Return
+					, *mp_Overall_RUsage
+#ifdef DPlatformFamily_macOS
+					, mp_Overall_TaskInfo ? &*mp_Overall_TaskInfo : nullptr
+#endif
+				)
+			;
+		}
+
+		return Return;
 	}
 
 	bool CPOSIXLaunchContext::f_RedirectStdInWrite(int &_Pipe, NMib::NStr::CStr &_Errors)
@@ -1341,30 +1492,20 @@ namespace NMib::NProcess::NPlatform
 
 				// You have to get proc info before wait4 as the zombie process will be invalid after it
 #ifdef DPlatformFamily_macOS
-				[[maybe_unused]] int bytes = 0;
-				bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, PROC_PIDTASKINFO_SIZE );
+				bool bTaskInfoValid = true;
+				int ResultBytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, PROC_PIDTASKINFO_SIZE);
+				if (ResultBytes < PROC_PIDTASKINFO_SIZE)
+					bTaskInfoValid = false;
 
 				bool bAskForZombie = true;
 
 				if (NMib::CSystem::ms_PlatformVersion >= 10'05'00 && NMib::CSystem::ms_PlatformVersion < 10'06'00)
 					bAskForZombie = false; // On macOS 10.5 asking for a zombie process will cause a kernel panic
 
-				bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTBSDINFO, bAskForZombie, &TaskInfoAll.pbsd, PROC_PIDTBSDINFO_SIZE);
-//						bytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTASKALLINFO, 1, &TaskInfoAll, sizeof(TaskInfoAll));
+				ResultBytes = proc_pidinfo(mp_ProcessID.f_Load(), PROC_PIDTBSDINFO, bAskForZombie, &TaskInfoAll.pbsd, PROC_PIDTBSDINFO_SIZE);
 
-				if (bytes <= 0)
-				{
-					int ErrNo = errno;
-					(void)ErrNo;
-//							DMibDTrace("proc_pidinfo {}\n", NMib::NPlatform::fg_FormatErrno("", ErrNo));
-
-				}
-				else if (bytes < PROC_PIDTBSDINFO_SIZE)
-				{
-					int ErrNo = errno;
-					(void)ErrNo;
-//							DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes << (sizeof(TaskInfoAll)) << NMib::NPlatform::fg_FormatErrno("", ErrNo));
-				}
+				if (ResultBytes < PROC_PIDTBSDINFO_SIZE)
+					bTaskInfoValid = false;
 #endif
 
 				rusage RUsage;
@@ -1385,7 +1526,7 @@ namespace NMib::NProcess::NPlatform
 						(
 							RUsage
 #ifdef DPlatformFamily_macOS
-							, TaskInfoAll
+							, bTaskInfoValid ? &TaskInfoAll : nullptr
 #endif
 						)
 					;
@@ -1736,162 +1877,21 @@ namespace NMib::NProcess::NPlatform
 	}
 
 
-	namespace
-	{
-		fp64 fg_TimeValToSeconds(timeval const &_Time)
-		{
-			return fp64(_Time.tv_sec) + fp64(_Time.tv_usec) * fp64(0.000001);
-		}
-
-		void fg_ConvertMemoryStatistics(CProcessStatistics &_Dest, rusage const &_Info)
-		{
-			if (_Info.ru_maxrss)
-#ifdef DPlatformFamily_macOS
-				_Dest.m_Statistics("Max resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_maxrss, 1024 * 1024));
-#else
-				_Dest.m_Statistics("Max resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_maxrss * 1024, 1024 * 1024));
-#endif
-
-			if (_Info.ru_ixrss)
-				_Dest.m_Statistics("Shared text segment", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_ixrss * 1024, 1024 * 1024));
-
-			if (_Info.ru_idrss)
-				_Dest.m_Statistics("Unshared text segment", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_idrss * 1024, 1024 * 1024));
-
-			if (_Info.ru_isrss)
-				_Dest.m_Statistics("Unshared stack segment", CProcessStat(EProcessStatUnit_Bytes, _Info.ru_idrss * 1024, 1024 * 1024));
-
-			if (_Info.ru_minflt)
-				_Dest.m_Statistics("Soft page faults", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.ru_minflt, 1, "faults"));
-
-			if (_Info.ru_majflt)
-				_Dest.m_Statistics("Hard page faults", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.ru_majflt, 1, "faults"));
-
-			if (_Info.ru_nswap)
-				_Dest.m_Statistics("Application swapped", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.ru_nswap, 1, "times"));
-		}
-
-#ifdef DPlatformFamily_macOS
-
-		void fg_ConvertMemoryStatistics(CProcessStatistics &_Dest, proc_taskinfo const &_Info)
-		{
-			_Dest.m_Statistics("Virtual size", CProcessStat(EProcessStatUnit_Bytes, _Info.pti_virtual_size, 1024 * 1024));
-			_Dest.m_Statistics("Resident size", CProcessStat(EProcessStatUnit_Bytes, _Info.pti_resident_size, 1024 * 1024));
-
-			if (_Info.pti_faults)
-				_Dest.m_Statistics("Page faults", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.pti_faults, 1, "faults"));
-
-			if (_Info.pti_pageins)
-				_Dest.m_Statistics("Page ins", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.pti_pageins, 1, "faults"));
-
-			if (_Info.pti_cow_faults)
-				_Dest.m_Statistics("Page faults COW", CProcessStat(EProcessStatUnit_GeneralNumber, _Info.pti_cow_faults, 1, "faults"));
-		}
-#endif
-
-		void fg_ConvertExecutionStatistics
-			(
-				CProcessStatistics &_Dest
-				, rusage const &_Info
-#ifdef DPlatformFamily_macOS
-				, proc_taskallinfo const &_ProcInfo
-#endif
-			 )
-		{
-			fp64 RunTime = 0.0;
-#ifdef DPlatformFamily_macOS
-			if (_ProcInfo.pbsd.pbi_start_tvsec)
-			{
-				static NTime::CTime EpochStart = NTime::CTimeConvert::fs_CreateTime(1970, 1, 1);
-				int64 Seconds = _ProcInfo.pbsd.pbi_start_tvsec;
-				fp64 Fraction = fp64(_ProcInfo.pbsd.pbi_start_tvusec) / fp64(1000000);
-				NTime::CTime StartTime = EpochStart + NTime::CTimeSpanConvert_BabylonianCommon::fs_CreateSpan(0, 0, 0, 0, Seconds, Fraction);
-
-				RunTime = (NTime::CTime::fs_NowUTC() - StartTime).f_GetSecondsFraction();
-			}
-#endif
-
-			fp64 UserTime = fg_TimeValToSeconds(_Info.ru_utime);
-			fp64 SystemTime = fg_TimeValToSeconds(_Info.ru_stime);
-
-			if (RunTime > 0.0)
-			{
-				_Dest.m_Statistics("CPU utilization   Total", CProcessStat(EProcessStatUnit_Fraction, (SystemTime + UserTime) / RunTime));
-				_Dest.m_Statistics("CPU utilization  User", CProcessStat(EProcessStatUnit_Fraction, UserTime / RunTime));
-				_Dest.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, SystemTime / RunTime));
-			}
-			else
-			{
-				_Dest.m_Statistics("CPU time   Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
-				_Dest.m_Statistics("CPU time  User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
-				_Dest.m_Statistics("CPU time Kernel", CProcessStat(EProcessStatUnit_Seconds, SystemTime, 0.001));
-			}
-
-			auto ContextSwitches = _Info.ru_nvcsw + _Info.ru_nivcsw;
-			if (ContextSwitches)
-				_Dest.m_Statistics("Context switches", CProcessStat(EProcessStatUnit_GeneralNumber, ContextSwitches, 1, "times"));
-
-		}
-
-#ifdef DPlatformFamily_macOS
-		void fg_ConvertExecutionStatistics(CProcessStatistics &_Dest, proc_taskallinfo const &_ProcInfo)
-		{
-			fp64 RunTime = 0.0;
-			if (_ProcInfo.pbsd.pbi_start_tvsec)
-			{
-				static NTime::CTime EpochStart = NTime::CTimeConvert::fs_CreateTime(1970, 1, 1);
-				int64 Seconds = _ProcInfo.pbsd.pbi_start_tvsec;
-				fp64 Fraction = fp64(_ProcInfo.pbsd.pbi_start_tvusec) / fp64(1000000);
-				NTime::CTime StartTime = EpochStart + NTime::CTimeSpanConvert_BabylonianCommon::fs_CreateSpan(0, 0, 0, 0, Seconds, Fraction);
-
-				RunTime = (NTime::CTime::fs_NowUTC() - StartTime).f_GetSecondsFraction();
-			}
-
-			fp64 UserTime = fp64(_ProcInfo.ptinfo.pti_total_user) / fp64(1000000000.0);
-			fp64 SystemTime = fp64(_ProcInfo.ptinfo.pti_total_system) / fp64(1000000000.0);
-
-			if (RunTime > 0.0)
-			{
-				_Dest.m_Statistics("CPU utilization   Total", CProcessStat(EProcessStatUnit_Fraction, (SystemTime + UserTime) / RunTime));
-				_Dest.m_Statistics("CPU utilization  User", CProcessStat(EProcessStatUnit_Fraction, UserTime / RunTime));
-				_Dest.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, SystemTime / RunTime));
-			}
-			else
-			{
-				_Dest.m_Statistics("CPU time   Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
-				_Dest.m_Statistics("CPU time  User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
-				_Dest.m_Statistics("CPU time Kernel", CProcessStat(EProcessStatUnit_Seconds, SystemTime, 0.001));
-			}
-
-			auto ContextSwitches = _ProcInfo.ptinfo.pti_csw;
-			if (ContextSwitches)
-				_Dest.m_Statistics("Context switches", CProcessStat(EProcessStatUnit_GeneralNumber, ContextSwitches, 1, "times"));
-		}
-#endif
-
-	}
-
 	void CPOSIXLaunchContext::fp_UpdateOverallStats
 		(
 			rusage const &_RUsage
 #ifdef DPlatformFamily_macOS
-			, proc_taskallinfo const &_TaskInfo
+			, proc_taskallinfo const *_pTaskInfo
 #endif
 		)
 	{
 		{
 			DMibLock(mp_OverallStatsLock);
-			fg_ConvertMemoryStatistics(mp_OverallMemoryStatistics, _RUsage);
-//					fg_ConvertMemoryStatistics(mp_OverallMemoryStatistics, _TaskInfo.ptinfo);
-			fg_ConvertExecutionStatistics
-				(
-					mp_OverallExecutionStatistics
-					, _RUsage
+			mp_Overall_RUsage = _RUsage;
 #ifdef DPlatformFamily_macOS
-					, _TaskInfo
+			if (_pTaskInfo)
+				mp_Overall_TaskInfo = *_pTaskInfo;
 #endif
-				)
-			;
 		}
 
 		mp_bOverallStatsAvailable.f_Store(1);

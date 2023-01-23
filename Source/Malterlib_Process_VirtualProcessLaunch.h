@@ -124,9 +124,9 @@ namespace NMib::NProcess
 
 		CLaunchInfo *f_AddLaunch(CProcessLaunchParams const &_Params, bool _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory = FVirtualProcessLaunchFactory());
 
-		void f_TerminateAll(bool _bBlock = false);
+		void f_TerminateAll(bool _bBlock = false, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
 		void f_StopAll();
-		bool f_BlockOnExit(fp32 _Timeout = 0.0f);
+		bool f_BlockOnExit(fp32 _Timeout = 0.0f, mint _nMaxRunning = 0, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
 		bool f_WaitForChange(fp32 _Timeout = 0.0f);
 		CLaunchInfo *f_GetFirstNotDone();
 
