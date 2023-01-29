@@ -576,12 +576,18 @@ namespace NMib::NProcess::NPrivate
 	template <typename t_CVisitor>
 	bool fg_VisitType(t_CVisitor &&_Visitor, uint32 _TypeID)
 	{
-#	define DMibTemp_GenerateParam(z, n, text) case n: _Visitor.template operator ()<TCIDToType<n>::CType>(); break;
 		switch (_TypeID)
 		{
-				DMibPreRepeat(DProcessProxyProtocolNumTypeID, DMibTemp_GenerateParam, unsued);
-			default:
-				return false;
+		case 0: _Visitor.template operator ()<TCIDToType<0>::CType>(); break;
+		case 1: _Visitor.template operator ()<TCIDToType<1>::CType>(); break;
+		case 2: _Visitor.template operator ()<TCIDToType<2>::CType>(); break;
+		case 3: _Visitor.template operator ()<TCIDToType<3>::CType>(); break;
+		case 4: _Visitor.template operator ()<TCIDToType<4>::CType>(); break;
+		case 5: _Visitor.template operator ()<TCIDToType<5>::CType>(); break;
+		case 6: _Visitor.template operator ()<TCIDToType<6>::CType>(); break;
+		case 7: _Visitor.template operator ()<TCIDToType<7>::CType>(); break;
+		case 8: _Visitor.template operator ()<TCIDToType<8>::CType>(); break;
+		return false;
 		}
 		return true;
 #	undef DMibTemp_GenerateParam
