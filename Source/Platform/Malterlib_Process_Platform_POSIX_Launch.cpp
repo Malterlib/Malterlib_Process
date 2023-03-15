@@ -53,6 +53,13 @@ extern "C"
 #include <gnu/libc-version.h>
 #endif
 
+#ifdef DPlatformFamily_Linux
+namespace NLocal
+{
+	extern int (* g_f_posix_spawn_file_actions_addchdir_np)(posix_spawn_file_actions_t *__restrict __actions, const char *__restrict __path) __THROW __nonnull ((1, 2));
+}
+#endif
+
 namespace NMib::NProcess::NPlatform
 {
 	namespace
@@ -586,8 +593,18 @@ namespace NMib::NProcess::NPlatform
 
 			NStr::CStr ProgramToLaunch = fl_ConvertChrootPath(Program);
 
+			bool bCanSpawnChdir = false;
+
+#ifdef DPlatformFamily_Linux
+			if (NLocal::g_f_posix_spawn_file_actions_addchdir_np)
+				bCanSpawnChdir = true;
+#elifdef DPlatformFamily_macOS
+			if (__builtin_available(macOS 10.15, *))
+				bCanSpawnChdir = true;
+#endif
+
 			bool bNeedsTwoPhaseSpawn =
-				(!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() && mp_LastLaunchOptions.m_WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory())
+				(!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() && mp_LastLaunchOptions.m_WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory() && !bCanSpawnChdir)
 				|| mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default
 				|| !mp_LastLaunchOptions.m_Limits.f_IsEmpty()
 				|| mp_LastLaunchOptions.m_bMakeEffectiveGroupReal
@@ -826,6 +843,17 @@ namespace NMib::NProcess::NPlatform
 							posix_spawn_file_actions_destroy(&SpawnFileActions);
 						}
 					;
+
+					if (bCanSpawnChdir && !WorkingDirectory.f_IsEmpty())
+					{
+#ifdef DPlatformFamily_Linux
+						fCallPosixSpawnApi(*NLocal::g_f_posix_spawn_file_actions_addchdir_np, "posix_spawn_file_actions_addchdir_np", WorkingDirectory.f_GetStr(), &SpawnFileActions, WorkingDirectory.f_GetStr());
+#elifdef DPlatformFamily_macOS
+						if (__builtin_available(macOS 10.15, *))
+							DCallPosixSpawnApi(posix_spawn_file_actions_addchdir_np, "", &SpawnFileActions, WorkingDirectory.f_GetStr());
+#endif
+					}
+
 
 					posix_spawnattr_t SpawnAttributes;
 					DCallPosixSpawnApi(posix_spawnattr_init, "", &SpawnAttributes);
