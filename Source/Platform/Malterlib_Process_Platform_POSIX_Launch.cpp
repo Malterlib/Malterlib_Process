@@ -141,14 +141,14 @@ namespace NMib::NProcess::NPlatform
 
 			if (RunTime > 0.0)
 			{
-				_Dest.m_Statistics("CPU utilization   Total", CProcessStat(EProcessStatUnit_Fraction, (SystemTime + UserTime) / RunTime));
-				_Dest.m_Statistics("CPU utilization  User", CProcessStat(EProcessStatUnit_Fraction, UserTime / RunTime));
+				_Dest.m_Statistics("CPU utilization Total", CProcessStat(EProcessStatUnit_Fraction, (SystemTime + UserTime) / RunTime));
+				_Dest.m_Statistics("CPU utilization User", CProcessStat(EProcessStatUnit_Fraction, UserTime / RunTime));
 				_Dest.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, SystemTime / RunTime));
 			}
 			else
 			{
-				_Dest.m_Statistics("CPU time   Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
-				_Dest.m_Statistics("CPU time  User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
+				_Dest.m_Statistics("CPU time Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
+				_Dest.m_Statistics("CPU time User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
 				_Dest.m_Statistics("CPU time Kernel", CProcessStat(EProcessStatUnit_Seconds, SystemTime, 0.001));
 			}
 
@@ -177,14 +177,14 @@ namespace NMib::NProcess::NPlatform
 
 			if (RunTime > 0.0)
 			{
-				_Dest.m_Statistics("CPU utilization   Total", CProcessStat(EProcessStatUnit_Fraction, (SystemTime + UserTime) / RunTime));
-				_Dest.m_Statistics("CPU utilization  User", CProcessStat(EProcessStatUnit_Fraction, UserTime / RunTime));
+				_Dest.m_Statistics("CPU utilization Total", CProcessStat(EProcessStatUnit_Fraction, (SystemTime + UserTime) / RunTime));
+				_Dest.m_Statistics("CPU utilization User", CProcessStat(EProcessStatUnit_Fraction, UserTime / RunTime));
 				_Dest.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, SystemTime / RunTime));
 			}
 			else
 			{
-				_Dest.m_Statistics("CPU time   Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
-				_Dest.m_Statistics("CPU time  User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
+				_Dest.m_Statistics("CPU time Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
+				_Dest.m_Statistics("CPU time User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
 				_Dest.m_Statistics("CPU time Kernel", CProcessStat(EProcessStatUnit_Seconds, SystemTime, 0.001));
 			}
 
