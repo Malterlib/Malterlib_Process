@@ -49,7 +49,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetUserName()
 	NMib::NPlatform::CGetPwUidState State;
 	auto *pPasswd = fg_Helper_GetPwUid(UserID, State);
 	if (pPasswd && pPasswd->pw_name)
-    	return NMib::NStr::CStr(pPasswd->pw_name);
+		return NMib::NStr::CStr(pPasswd->pw_name);
 
 	return NMib::NStr::CStr::fs_ToStr(UserID);
 }

@@ -36,9 +36,9 @@ namespace NMib::NProcess
 
 	enum EProcessLaunchType
 	{
-			EProcessLaunchType_Executable 		// Launch a program.
-		,	EProcessLaunchType_Document			// Launch a document (File on a disk or network share etc...)
-		,	EProcessLaunchType_URL				// Launch an URL with the OS default application.
+		EProcessLaunchType_Executable			// Launch a program.
+		, EProcessLaunchType_Document			// Launch a document (File on a disk or network share etc...)
+		, EProcessLaunchType_URL				// Launch an URL with the OS default application.
 	};
 
 	enum EProcessLimit

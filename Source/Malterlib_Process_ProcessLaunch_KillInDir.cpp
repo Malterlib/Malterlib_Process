@@ -115,12 +115,12 @@ namespace NMib::NProcess
 
 					if
 						(
-						 	NStr::fg_StrMatchWildcard
-						 	(
-							 	NFile::CFile::fs_GetFile(_ProcessInfo.m_FullPath).f_GetStr()
-							 	, _NamePattern.f_GetStr()
+							NStr::fg_StrMatchWildcard
+							(
+								NFile::CFile::fs_GetFile(_ProcessInfo.m_FullPath).f_GetStr()
+								, _NamePattern.f_GetStr()
 							)
-						 	!= NStr::EMatchWildcardResult_WholeStringMatchedAndPatternExhausted
+							!= NStr::EMatchWildcardResult_WholeStringMatchedAndPatternExhausted
 						)
 					{
 						return false;
@@ -140,7 +140,7 @@ namespace NMib::NProcess
 
 					return false;
 				}
-			 	, EProcessInfoFlag_FullPath | EProcessInfoFlag_Args
+				, EProcessInfoFlag_FullPath | EProcessInfoFlag_Args
 				, _Timeout
 			)
 		;

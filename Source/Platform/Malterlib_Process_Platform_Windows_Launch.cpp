@@ -2440,7 +2440,7 @@ namespace NMib::NProcess::NPlatform
 									, ::GetCurrentProcess()
 									, &mp_hStdoutRead
 									, 0
-									, FALSE 			// make it uninheritable.
+									, FALSE			// make it uninheritable.
 									, DUPLICATE_SAME_ACCESS
 								)
 							)
