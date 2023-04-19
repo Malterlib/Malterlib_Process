@@ -174,8 +174,9 @@ namespace NMib::NProcess
 									(
 										fg_Format
 										(
-											"Launch exited with {}: {}"
+											"Launch exited with {} (0x{nfh,sj8,sf0}): {}"
 											, ExitCode
+											, uint32(ExitCode)
 											, (bSeparateStdErr ? pState->m_LaunchResult.f_GetErrorOut() : pState->m_LaunchResult.f_GetCombinedOut()).f_Trim()
 										)
 									)
