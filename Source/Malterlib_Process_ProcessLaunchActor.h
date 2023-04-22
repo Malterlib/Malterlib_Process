@@ -67,6 +67,7 @@ namespace NMib::NProcess
 			NContainer::TCVector<COutput> m_Output;
 
 			NStr::CStr f_GetStdOut() const;
+			NStr::CStr f_GetStdErr() const;
 			NStr::CStr f_GetErrorOut() const;
 			NStr::CStr f_GetCombinedOut() const;
 		};

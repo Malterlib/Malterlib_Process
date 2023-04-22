@@ -839,6 +839,17 @@ namespace NMib::NProcess
 		return Return;
 	}
 
+	NStr::CStr CProcessLaunchActor::CSimpleLaunchResult::f_GetStdErr() const
+	{
+		NStr::CStr Return;
+		for (auto &Output : m_Output)
+		{
+			if (Output.m_Type == EProcessLaunchOutputType_StdErr)
+				Return += Output.m_Output;
+		}
+		return Return;
+	}
+
 	NStr::CStr CProcessLaunchActor::CSimpleLaunchResult::f_GetErrorOut() const
 	{
 		NStr::CStr Return;
