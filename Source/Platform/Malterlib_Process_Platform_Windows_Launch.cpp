@@ -1735,6 +1735,10 @@ namespace NMib::NProcess::NPlatform
 
 				if (mp_LastLaunchOptions.m_bSandboxed && !bFailedLaunch && !mp_LastLaunchOptions.m_SandboxRoots.f_IsEmpty())
 				{
+#ifdef DArchitecture_arm64
+					_Errors += "Sandboxing not supported on arm64 Windows" DMibNewLine;
+					bFailedLaunch = true;
+#else
 					NStr::CStr Errors;
 	#ifdef DArchitecture_x64
 	DWORD NeededType = SCS_64BIT_BINARY;
@@ -1806,6 +1810,7 @@ namespace NMib::NProcess::NPlatform
 						}
 
 					}
+#endif
 				}
 
 				if (!bFailedLaunch && (CreateProcessFlags & CREATE_SUSPENDED))
