@@ -54,7 +54,7 @@ namespace
 			{
 				Ret.f_Insert("--groups");
 
-				NMib::NEncoding::CJSON JSON = NMib::NEncoding::EJSONType_Array;
+				NMib::NEncoding::CJSONSorted JSON = NMib::NEncoding::EJSONType_Array;
 				for (auto iGroup = Groups.f_GetIterator(); iGroup; ++iGroup)
 					JSON.f_Insert(iGroup.f_GetKey());
 				Ret.f_Insert(JSON.f_ToString(nullptr));

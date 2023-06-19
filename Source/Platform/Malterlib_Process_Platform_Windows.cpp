@@ -148,7 +148,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 						{
 							using namespace NEncoding;
 
-							CEJSON JsonBuildData = CEJSON::fs_FromString(BuildData);
+							CEJSONSorted JsonBuildData = CEJSONSorted::fs_FromString(BuildData);
 
 							if (auto pValue = JsonBuildData.f_GetMember("MalterlibBranch", EJSONType_String))
 								_VersionInfo.m_Branch = pValue->f_String();

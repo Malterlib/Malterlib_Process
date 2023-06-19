@@ -41,7 +41,7 @@ namespace
 			{
 				Params.f_Insert("--groups");
 
-				CJSON JSON = EJSONType_Array;
+				CJSONSorted JSON = EJSONType_Array;
 				for (auto iGroup = Groups.f_GetIterator(); iGroup; ++iGroup)
 					JSON.f_Insert(iGroup.f_GetKey());
 				Params.f_Insert(JSON.f_ToString(nullptr));
