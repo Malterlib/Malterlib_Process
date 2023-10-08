@@ -578,15 +578,15 @@ namespace NMib::NProcess
 			(
 				CStdInReaderParams::fs_Create
 				(
-					[=, pThisWeak = fg_ThisActor(m_pThis).f_Weak()](EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)
+					[=, this, pThisWeak = fg_ThisActor(m_pThis).f_Weak()](EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)
 					{
 						auto pThis = pThisWeak.f_Lock();
 						if (!pThis)
 							return;
 
-						NConcurrency::g_Dispatch(pThis) / [=]
+						NConcurrency::g_Dispatch(pThis) / [=, this]
 							{
-								auto HandleInput = g_OnScopeExit / [&]
+								auto HandleInput = g_OnScopeExit / [&, this]
 									{
 										f_HandleBufferedStdIn();
 									}
@@ -623,15 +623,15 @@ namespace NMib::NProcess
 			(
 				CStdInReaderParams::fs_CreateBinary
 				(
-					[=, pThisWeak = fg_ThisActor(m_pThis).f_Weak()](EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, CStr const &_Error)
+					[=, this, pThisWeak = fg_ThisActor(m_pThis).f_Weak()](EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, CStr const &_Error)
 					{
 						auto pThis = pThisWeak.f_Lock();
 						if (!pThis)
 							return;
 
-						NConcurrency::g_Dispatch(pThis) / [=]
+						NConcurrency::g_Dispatch(pThis) / [=, this]
 							{
-								auto HandleInput = g_OnScopeExit / [&]
+								auto HandleInput = g_OnScopeExit / [&, this]
 									{
 										f_HandleBufferedStdInBinary();
 									}
