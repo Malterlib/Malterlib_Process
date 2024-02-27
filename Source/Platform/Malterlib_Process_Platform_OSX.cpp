@@ -289,7 +289,21 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			New.m_EffectiveGID = NStr::CStr::fs_ToStr(Process.kp_eproc.e_ucred.cr_groups[0]);
 		}
 
-		if ((_ToGet & NProcess::EProcessInfoFlag_FullPath) || (_ToGet & NProcess::EProcessInfoFlag_Args))
+		bool bGotFullPath = false;
+		if ((_ToGet & NProcess::EProcessInfoFlag_FullPath))
+		{
+			NStr::CStr FullPath;
+			mint Size = PROC_PIDPATHINFO_MAXSIZE;
+			if (proc_pidpath(New.m_ProcessID, FullPath.f_GetStr(Size), Size) > 0)
+			{
+				bGotFullPath = true;
+				FullPath.f_SetStrLen(-1);
+				FullPath.f_TrimSize();
+				New.m_FullPath = fg_Move(FullPath);
+			}
+		}
+
+		if (((_ToGet & NProcess::EProcessInfoFlag_FullPath) && !bGotFullPath) || (_ToGet & NProcess::EProcessInfoFlag_Args))
 		{
 			mib[1] = KERN_PROCARGS2;
 			mib[2] = (int)Process.kp_proc.p_pid;
@@ -368,7 +382,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 					// Protect against broken data
 				}
 			}
-			else if (_ToGet & NProcess::EProcessInfoFlag_FullPath)
+			else if ((_ToGet & NProcess::EProcessInfoFlag_FullPath) && !bGotFullPath)
 			{
 				mib[1] = KERN_PROCARGS;
 				mib[2] = (int)Process.kp_proc.p_pid;
