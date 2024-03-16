@@ -4,6 +4,7 @@
 #include <Mib/Core/Core>
 #include <Mib/Concurrency/ActorFunctorWeak>
 #include <Mib/Concurrency/ActorSubscription>
+#include <Mib/Concurrency/ActorSequencerActor>
 #include "Malterlib_Process_ProcessLaunchActor.h"
 
 #ifndef DPlatformFamily_Windows
@@ -30,14 +31,14 @@ namespace NMib::NProcess
 
 		NContainer::TCLinkedList<CPendingStop> m_PendingProcessStops;
 
-		NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> m_BlockingActor;
+		NConcurrency::CSequencer m_SendSequencer{"ProcessLaunchSend"};
 
 		EProcessLaunchCloseFlag m_DestructFlags;
 
 		bool m_bProcessRunning = false;
 		bool m_bProcessExited = false;
 
-		NConcurrency::TCFuture<void> f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> &&_fSend);
+		NConcurrency::TCFuture<void> f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> _fSend);
 	};
 
 	CProcessLaunchActor::CProcessLaunchActor()
@@ -600,35 +601,26 @@ namespace NMib::NProcess
 		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCFuture<void> CProcessLaunchActor::CInternal::f_RunBlocking
-		(
-			NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> &&_fSend
-		)
+	NConcurrency::TCFuture<void> CProcessLaunchActor::CInternal::f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> _fSend)
 	{
-		NConcurrency::TCPromise<void> Promise;
-
 		if (!m_pProcessLaunch)
-			return Promise <<= g_Void;
+			co_return {};
 
-		if (!m_BlockingActor)
-			m_BlockingActor = NConcurrency::fg_ConstructActor<NConcurrency::CSeparateThreadActor>(fg_Construct("Blocking process launch"));
+		auto SequencerSubscription = co_await m_SendSequencer.f_Sequence();
+
+		auto BlockingActorCheckout = NConcurrency::fg_BlockingActor();
 
 		// Dispatch on separate thread actor as this can block
-		fg_Dispatch
+		co_await
 			(
-				m_BlockingActor
-				, [fSend = fg_Move(_fSend), pProcessLaunch = m_pProcessLaunch]() mutable
+				NConcurrency::g_Dispatch(BlockingActorCheckout) / [fSend = fg_Move(_fSend), pProcessLaunch = m_pProcessLaunch]() mutable
 				{
 					fSend(pProcessLaunch);
 				}
 			)
-			> [Promise](NConcurrency::TCAsyncResult<void> &&_Result)
-			{
-				Promise.f_SetResult(fg_Move(_Result));
-			}
 		;
 
-		return Promise.f_MoveFuture();
+		co_return {};
 	}
 
 	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const
