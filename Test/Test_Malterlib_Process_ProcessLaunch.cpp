@@ -229,7 +229,7 @@ namespace
 					}
 
 					CStr WorkingDirectory = NMib::NFile::CFile::fs_GetProgramDirectory()
-						/ ("ProcessWorkingDir{}{}{}"_f << (_bThreaded ? "T" : "") << (_bForceFork ? "F" : "") << ProxyType)
+						/ ("ProcessWorkingDir{}{}{}_{}"_f << (_bThreaded ? "T" : "") << (_bForceFork ? "F" : "") << ProxyType << m_ExitCode)
 					;
 
 					fg_TestAddCleanupPath(WorkingDirectory);
