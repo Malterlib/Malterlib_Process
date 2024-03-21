@@ -5,6 +5,7 @@
 #include <Mib/Concurrency/ActorFunctorWeak>
 #include <Mib/Concurrency/ActorSubscription>
 #include <Mib/Concurrency/ActorSequencerActor>
+#include <Mib/Concurrency/LogError>
 #include "Malterlib_Process_ProcessLaunchActor.h"
 
 #ifndef DPlatformFamily_Windows
@@ -102,6 +103,8 @@ namespace NMib::NProcess
 		;
 
 		co_await PendingStopPromise.f_MoveFuture();
+
+		co_await fg_Move(Internal.m_SendSequencer).f_Destroy().f_Wrap() > NConcurrency::fg_LogError("ProcessLaunch", "Failed to destroy send sequencer");
 
 		co_return {};
 	}
