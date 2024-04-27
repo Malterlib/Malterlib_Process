@@ -83,29 +83,57 @@ namespace
 			};
 		}
 
-		void f_TestRunAs(bool _bForceFork)
+		void f_TestRunAs()
 		{
 			DMibTestSuite(CTestCategory("Run As") << CTestGroup("SuperUser"))
 			{
 				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-					DMibConOut2("User: {} Group: {}\n", NSys::fg_UserManagement_GetProcessRealUserName(), NSys::fg_UserManagement_GetProcessRealGroupName());
-				else
 				{
+					DMibConOut2("User: {} Group: {}\n", NSys::fg_UserManagement_GetProcessRealUserName(), NSys::fg_UserManagement_GetProcessRealGroupName());
+					return;
+				}
+				CStr RunAsPath = fg_TestGetCurrentPath();
+				for (mint i = 0; i < 2; ++i)
+				{
+					DMibTestPath(i == 0 ? "No Fork" : "Fork");
+					bool bForceFork = i == 1;
+
 					CStr Tmp;
 
-					CStr TestGroup = "_MibProcessTestGroup";
-					CStr TestUser = "_MibProcessTestUser";
+					CStr TestGroup = "_MibProcessTestGroup{}"_f << (bForceFork ? "F" : "N");
+					CStr TestUser = "_MibProcessTestUser{}"_f << (bForceFork ? "F" : "N");
 
 					CStrSecure TestPassword = fg_RandomID() + "1aA@";
 
-					if (NMib::NSys::fg_UserManagement_UserExists(TestUser, Tmp))
-						NMib::NSys::fg_UserManagement_DeleteUser(TestUser);
+					auto fDeleteUser = [&]
+						{
+							if (NMib::NSys::fg_UserManagement_UserExists(TestUser, Tmp))
+								NMib::NSys::fg_UserManagement_DeleteUser(TestUser);
+						}
+					;
+					auto fDeleteGroup = [&]
+						{
+							if (NMib::NSys::fg_UserManagement_GroupExists(TestGroup, Tmp))
+								NMib::NSys::fg_UserManagement_DeleteGroup(TestGroup);
+						}
+					;
+					fDeleteUser();
+					fDeleteGroup();
 
-					if (NMib::NSys::fg_UserManagement_GroupExists(TestGroup, Tmp))
-						NMib::NSys::fg_UserManagement_DeleteGroup(TestGroup);
+					CStr ExecutableToLaunch = CFile::fs_GetProgramPath();
+
+					auto Attributes = CFile::fs_GetAttributes(ExecutableToLaunch);
+					auto NewAttributes = Attributes | EFileAttrib_EveryoneExecute;
+					if (NewAttributes != Attributes)
+						CFile::fs_SetAttributes(ExecutableToLaunch, NewAttributes | EFileAttrib_UnixAttributesValid);
 
 					CStr CreatedGID;
 					NMib::NSys::fg_UserManagement_CreateGroup(TestGroup, CreatedGID);
+
+					CStr HomeDir = CFile::fs_GetProgramDirectory() / "homes" / TestUser;
+
+					CFile::fs_CreateDirectory(HomeDir);
+					CFile::fs_SetGroup(HomeDir, TestGroup);
 
 					CStr CreatedUID;
 					fg_UserManagement_CreateUser
@@ -114,13 +142,15 @@ namespace
 							, TestUser
 							, TestPassword
 							, "Test FullName"
-							, NMib::NFile::CFile::fs_GetProgramDirectory()
+							, HomeDir
 							, CreatedUID
 							, NMib::NSys::EUserManagementCreateUserFlag_None
 						)
 					;
 
-					TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
+					CFile::fs_SetOwner(HomeDir, TestUser);
+
+					TCVector<CStr> RecursiveLaunchParams = {"--test", RunAsPath, "--process-recursive", "--logger", "Null"};
 					RecursiveLaunchParams.f_Insert(fs_GetTestGroups());
 
 					CStr ExpectedOutput = "User: {} Group: {}"_f << TestUser << TestGroup;
@@ -128,24 +158,24 @@ namespace
 					{
 						DMibTestPath("Without Launch As");
 						CProcessLaunchParams LaunchParams;
-						LaunchParams.m_bForceFork = _bForceFork;
+						LaunchParams.m_bForceFork = bForceFork;
 
-						CStr Output = CProcessLaunch::fs_LaunchTool(CFile::fs_GetProgramPath(), RecursiveLaunchParams, LaunchParams).f_Trim();
+						CStr Output = CProcessLaunch::fs_LaunchTool(ExecutableToLaunch, RecursiveLaunchParams, LaunchParams).f_Trim();
 						DMibExpect(Output, !=, ExpectedOutput);
 					}
 					{
 						DMibTestPath("With Launch As");
 						CProcessLaunchParams LaunchParams;
-						LaunchParams.m_bForceFork = _bForceFork;
+						LaunchParams.m_bForceFork = bForceFork;
 						LaunchParams.m_RunAsUser = TestUser;
 						LaunchParams.m_RunAsGroup = TestGroup;
 
-						CStr Output = CProcessLaunch::fs_LaunchTool(CFile::fs_GetProgramPath(), RecursiveLaunchParams, LaunchParams).f_Trim();
+						CStr Output = CProcessLaunch::fs_LaunchTool(ExecutableToLaunch, RecursiveLaunchParams, LaunchParams).f_Trim();
 						DMibExpect(Output, ==, ExpectedOutput);
 					}
 
-					NMib::NSys::fg_UserManagement_DeleteUser(TestUser);
-					NMib::NSys::fg_UserManagement_DeleteGroup(TestGroup);
+					fDeleteUser();
+					fDeleteGroup();
 				}
 			};
 		}
@@ -243,7 +273,6 @@ namespace
 				f_TestProcessGroup(false);
 				f_TestPriority(false);
 #ifndef DPlatformFamily_Windows
-				f_TestRunAs(false);
 				f_TestLimits(false);
 #endif
 			};
@@ -253,9 +282,11 @@ namespace
 			{
 				f_TestProcessGroup(false);
 				f_TestPriority(false);
-				f_TestRunAs(false);
 				f_TestLimits(false);
 			};
+#endif
+#ifndef DPlatformFamily_Windows
+			f_TestRunAs();
 #endif
 		}
 	};
