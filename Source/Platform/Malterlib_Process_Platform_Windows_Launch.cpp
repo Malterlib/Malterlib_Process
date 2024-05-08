@@ -168,11 +168,8 @@ namespace NMib::NProcess::NPlatform
 		NStr::CStr fg_GetProcessName(void *_pProcess)
 		{
 			NStr::CWStr NameW;
-			bool bFailed = false;
 			if (GetProcessImageFileName(_pProcess, NameW.f_GetStr(1024), 1024))
-			{
 				return NMib::NFile::CFile::fs_GetFile(NFile::NPlatform::fg_ConvertFromWindowsPath(NameW));
-			}
 
 			return NStr::CStr();
 		}
@@ -339,15 +336,15 @@ namespace NMib::NProcess::NPlatform
 
 		}
 
-		class CConsoleRedirector : public NThread::CThread, public CProcessLaunchLink
+		class CConsoleRedirector : protected NThread::CThread, public CProcessLaunchLink
 		{
 			friend class CMultiProgramStarter;
 		public:
 			CConsoleRedirector();
 			virtual ~CConsoleRedirector();
 
-			NStr::CStr f_GetThreadName();
-			aint f_Main();
+			NStr::CStr f_GetThreadName() override;
+			aint f_Main() override;
 
 			NStorage::CIntrusiveRefCount m_RefCount;
 
@@ -422,7 +419,7 @@ namespace NMib::NProcess::NPlatform
 
 		public:
 			bool f_Open(NMib::NProcess::CProcessLaunchParams const &_Options);
-			bool f_Start(EProcessLaunchCloseFlag _Flags);
+			bool f_StartRedirector(EProcessLaunchCloseFlag _Flags);
 			void f_Close(NMib::NProcess::EProcessLaunchCloseFlag _Flags);
 			void f_Cancel();
 			fp64 f_GetRunningTime();
@@ -1040,10 +1037,12 @@ namespace NMib::NProcess::NPlatform
 										if (Elevation != NMib::NProcess::EProcessElevation_IsNotElevated)
 											continue;
 										NStr::CStr Name = fg_GetProcessName(pThisProcess);
-										if (
-											i == 0 && Name.f_CmpNoCase("explorer.exe") == 0
-											|| i == 1 && Name.f_CmpNoCase("LogonUI.exe") == 0
-											|| i == 2 && Name != "")
+										if 
+										(
+											(i == 0 && Name.f_CmpNoCase("explorer.exe") == 0)
+											|| (i == 1 && Name.f_CmpNoCase("LogonUI.exe") == 0)
+											|| (i == 2 && Name != "")
+										)
 										{
 											HANDLE hProcessToken;
 											if (OpenProcessToken(pThisProcess, TOKEN_DUPLICATE, &hProcessToken))
@@ -1439,8 +1438,6 @@ namespace NMib::NProcess::NPlatform
 
 				// Launch the child process.
 
-				int ProcPriority = 0;
-
 				NStr::CWStr Params = NStr::NPlatform::fg_StrToWindows(ProgramPathFull.f_EscapeStr().f_Replace("\\\\", "\\") + " " + mp_LastLaunchOptions.m_Parameters);
 				if (hToken)
 				{
@@ -1642,7 +1639,7 @@ namespace NMib::NProcess::NPlatform
 							{
 								if (!AssignProcessToJobObject(hParent, pi.hProcess))
 								{
-									HRESULT Error = GetLastError();
+									[[maybe_unused]] HRESULT Error = GetLastError();
 									DMibDTrace("AssignProcessToJobObject: {}" DMibNewLine, NMib::NPlatform::fg_Win32_GetLastErrorStr(Error));
 								}
 							}
@@ -1799,6 +1796,8 @@ namespace NMib::NProcess::NPlatform
 								case EProcessLaunchOutputType_StdOut:
 									_Errors += _Output;
 									bFailedLaunch = true;
+									break;
+								case EProcessLaunchOutputType_Max:
 									break;
 								}
 							}
@@ -2545,7 +2544,7 @@ namespace NMib::NProcess::NPlatform
 			return true;
 		}
 
-		bool CConsoleRedirector::f_Start(EProcessLaunchCloseFlag _Flags)
+		bool CConsoleRedirector::f_StartRedirector(EProcessLaunchCloseFlag _Flags)
 		{
 			if (mp_bStarted)
 				DMibError(NStr::CStrNonTracked("Launch has already been started"));
@@ -2828,7 +2827,7 @@ void *NMib::NProcess::NPlatform::fg_ProcessLaunch_Open(CProcessLaunchParams cons
 void NMib::NProcess::NPlatform::fg_ProcessLaunch_Start(void *_pLaunch, EProcessLaunchCloseFlag _Flags)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
-	pLaunch->f_Start(_Flags);
+	pLaunch->f_StartRedirector(_Flags);
 }
 
 void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessLaunchCloseFlag _Flags)

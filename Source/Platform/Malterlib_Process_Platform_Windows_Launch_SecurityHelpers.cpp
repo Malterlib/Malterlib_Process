@@ -44,13 +44,17 @@ namespace NMib::NProcess::NPlatform
 		{
 			// Obtain the DACL for the window station.
 
-			if (!GetUserObjectSecurity(
-				hwinsta,
-				&si,
-				psd,
-				dwSidSize,
-				&dwSdSizeNeeded)
+			if (
+					!GetUserObjectSecurity
+					(
+						hwinsta
+						, &si
+						, psd
+						, dwSidSize
+						, &dwSdSizeNeeded
+					)
 				)
+			{
 				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 				{
 					psd = (PSECURITY_DESCRIPTOR)HeapAlloc(
@@ -71,17 +75,26 @@ namespace NMib::NProcess::NPlatform
 
 					dwSidSize = dwSdSizeNeeded;
 
-					if (!GetUserObjectSecurity(
-						hwinsta,
-						&si,
-						psd,
-						dwSidSize,
-						&dwSdSizeNeeded)
+					if 
+						(
+							!GetUserObjectSecurity
+							(
+								hwinsta,
+								&si,
+								psd,
+								dwSidSize,
+								&dwSdSizeNeeded
+							)
 						)
+					{
 						__leave;
+					}
 				}
 				else
+				{
 					__leave;
+				}
+			}
 
 			// Create a new DACL.
 

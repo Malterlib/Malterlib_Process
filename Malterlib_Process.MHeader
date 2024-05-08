@@ -25,6 +25,21 @@ Import "../Core/Lib_Malterlib.MTarget"
 					!PlatformFamily PlatformFamilyFromFile
 				}
 			}
+			%File "Source/Platform/*.mm"
+			{
+				Compile
+				{
+					Disabled true
+					{
+						!PlatformFamily PlatformFamilyFromFile
+					}
+					CxxLanguage "C++23"
+					{
+						!!Compiler "Clang"
+					}
+				}
+			}
+
 		}
 		%Group "Documentation"
 		{
@@ -128,9 +143,16 @@ Property
 		%File "Test/Test_Malterlib_Process_Launchable_Main.cpp"
 		%File "Test/Test_Malterlib_Process_Launchable_EventHandler.mm"
 		{
-			Compile.Disabled true
+			Compile
 			{
-				!PlatformFamily "macOS"
+				Disabled true
+				{
+					!PlatformFamily "macOS"
+				}
+				CxxLanguage "C++23"
+				{
+					!!Compiler "Clang"
+				}
 			}
 		}
 		%File "Test/Test_Malterlib_Process_Launchable_EventHandler.h"

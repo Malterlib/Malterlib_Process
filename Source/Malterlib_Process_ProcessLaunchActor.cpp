@@ -675,11 +675,10 @@ namespace NMib::NProcess
 
 		if (Internal.m_bProcessRunning)
 		{
-			auto ProcessId = Internal.m_pProcessLaunch->f_GetProcessID();
-
 #ifdef DPlatformFamily_Windows
 			co_return DMibErrorInstance("Signal is not supported on Windows");
 #else
+			auto ProcessId = Internal.m_pProcessLaunch->f_GetProcessID();
 			if (kill(ProcessId, _Signal))
 				co_return DMibErrorInstance(NMib::NPlatform::fg_FormatErrno(NMib::NStr::CStr::CFormat("kill({}, {})") << ProcessId << _Signal, errno));
 #endif

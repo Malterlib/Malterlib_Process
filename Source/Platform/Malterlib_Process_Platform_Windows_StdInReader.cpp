@@ -88,7 +88,7 @@ namespace NMib::NProcess::NPlatform
 				}
 
 			}
-			else if (HandleType = FILE_TYPE_PIPE)
+			else if (HandleType == FILE_TYPE_PIPE)
 			{
 				m_bIsPipe = true;
 			}
@@ -131,10 +131,9 @@ namespace NMib::NProcess::NPlatform
 					{
 						HANDLE ToWaitFor[] = {m_EventWantQuit.m_pSemaphore, mp_hStdInFile};
 
-						DWORD WaitObject;
 						{
 							Timer.f_Start();
-							WaitObject = WaitForMultipleObjectsEx(2, ToWaitFor, false, INFINITE, true);
+							WaitForMultipleObjectsEx(2, ToWaitFor, false, INFINITE, true);
 								//WaitForSingleObject(mp_hStdInFile, 2000);
 							Timer.f_Stop();
 						}
@@ -199,7 +198,6 @@ namespace NMib::NProcess::NPlatform
 						{
 							while (true)
 							{
-								DWORD nReadChars = 0;
 								INPUT_RECORD InputRecord;
 								DWORD nReadEvents = 0;
 								if (PeekConsoleInputW(mp_hStdInFile, &InputRecord, 1, &nReadEvents))
@@ -486,12 +484,10 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 				DMibError("There is already a stdin reader opened for exclusive access");
 		}
 
-		bool bInit = false;
 		if (!pImp)
 		{
 			pNew = fg_Construct<CWindowsStdInReaderImplementation>((Params.m_Flags & EStdInReaderFlag_ForcePolling) != 0);
 			pImp = (CWindowsStdInReaderImplementation *)pNew.f_Get();
-			bInit = true;
 		}
 
 		pImp->m_Readers.f_Insert(*pReader);

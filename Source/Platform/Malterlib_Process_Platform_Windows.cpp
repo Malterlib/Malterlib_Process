@@ -29,13 +29,14 @@ namespace
 		uint32 Chunk[sizeof(uint32) * 256];
 		CMibFilePos ToRead = File.f_GetLength() / 4;
 		CMibFilePos FilePos = 0;
+		uint32 EpChunk = uint32('E') << 8 | uint32('P');
 		while (ToRead)
 		{
 			mint ThisTime = NMib::fg_Min(ToRead, 256);
 			File.f_Read(Chunk, ThisTime * sizeof(uint32));
 			for (mint i = 0; i < ThisTime; ++i)
 			{
-				if (Chunk[i] == 'EP')
+				if (Chunk[i] == EpChunk)
 				{
 					File.f_SetPosition(FilePos + i * sizeof(uint32));
 					IMAGE_NT_HEADERS Headers;
