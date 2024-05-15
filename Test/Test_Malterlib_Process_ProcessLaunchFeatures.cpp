@@ -133,7 +133,32 @@ namespace
 					CStr HomeDir = CFile::fs_GetProgramDirectory() / "homes" / TestUser;
 
 					CFile::fs_CreateDirectory(HomeDir);
+#ifdef DPlatformFamily_macOS
+					// Workaround flaky API
+					for (mint iRetry = 0; ; ++iRetry)
+					{
+						if (iRetry == 10)
+						{
+							CFile::fs_SetGroup(HomeDir, TestGroup);
+							break;
+						}
+						else
+						{
+							try
+							{
+								CFile::fs_SetGroup(HomeDir, TestGroup);
+								break;
+							}
+							catch (NException::CException const &)
+							{
+							}
+						}
+
+						NSys::fg_Thread_Sleep(10_ms);
+					}
+#else
 					CFile::fs_SetGroup(HomeDir, TestGroup);
+#endif
 
 					CStr CreatedUID;
 					fg_UserManagement_CreateUser
