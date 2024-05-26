@@ -65,6 +65,9 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<void> CProcessLaunchActor::fp_Destroy()
 	{
+		if (!mp_pInternal)
+			co_return {}; // Not yet launched
+
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch || Internal.m_bProcessExited)
 		{
