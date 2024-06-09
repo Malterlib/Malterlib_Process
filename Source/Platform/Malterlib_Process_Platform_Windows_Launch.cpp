@@ -72,7 +72,7 @@ namespace NMib::NProcess::NPlatform
 
 		if (!pEntry)
 		{
-			pEntry = DMibNew CProcessEntry;
+			pEntry = fg_ConstructObject<CProcessEntry>(NMemory::CDefaultAllocator());
 			pEntry->m_Process = _ID;
 			m_AllProcess.f_Insert(pEntry);
 
@@ -84,7 +84,7 @@ namespace NMib::NProcess::NPlatform
 
 		if (!pParent)
 		{
-			pParent = DMibNew CProcessEntry;
+			pParent = fg_ConstructObject<CProcessEntry>(NMemory::CDefaultAllocator());
 			pParent->m_Process = _ParentID;
 			m_AllProcess.f_Insert(pParent);
 		}
@@ -2662,7 +2662,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			if (m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef)) == 0)
 			{
-				delete this;
+				fg_DeleteObject(NMemory::CDefaultAllocator(), this);
 				return true;
 			}
 			return false;
@@ -2835,7 +2835,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessL
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_Close(_Flags);
 	if (pLaunch->m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(pLaunch->m_DebugSelfRef)) == 0)
-		delete pLaunch;
+		fg_DeleteObject(NMemory::CDefaultAllocator(), pLaunch);
 }
 
 bool NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)

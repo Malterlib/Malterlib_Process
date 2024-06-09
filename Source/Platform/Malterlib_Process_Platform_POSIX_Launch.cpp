@@ -362,7 +362,7 @@ namespace NMib::NProcess::NPlatform
 	{
 		if (m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef)) == 0)
 		{
-			delete this;
+			fg_DeleteObject(NMemory::CDefaultAllocator(), this);
 			return true;
 		}
 		return false;
@@ -1959,7 +1959,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessL
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_Close(_Flags);
 	if (pLaunch->m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(pLaunch->m_DebugSelfRef)) == 0)
-		delete pLaunch;
+		fg_DeleteObject(NMemory::CDefaultAllocator(), pLaunch);
 }
 
 bool NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
