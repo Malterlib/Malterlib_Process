@@ -360,7 +360,7 @@ namespace
 		template <EProxyType t_ProxyType>
 		void f_TestExecutableFromDll()
 		{
-#ifndef DMibSanitizerEnabled_Thread
+#if !defined(DMibSanitizerEnabled_Thread) && !defined(DCompiler_MSVC_Workaround_DllsBroken)
 			// tsan does not currently support unloading dlls
 			DMibTestSuite("Executable from dll")
 			{
