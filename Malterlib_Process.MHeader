@@ -33,10 +33,6 @@ Import "../Core/Lib_Malterlib.MTarget"
 					{
 						!PlatformFamily PlatformFamilyFromFile
 					}
-					CxxLanguage "C++23"
-					{
-						!!Compiler "Clang"
-					}
 				}
 			}
 
@@ -148,10 +144,6 @@ Property
 				Disabled true
 				{
 					!PlatformFamily "macOS"
-				}
-				CxxLanguage "C++23"
-				{
-					!!Compiler "Clang"
 				}
 			}
 		}
