@@ -343,7 +343,10 @@ namespace NMib::NProcess
 									if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 									{
 										DMibLock(g_StdOutLogLock);
-										DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
+										if (ToLog & ELogFlag_AdditionallyOutputToStdErrDirectStdErr)
+											DMibConErrOut2("{}", Output);
+										else
+											DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
 									}
 #if (DMibSysLogSeverities) != 0
 									auto LogScope = fs_LogScope(LogName);
