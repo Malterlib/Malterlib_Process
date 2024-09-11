@@ -6,6 +6,8 @@
 #include <Mib/Concurrency/ActorSubscription>
 #include <Mib/Concurrency/ActorSequencerActor>
 #include <Mib/Concurrency/LogError>
+#include <Mib/Process/StdInActor>
+
 #include "Malterlib_Process_ProcessLaunchActor.h"
 
 #ifndef DPlatformFamily_Windows
@@ -138,12 +140,18 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<CProcessLaunchActor::CSimpleLaunchResult> CProcessLaunchActor::f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch)
 	{
+		using namespace NStr;
+
 		struct CState
 		{
 			NConcurrency::TCPromise<CProcessLaunchActor::CSimpleLaunchResult> m_Promise;
 			NConcurrency::CActorSubscription m_Subscription;
 			CProcessLaunchActor::CSimpleLaunchResult m_LaunchResult;
 			ESimpleLaunchFlag m_SimpleFlags = ESimpleLaunchFlag_None;
+			NConcurrency::TCActor<CStdInActor> m_StdInActor;
+			NConcurrency::CActorSubscription m_StdInSubscription;
+			NContainer::CSecureByteVector m_StdInBuffer;
+			bool m_bLaunched = false;
 		};
 
 		NStorage::TCSharedPointer<CState> pState = fg_Construct();
@@ -153,25 +161,101 @@ namespace NMib::NProcess
 		if (_SimpleLaunch.m_Params.m_fOnStateChange)
 			return pState->m_Promise <<= DMibErrorInstance("On state change cannot be specified for simple launch");
 
+		CStr LogName;
+		if (_SimpleLaunch.m_ToLog & ELogFlag_Error)
+		{
+			if (_SimpleLaunch.m_LogName.f_IsEmpty())
+				LogName = NFile::CFile::fs_GetFileNoExt(_SimpleLaunch.m_Params.m_Target);
+			else
+				LogName = _SimpleLaunch.m_LogName;
+		}
+		
+		auto fLogError = [ToLog = _SimpleLaunch.m_ToLog, LogName](CStr _Error)
+			{
+				if (ToLog & ELogFlag_Error)
+				{
+					if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
+					{
+						DMibLock(g_StdOutLogLock);
+						DMibConErrOut2("{}: {}\n", LogName, _Error);
+					}
+
+					DMibLogWithCategoryStr(LogName, Error, "{}", _Error);
+				}
+			}
+		;
+
+		auto fSendStdInBuffer = [pState, this, fLogError]
+			{
+				if (!pState->m_bLaunched || pState->m_StdInBuffer.f_IsEmpty())
+					return;
+
+				self(&CProcessLaunchActor::f_SendStdInBinary, fg_Move(pState->m_StdInBuffer)) > [fLogError](NConcurrency::TCAsyncResult<void> &&_Result)
+					{
+						if (!_Result)
+							fLogError("Failed to send StdIn to child: {}"_f << _Result.f_GetExceptionStr());
+					}
+				;
+			}
+		;
+
+		if (_SimpleLaunch.m_SimpleFlags & ESimpleLaunchFlag_ForwardStdInput)
+		{
+			pState->m_StdInActor = fg_Construct();
+			pState->m_StdInActor
+				(
+					&CStdInActor::f_RegisterForInputBinary
+					, NConcurrency::g_ActorFunctor / [pState, fLogError, fSendStdInBuffer]
+					(EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, CStr const &_Error) mutable -> NConcurrency::TCFuture<void>
+					{
+						if (_Type == EStdInReaderOutputType_StdIn)
+						{
+							pState->m_StdInBuffer.f_Insert(_Input);
+							fSendStdInBuffer();
+						}
+						else if (_Type == EStdInReaderOutputType_GeneralError)
+							fLogError("Failed to read std in: {}"_f << _Error);
+
+						co_return {};
+					}
+					, EStdInReaderFlag_None
+					, 1024 * 1024
+				)
+				> [pState, fLogError](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
+				{
+					if (!_Result)
+						fLogError("Failed to open StdIn actor: {}"_f << _Result.f_GetExceptionStr());
+					else if (!pState->m_Promise.f_IsSet())
+						pState->m_StdInSubscription = fg_Move(*_Result);
+				}
+			;
+		}
+
 		pState->m_SimpleFlags = _SimpleLaunch.m_SimpleFlags;
 
 		CLaunch Params{_SimpleLaunch};
-		Params.m_Params.m_fOnStateChange = [pState, bSeparateStdErr = _SimpleLaunch.m_Params.m_bSeparateStdErr](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
+		Params.m_Params.m_fOnStateChange = [pState, fSendStdInBuffer, bSeparateStdErr = _SimpleLaunch.m_Params.m_bSeparateStdErr]
+			(CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
 			{
 				switch (_StateChange.f_GetTypeID())
 				{
 				case EProcessLaunchState_Launched:
 					{
+						pState->m_bLaunched = true;
+						fSendStdInBuffer();
 					}
 					break;
 				case EProcessLaunchState_LaunchFailed:
 					{
+						pState->m_StdInSubscription.f_Clear();
 						pState->m_Promise.f_SetException(DMibErrorInstance(fg_Format("Launch failed: {}", _StateChange.f_Get<EProcessLaunchState_LaunchFailed>())));
 						pState->m_Subscription.f_Clear();
 					}
 					break;
 				case EProcessLaunchState_Exited:
 					{
+						pState->m_StdInSubscription.f_Clear();
+
 						int32 ExitCode = _StateChange.f_Get<EProcessLaunchState_Exited>();
 						if (ExitCode && (pState->m_SimpleFlags & ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode))
 						{
@@ -202,7 +286,7 @@ namespace NMib::NProcess
 			}
 		;
 
-		Params.m_Params.m_fOnOutput = [pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+		Params.m_Params.m_fOnOutput = [pState](EProcessLaunchOutputType _OutputType, CStr const &_Output)
 			{
 				auto &OutputEntry = pState->m_LaunchResult.m_Output.f_Insert();
 				OutputEntry.m_Type = _OutputType;

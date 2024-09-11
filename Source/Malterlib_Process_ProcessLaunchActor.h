@@ -28,6 +28,7 @@ namespace NMib::NProcess
 		{
 			ESimpleLaunchFlag_None = 0
 			, ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode = DMibBit(0)
+			, ESimpleLaunchFlag_ForwardStdInput = DMibBit(1)
 		};
 
 		struct COutput
