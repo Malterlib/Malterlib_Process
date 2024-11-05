@@ -22,8 +22,8 @@ namespace NMib::NProcess
 	struct CProcessLaunchActor::CInternal : public NConcurrency::CActorInternal
 	{
 		NStorage::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
-		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
-		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_fOnOutput;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CProcessLaunchStateChangeVariant _State, fp64 _TimeSinceStart)> m_fOnStateChange;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr _Output)> m_fOnOutput;
 
 		struct CPendingStop
 		{
@@ -40,11 +40,13 @@ namespace NMib::NProcess
 
 		bool m_bProcessRunning = false;
 		bool m_bProcessExited = false;
+		bool m_bConstructed = false;
 
 		NConcurrency::TCFuture<void> f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> _fSend);
 	};
 
 	CProcessLaunchActor::CProcessLaunchActor()
+		: mp_pInternal{fg_Construct()}
 	{
 	}
 
@@ -73,8 +75,8 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch || Internal.m_bProcessExited)
 		{
-			fg_Move(Internal.m_fOnStateChange).f_Destroy() > NConcurrency::fg_DiscardResult();
-			fg_Move(Internal.m_fOnOutput).f_Destroy() > NConcurrency::fg_DiscardResult();
+			fg_Move(Internal.m_fOnStateChange).f_Destroy().f_DiscardResult();
+			fg_Move(Internal.m_fOnOutput).f_Destroy().f_DiscardResult();
 			Internal.m_PendingProcessStops.f_Clear();
 			co_return {};
 		}
@@ -94,20 +96,20 @@ namespace NMib::NProcess
 		}
 
 		auto &Pending = Internal.m_PendingProcessStops.f_Insert();
-		NConcurrency::TCPromise<void> PendingStopPromise;
+		NConcurrency::TCPromiseFuturePair<void> PendingStopPromise;
 		Pending.m_bStopRun = bStopRun;
-		Pending.m_fOnStop = [PendingStopPromise](uint32 _ExitCode)
+		Pending.m_fOnStop = [PendingStopPromise = PendingStopPromise.m_Promise](uint32 _ExitCode)
 			{
 				PendingStopPromise.f_SetResult();
 			}
 		;
-		Pending.m_fOnException = [PendingStopPromise]()
+		Pending.m_fOnException = [PendingStopPromise = fg_Move(PendingStopPromise.m_Promise)]()
 			{
 				PendingStopPromise.f_SetCurrentException();
 			}
 		;
 
-		co_await PendingStopPromise.f_MoveFuture();
+		co_await fg_Move(PendingStopPromise.m_Future);
 
 		co_await fg_Move(Internal.m_SendSequencer).f_Destroy().f_Wrap() > NConcurrency::fg_LogError("ProcessLaunch", "Failed to destroy send sequencer");
 
@@ -138,7 +140,7 @@ namespace NMib::NProcess
 		m_SimpleFlags = _Flags;
 	}
 
-	NConcurrency::TCFuture<CProcessLaunchActor::CSimpleLaunchResult> CProcessLaunchActor::f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch)
+	NConcurrency::TCFuture<CProcessLaunchActor::CSimpleLaunchResult> CProcessLaunchActor::f_LaunchSimple(CSimpleLaunch _SimpleLaunch)
 	{
 		using namespace NStr;
 
@@ -157,9 +159,9 @@ namespace NMib::NProcess
 		NStorage::TCSharedPointer<CState> pState = fg_Construct();
 
 		if (_SimpleLaunch.m_Params.m_fOnOutput)
-			return pState->m_Promise <<= DMibErrorInstance("On output cannot be specified for simple launch");
+			co_return DMibErrorInstance("On output cannot be specified for simple launch");
 		if (_SimpleLaunch.m_Params.m_fOnStateChange)
-			return pState->m_Promise <<= DMibErrorInstance("On state change cannot be specified for simple launch");
+			co_return DMibErrorInstance("On state change cannot be specified for simple launch");
 
 		CStr LogName;
 		if (_SimpleLaunch.m_ToLog & ELogFlag_Error)
@@ -190,7 +192,7 @@ namespace NMib::NProcess
 				if (!pState->m_bLaunched || pState->m_StdInBuffer.f_IsEmpty())
 					return;
 
-				self(&CProcessLaunchActor::f_SendStdInBinary, fg_Move(pState->m_StdInBuffer)) > [fLogError](NConcurrency::TCAsyncResult<void> &&_Result)
+				f_SendStdInBinary(fg_Move(pState->m_StdInBuffer)) > [fLogError](NConcurrency::TCAsyncResult<void> &&_Result)
 					{
 						if (!_Result)
 							fLogError("Failed to send StdIn to child: {}"_f << _Result.f_GetExceptionStr());
@@ -206,7 +208,7 @@ namespace NMib::NProcess
 				(
 					&CStdInActor::f_RegisterForInputBinary
 					, NConcurrency::g_ActorFunctor / [pState, fLogError, fSendStdInBuffer]
-					(EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, CStr const &_Error) mutable -> NConcurrency::TCFuture<void>
+					(EStdInReaderOutputType _Type, NContainer::CSecureByteVector _Input, CStr _Error) mutable -> NConcurrency::TCFuture<void>
 					{
 						if (_Type == EStdInReaderOutputType_StdIn)
 						{
@@ -294,26 +296,21 @@ namespace NMib::NProcess
 			}
 		;
 
-		f_Launch(Params, fg_ThisActor(this)) > pState->m_Promise / [pState](NConcurrency::CActorSubscription &&_Subscription)
-			{
-				pState->m_Subscription = fg_Move(_Subscription);
-			}
-		;
+		pState->m_Subscription = co_await f_Launch(Params, fg_ThisActor(this));
 
-		return pState->m_Promise.f_Future();
+		co_return co_await pState->m_Promise.f_Future();
 	}
 
 	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CProcessLaunchActor::f_Launch
 		(
-			CLaunch const &_Launch
-			, NConcurrency::TCActor<NConcurrency::CActor> &&_CallbackActor
+			CLaunch _Launch
+			, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor
 		)
 	{
-		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
+		DMibRequire(!mp_pInternal->m_bConstructed);
 
-		DMibRequire(!mp_pInternal);
+		mp_pInternal->m_bConstructed = true;
 
-		mp_pInternal = fg_Construct();
 		auto &Internal = *mp_pInternal;
 		Internal.m_DestructFlags = _Launch.m_DestructFlags;
 
@@ -459,9 +456,9 @@ namespace NMib::NProcess
 						}
 
 						if (Internal.m_fOnOutput)
-							Internal.m_fOnOutput(_OutputType, Output) > NConcurrency::fg_DiscardResult();
+							Internal.m_fOnOutput.f_CallDiscard(_OutputType, Output);
 					}
-					> NConcurrency::fg_DiscardResult()
+					> NConcurrency::g_DiscardResult
 				;
 			}
 
@@ -497,8 +494,7 @@ namespace NMib::NProcess
 		if (Params.m_fOnStateChange)
 		{
 			Internal.m_fOnStateChange = NConcurrency::g_ActorFunctorWeak(_CallbackActor) / [fOnStateChange = fg_Move(Params.m_fOnStateChange)]
-				(CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-				-> NConcurrency::TCFuture<void>
+				(CProcessLaunchStateChangeVariant _State, fp64 _TimeSinceStart) -> NConcurrency::TCFuture<void>
 				{
 					fOnStateChange(_State, _TimeSinceStart);
 
@@ -517,17 +513,16 @@ namespace NMib::NProcess
 				if (LaunchState == NProcess::EProcessLaunchState_Exited || LaunchState == NProcess::EProcessLaunchState_LaunchFailed)
 					pState->f_FlushOutput();
 
-				ThisActor
+				ThisActor.f_Bind<&CActor::f_Dispatch>
 					(
-						&CActor::f_Dispatch
-						, NFunction::TCFunctionMovable<void ()>
+						NFunction::TCFunctionMovable<void ()>
 						(
 							[this, _TimeSinceStart, State = _State, pState]
 							{
 								auto &Internal = *mp_pInternal;
 
 								if (Internal.m_fOnStateChange)
-									Internal.m_fOnStateChange(State, _TimeSinceStart) > NConcurrency::fg_DiscardResult();
+									Internal.m_fOnStateChange.f_CallDiscard(State, _TimeSinceStart);
 
 								switch (State.f_GetTypeID())
 								{
@@ -614,7 +609,7 @@ namespace NMib::NProcess
 							}
 						)
 					)
-					> NConcurrency::fg_DiscardResult()
+					.f_DiscardResult()
 				;
 			}
 		;
@@ -624,8 +619,7 @@ namespace NMib::NProcess
 			if (Params.m_fOnOutput)
 			{
 				Internal.m_fOnOutput = NConcurrency::g_ActorFunctorWeak(_CallbackActor) / [fOnOutput = fg_Move(Params.m_fOnOutput)]
-					(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-					-> NConcurrency::TCFuture<void>
+					(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr _Output) -> NConcurrency::TCFuture<void>
 					{
 						fOnOutput(_OutputType, _Output);
 
@@ -654,24 +648,21 @@ namespace NMib::NProcess
 		try
 		{
 			Internal.m_pProcessLaunch = fg_Construct(Params, Launch.m_DestructFlags);
-			Promise.f_SetResult
-				(
-					NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
-					{
-						auto &Internal = *mp_pInternal;
-						NConcurrency::TCActorResultVector<void> Results;
+			co_return NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+				{
+					auto &Internal = *mp_pInternal;
+					NConcurrency::TCFutureVector<void> Results;
 
-						if (!Internal.m_fOnOutput.f_IsEmpty())
-							fg_Move(Internal.m_fOnOutput).f_Destroy() > Results.f_AddResult();
+					if (!Internal.m_fOnOutput.f_IsEmpty())
+						fg_Move(Internal.m_fOnOutput).f_Destroy() > Results;
 
-						if (!Internal.m_fOnStateChange.f_IsEmpty())
-							fg_Move(Internal.m_fOnStateChange).f_Destroy() > Results.f_AddResult();
+					if (!Internal.m_fOnStateChange.f_IsEmpty())
+						fg_Move(Internal.m_fOnStateChange).f_Destroy() > Results;
 
-						co_await Results.f_GetResults();
+					co_await fg_AllDoneWrapped(Results);
 
-						co_return {};
-					}
-				)
+					co_return {};
+				}
 			;
 		}
 		catch (NException::CException const &_Exception)
@@ -684,14 +675,12 @@ namespace NMib::NProcess
 				DMibLog(Error, "Exception launching: {}", _Exception.f_GetErrorStr());
 			}
 #endif
-			Promise.f_SetCurrentException();
+			co_return NException::fg_CurrentException();
 		}
 		catch (...)
 		{
-			Promise.f_SetCurrentException();
+			co_return NException::fg_CurrentException();
 		}
-
-		return Promise.f_MoveFuture();
 	}
 
 	NConcurrency::TCFuture<void> CProcessLaunchActor::CInternal::f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> _fSend)
@@ -716,7 +705,7 @@ namespace NMib::NProcess
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const
+	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdInBinary(NContainer::CSecureByteVector _Data) const
 	{
 		auto &Internal = *mp_pInternal;
 		return Internal.f_RunBlocking
@@ -729,7 +718,7 @@ namespace NMib::NProcess
 		;
 	}
 
-	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const
+	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdIn(NMib::NStr::CStrSecure _Data) const
 	{
 		auto &Internal = *mp_pInternal;
 		return Internal.f_RunBlocking
@@ -757,8 +746,6 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<void> CProcessLaunchActor::f_Signal(int32 _Signal) const
 	{
-		NConcurrency::TCPromise<uint32> Promise;
-
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch)
 			co_return {};
@@ -779,11 +766,9 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<uint32> CProcessLaunchActor::fp_StopProcess(bool _bGroup) const
 	{
-		NConcurrency::TCPromise<uint32> Promise;
-
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch)
-			return Promise <<= 0;
+			co_return 0;
 
 		bool bStopRun = false;
 
@@ -798,23 +783,26 @@ namespace NMib::NProcess
 			}
 			catch (NException::CException const &)
 			{
-				return Promise <<= NException::fg_CurrentException();
+				co_return NException::fg_CurrentException();
 			}
 			bStopRun = true;
 		}
 		auto &Pending = Internal.m_PendingProcessStops.f_Insert();
 		Pending.m_bStopRun = bStopRun;
-		Pending.m_fOnStop = [Promise](uint32 _ExitCode)
+
+		NConcurrency::TCPromiseFuturePair<uint32> Promise;
+		Pending.m_fOnStop = [Promise = Promise.m_Promise](uint32 _ExitCode)
 			{
 				Promise.f_SetResult(_ExitCode);
 			}
 		;
-		Pending.m_fOnException = [Promise]()
+		Pending.m_fOnException = [Promise = fg_Move(Promise.m_Promise)]()
 			{
 				Promise.f_SetCurrentException();
 			}
 		;
-		return Promise.f_MoveFuture();
+		
+		co_return co_await fg_Move(Promise.m_Future);
 	}
 
 	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_StopProcess() const
@@ -828,18 +816,16 @@ namespace NMib::NProcess
 	}
 
 	template <typename tf_CType, typename tf_FToWrap>
-	NConcurrency::TCFuture<tf_CType> fg_WrapFuture(tf_FToWrap &&_fToWrap)
+	NConcurrency::TCUnsafeFuture<tf_CType> fg_WrapFuture(tf_FToWrap &&_fToWrap)
 	{
-		NConcurrency::TCPromise<tf_CType> Promise;
 		try
 		{
-			Promise.f_SetResult(_fToWrap());
+			co_return _fToWrap();
 		}
 		catch (...)
 		{
-			Promise.f_SetCurrentException();
+			co_return NException::fg_CurrentException();
 		}
-		return Promise.f_MoveFuture();
 	}
 
 	NConcurrency::TCFuture<fp64> CProcessLaunchActor::f_GetRunningTime() const

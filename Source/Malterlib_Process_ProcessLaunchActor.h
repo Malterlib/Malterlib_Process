@@ -79,16 +79,16 @@ namespace NMib::NProcess
 
 		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Launch
 			(
-				CLaunch const &_Launch
-				, NConcurrency::TCActor<NConcurrency::CActor> &&_CallbackActor
+				CLaunch _Launch
+				, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor
 			)
 		;
 
-		NConcurrency::TCFuture<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch const &_SimpleLaunch);
+		NConcurrency::TCFuture<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch _SimpleLaunch);
 
-		NConcurrency::TCFuture<void> f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const;
+		NConcurrency::TCFuture<void> f_SendStdIn(NMib::NStr::CStrSecure _Data) const;
 		NConcurrency::TCFuture<void> f_CloseStdIn() const;
-		NConcurrency::TCFuture<void> f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const;
+		NConcurrency::TCFuture<void> f_SendStdInBinary(NContainer::CSecureByteVector _Data) const;
 		NConcurrency::TCFuture<uint32> f_StopProcess() const; // Soft termination
 		NConcurrency::TCFuture<uint32> f_StopProcessGroup() const; // Soft termination
 		NConcurrency::TCFuture<void> f_Signal(int32 _Signal) const; // Only for unix

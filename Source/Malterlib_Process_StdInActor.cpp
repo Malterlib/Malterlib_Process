@@ -184,7 +184,7 @@ namespace NMib::NProcess
 		f_AbortReads();
 		auto &Internal = *mp_pInternal;
 
-		co_await Internal.m_StdOutActor.f_Destroy();
+		co_await fg_TempCopy(Internal.m_StdOutActor).f_Destroy();
 		co_return {};
 	}
 
@@ -530,12 +530,7 @@ namespace NMib::NProcess
 
 	void CStdInActor::CInternal::fs_StdOutput(NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor, NStr::CStr const &_String)
 	{
-		NConcurrency::g_Dispatch(_StdOutActor) / [=]
-			{
-				DMibConErrOutRaw(_String);
-			}
-			> NConcurrency::fg_DiscardResult();
-		;
+		_StdOutActor.f_Bind<NMib::NCommandLine::fg_MalterlibConErrOut>(_String).f_DiscardResult();
 	}
 
 	void CStdInActor::CInternal::f_HandleBufferedStdInBinary()
@@ -604,7 +599,7 @@ namespace NMib::NProcess
 								}
 								m_BufferedStdIn.f_Insert({_Type, _Input});
 							}
-							> NConcurrency::fg_DiscardResult()
+							> NConcurrency::g_DiscardResult
 						;
 
 					}
@@ -652,7 +647,7 @@ namespace NMib::NProcess
 								}
 								m_BufferedStdInBinary.f_Insert({_Type, _Input, _Error});
 							}
-							> NConcurrency::fg_DiscardResult()
+							> NConcurrency::g_DiscardResult
 						;
 
 					}
@@ -662,9 +657,8 @@ namespace NMib::NProcess
 		;
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput &&_fOnInput, EStdInReaderFlag _Flags, mint _MaxSize)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput _fOnInput, EStdInReaderFlag _Flags, mint _MaxSize)
 	{
-		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
 		auto &Internal = *mp_pInternal;
 		try
 		{
@@ -684,13 +678,13 @@ namespace NMib::NProcess
 										, _MaxSize
 										, [&](mint _Start, mint _Len)
 										{
-											fOnInput(_Type, _Input.f_Extract(_Start, _Len)) > NConcurrency::fg_DiscardResult();
+											fOnInput.f_CallDiscard(_Type, _Input.f_Extract(_Start, _Len));
 										}
 									)
 								;
 							}
 							else
-								fOnInput(_Type, _Input) > NConcurrency::fg_DiscardResult();
+								fOnInput.f_CallDiscard(_Type, _Input);
 						}
 						, _Flags
 					)
@@ -699,26 +693,21 @@ namespace NMib::NProcess
 
 			Internal.m_Subscriptions[pSubscription];
 
-			Promise.f_SetResult
-				(
-					NConcurrency::g_ActorSubscription / [this, pSubscriptionWeak = pSubscription.f_Weak()]
-					{
-						auto &Internal = *mp_pInternal;
-						Internal.m_Subscriptions.f_Remove(pSubscriptionWeak);
-					}
-				)
+			co_return NConcurrency::g_ActorSubscription / [this, pSubscriptionWeak = pSubscription.f_Weak()]
+				{
+					auto &Internal = *mp_pInternal;
+					Internal.m_Subscriptions.f_Remove(pSubscriptionWeak);
+				}
 			;
 		}
 		catch (NException::CException const &)
 		{
-			Promise.f_SetCurrentException();
+			co_return NException::fg_CurrentException();
 		}
-		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput &&_fOnInput, EStdInReaderFlag _Flags, mint _MaxSize)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput _fOnInput, EStdInReaderFlag _Flags, mint _MaxSize)
 	{
-		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
 		auto &Internal = *mp_pInternal;
 		try
 		{
@@ -741,13 +730,13 @@ namespace NMib::NProcess
 											NContainer::CSecureByteVector ToSend;
 											ToSend.f_Insert(_Input.f_GetArray() + _Start, _Len);
 
-											fOnInput(_Type, fg_Move(ToSend), _Error) > NConcurrency::fg_DiscardResult();
+											fOnInput.f_CallDiscard(_Type, fg_Move(ToSend), _Error);
 										}
 									)
 								;
 							}
 							else
-								fOnInput(_Type, _Input, _Error) > NConcurrency::fg_DiscardResult();
+								fOnInput.f_CallDiscard(_Type, _Input, _Error);
 						}
 						, _Flags
 					)
@@ -756,21 +745,17 @@ namespace NMib::NProcess
 
 			Internal.m_Subscriptions[pSubscription];
 
-			Promise.f_SetResult
-				(
-					NConcurrency::g_ActorSubscription / [this, pSubscriptionWeak = pSubscription.f_Weak()]
-					{
-						auto &Internal = *mp_pInternal;
-						Internal.m_Subscriptions.f_Remove(pSubscriptionWeak);
-					}
-				)
+			co_return NConcurrency::g_ActorSubscription / [this, pSubscriptionWeak = pSubscription.f_Weak()]
+				{
+					auto &Internal = *mp_pInternal;
+					Internal.m_Subscriptions.f_Remove(pSubscriptionWeak);
+				}
 			;
 		}
 		catch (NException::CException const &)
 		{
-			Promise.f_SetCurrentException();
+			co_return NException::fg_CurrentException();
 		}
-		return Promise.f_MoveFuture();
 	}
 
 	NConcurrency::TCFuture<NStr::CStrSecure> CStdInActor::f_ReadLine()
@@ -782,7 +767,7 @@ namespace NMib::NProcess
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
-		return Entry.m_Promise.f_Future();
+		co_return co_await Entry.m_Promise.f_Future();
 	}
 
 	NConcurrency::TCFuture<NContainer::CSecureByteVector> CStdInActor::f_ReadBinary()
@@ -793,10 +778,10 @@ namespace NMib::NProcess
 		Internal.f_RegisterForReadBinary();
 		Internal.f_HandleBufferedStdInBinary();
 
-		return Entry.m_Promise.f_Future();
+		co_return co_await Entry.m_Promise.f_Future();
 	}
 
-	NConcurrency::TCFuture<NStr::CStrSecure> CStdInActor::f_ReadPrompt(CStdInReaderPromptParams const &_Params)
+	NConcurrency::TCFuture<NStr::CStrSecure> CStdInActor::f_ReadPrompt(CStdInReaderPromptParams _Params)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -805,6 +790,6 @@ namespace NMib::NProcess
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
-		return Entry.m_Promise.f_Future();
+		co_return co_await Entry.m_Promise.f_Future();
 	}
 }
