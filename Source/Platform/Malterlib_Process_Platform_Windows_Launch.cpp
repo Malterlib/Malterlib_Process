@@ -348,8 +348,8 @@ namespace NMib::NProcess::NPlatform
 
 			NStorage::CIntrusiveRefCount m_RefCount;
 
-			DMibRefCountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfRef);
-			DMibRefCountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
+			DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfRef);
+			DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 		private:
 			NThread::CEventAutoReset mp_Event;
@@ -2552,12 +2552,12 @@ namespace NMib::NProcess::NPlatform
 			// Increase ref count for thread
 			if (mp_LastLaunchOptions.m_bThreaded)
 			{
-				m_RefCount.f_Increase(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef));
+				m_RefCount.f_Increase(DIfRefCountDebugging(m_DebugSelfThreadRef));
 				auto CleanupRef = fg_OnScopeExit
 					(
 						[&]()
 						{
-							m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef));
+							m_RefCount.f_Decrease(DIfRefCountDebugging(m_DebugSelfThreadRef));
 						}
 					)
 				;
@@ -2660,7 +2660,7 @@ namespace NMib::NProcess::NPlatform
 
 		bool CConsoleRedirector::f_DestroyThread()
 		{
-			if (m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(m_DebugSelfThreadRef)) == 0)
+			if (m_RefCount.f_Decrease(DIfRefCountDebugging(m_DebugSelfThreadRef)) == 0)
 			{
 				fg_DeleteObject(NMemory::CDefaultAllocator(), this);
 				return true;
@@ -2806,13 +2806,13 @@ void *NMib::NProcess::NPlatform::fg_ProcessLaunch_Open(CProcessLaunchParams cons
 {
 	NStorage::TCSharedPointer<CConsoleRedirector> pRedir = fg_Construct();
 
-	pRedir->m_RefCount.f_Increase(DMibRefCountDebuggingOnly(pRedir->m_DebugSelfRef));
+	pRedir->m_RefCount.f_Increase(DIfRefCountDebugging(pRedir->m_DebugSelfRef));
 
 	auto CleanupRef = fg_OnScopeExit
 		(
 			[&]()
 			{
-				pRedir->m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(pRedir->m_DebugSelfRef));
+				pRedir->m_RefCount.f_Decrease(DIfRefCountDebugging(pRedir->m_DebugSelfRef));
 			}
 		)
 	;
@@ -2834,7 +2834,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Close(void *_pLaunch, EProcessL
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_Close(_Flags);
-	if (pLaunch->m_RefCount.f_Decrease(DMibRefCountDebuggingOnly(pLaunch->m_DebugSelfRef)) == 0)
+	if (pLaunch->m_RefCount.f_Decrease(DIfRefCountDebugging(pLaunch->m_DebugSelfRef)) == 0)
 		fg_DeleteObject(NMemory::CDefaultAllocator(), pLaunch);
 }
 

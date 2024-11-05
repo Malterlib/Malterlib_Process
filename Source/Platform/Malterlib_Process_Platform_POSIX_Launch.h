@@ -60,8 +60,8 @@ namespace NMib::NProcess::NPlatform
 
 		NStorage::CIntrusiveRefCount m_RefCount;
 
-		DMibRefCountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfRef);
-		DMibRefCountDebuggingOnly(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
+		DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfRef);
+		DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 	private:
 		void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
