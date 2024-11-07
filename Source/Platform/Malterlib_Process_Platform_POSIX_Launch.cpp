@@ -285,8 +285,11 @@ namespace NMib::NProcess::NPlatform
 	CPOSIXLaunchContext::~CPOSIXLaunchContext()
 	{
 		fp_Close();
-		fp_DestroyPipe(mp_WakeupPipeRead);
-		fp_DestroyPipe(mp_WakeupPipeWrite);
+		{
+			DMibLock(mp_NeedTerminationLock);
+			fp_DestroyPipe(mp_WakeupPipeRead);
+			fp_DestroyPipe(mp_WakeupPipeWrite);
+		}
 		auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_Launch;
 		{
 			DMibLock(SubSystem.m_LaunchesLock);
@@ -1828,14 +1831,12 @@ namespace NMib::NProcess::NPlatform
 	{
 		bool bNeedWait;
 		{
-			{
-				DMibLock(mp_NeedTerminationLock);
-				mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_StopProcess));
-				if (_Flags & (EProcessLaunchCloseFlag_LingerUntilDone | EProcessLaunchCloseFlag_BlockOnExit))
-					mp_bNeedWait = true;
-				mp_bClosed = true;
-				bNeedWait = mp_bNeedWait;
-			}
+			DMibLock(mp_NeedTerminationLock);
+			mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_StopProcess));
+			if (_Flags & (EProcessLaunchCloseFlag_LingerUntilDone | EProcessLaunchCloseFlag_BlockOnExit))
+				mp_bNeedWait = true;
+			mp_bClosed = true;
+			bNeedWait = mp_bNeedWait;
 			ch8 Temp = 0;
 			write(mp_WakeupPipeWrite, &Temp, sizeof(Temp));
 		}
@@ -1891,10 +1892,8 @@ namespace NMib::NProcess::NPlatform
 
 	void CPOSIXLaunchContext::f_Cancel()
 	{
-		{
-			DMibLock(mp_NeedTerminationLock);
-			mp_bNeedWait = false;
-		}
+		DMibLock(mp_NeedTerminationLock);
+		mp_bNeedWait = false;
 		ch8 Temp = 0;
 		write(mp_WakeupPipeWrite, &Temp, sizeof(Temp));
 	}
