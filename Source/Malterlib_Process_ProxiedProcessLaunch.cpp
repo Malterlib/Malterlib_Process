@@ -808,7 +808,7 @@ namespace NMib::NProcess
 			virtual void f_StopProcess() const override;
 			virtual bool f_IsOpen() const override;
 			virtual bool f_IsRunning() const override;
-			virtual void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const override;
+			virtual void f_SendStdIn(NMib::NStr::CStrIO const &_Data) const override;
 			virtual void f_CloseStdIn() const override;
 			virtual fp64 f_GetRunningTime() const override;
 		};
@@ -1665,7 +1665,7 @@ namespace NMib::NProcess
 		return m_pState->m_bIsRunning.f_Load();
 	}
 
-	void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const
+	void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_SendStdIn(NMib::NStr::CStrIO const &_Data) const
 	{
 		NStorage::TCSharedPointer<CLaunchState> pState = m_pState;
 		NPrivate::CProcessLaunch_Input Message(pState->m_LaunchID, _Data);

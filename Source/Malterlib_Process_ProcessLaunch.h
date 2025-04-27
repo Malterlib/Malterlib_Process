@@ -396,9 +396,9 @@ namespace NMib::NProcess
 		void f_Start(); // Has to be called if _Params.m_bThreaded is not true
 		bool f_IsOpen() const;
 		bool f_IsRunning() const;
-		void f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const;
+		void f_SendStdIn(NMib::NStr::CStrIO const &_Data) const;
 		void f_CloseStdIn() const;
-		void f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const;
+		void f_SendStdInBinary(NContainer::CIOByteVector const &_Data) const;
 		fp64 f_GetRunningTime() const;
 		mint f_GetProcessID() const;
 		void f_StopProcess() const; // Soft termination

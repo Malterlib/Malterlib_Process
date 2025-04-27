@@ -154,9 +154,9 @@ namespace NMib::NProcess
 		void fg_ProcessLaunch_Start(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _DestructFlags);
 		void fg_ProcessLaunch_Close(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _Flags);
 		bool fg_ProcessLaunch_IsRunning(void *_pLaunch);
-		void fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrSecure const &_Data);
+		void fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrIO const &_Data);
 		void fg_ProcessLaunch_CloseStdIn(void *_pLaunch);
-		void fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::CSecureByteVector const &_Data);
+		void fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::CIOByteVector const &_Data);
 
 		fp64 fg_ProcessLaunch_GetRunningTime(void *_pLaunch);
 		mint fg_ProcessLaunch_GetID(void *_pLaunch);

@@ -163,7 +163,7 @@ namespace NMib::NProcess
 
 	CStdInReaderParams CStdInReaderParams::fs_Create
 		(
-			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)> &&_fOnReceiveInput
+			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> &&_fOnReceiveInput
 			, EStdInReaderFlag _Flags
 			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher
 		)
@@ -177,7 +177,7 @@ namespace NMib::NProcess
 
 	CStdInReaderParams CStdInReaderParams::fs_CreateBinary
 		(
-			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, NStr::CStr const &_Error)> &&_fOnReceiveInput
+			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)> &&_fOnReceiveInput
 			, EStdInReaderFlag _Flags
 			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher
 		)

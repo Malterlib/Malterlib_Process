@@ -154,8 +154,8 @@ namespace NMib::NProcess::NPlatform
 
 		HANDLE mp_hStdInFile;
 
-		NContainer::CSecureByteVector mp_StdInReadBuffer;
-		NStr::CWStrSecure mp_StdInStringBuffer;
+		NContainer::CIOByteVector mp_StdInReadBuffer;
+		NStr::CWStrIO mp_StdInStringBuffer;
 
 
 		bool fp_Read()
@@ -182,7 +182,7 @@ namespace NMib::NProcess::NPlatform
 									bRet = false;
 
 								if (nBytesRead)
-									fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CSecureByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
+									fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
 							}
 						}
 						else
@@ -215,7 +215,7 @@ namespace NMib::NProcess::NPlatform
 						}
 					;
 
-					NStr::CWStrSecure ToSend;
+					NStr::CWStrIO ToSend;
 					while (true)
 					{
 						DWORD LastAvailable;
@@ -274,7 +274,7 @@ namespace NMib::NProcess::NPlatform
 							break;
 					}
 					if (!ToSend.f_IsEmpty())
-						fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStrSecure(ToSend));
+						fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStrIO(ToSend));
 				}
 			}
 			else
@@ -291,7 +291,7 @@ namespace NMib::NProcess::NPlatform
 							bRet = false;
 
 						if (nBytesRead)
-							fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CSecureByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
+							fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
 						else if (bRet)
 						{
 							// Does nBytesRead == 0 mean we have found EOF?
@@ -309,7 +309,7 @@ namespace NMib::NProcess::NPlatform
 						else if (nReadChars)
 						{
 							mp_StdInStringBuffer.f_SetAt(nReadChars, 0);
-							fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStrSecure(mp_StdInStringBuffer));
+							fp_SendToReaders(EStdInReaderOutputType_StdIn, NStr::CStrIO(mp_StdInStringBuffer));
 						}
 
 						if (nReadChars != 4096)
@@ -320,8 +320,8 @@ namespace NMib::NProcess::NPlatform
 
 			return bRet;
 		}
-		void fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrSecure const &_String);
-		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer);
+		void fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrIO const &_String);
+		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Buffer);
 	};
 
 	struct CSubSystem_Process_Platform_Windows_StdInReader : public CSubSystem
@@ -365,7 +365,7 @@ namespace NMib::NProcess::NPlatform
 		}
 	}
 
-	void CWindowsStdInReaderImplementation::fp_SendToReaders(EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer)
+	void CWindowsStdInReaderImplementation::fp_SendToReaders(EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Buffer)
 	{
 		DMibRequire(_Type == EStdInReaderOutputType_StdIn);
 		auto &SubSystem = *g_SubSystem_Process_Platform_Windows_StdInReader;
@@ -379,7 +379,7 @@ namespace NMib::NProcess::NPlatform
 				{
 					pParams->m_fDispatcher
 						(
-							[_Type, String = NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()), pParams]()
+							[_Type, String = NStr::CStrIO(_Buffer.f_GetArray(), _Buffer.f_GetLen()), pParams]()
 							{
 								pParams->m_fOnReceiveInput(_Type, String);
 							}
@@ -402,14 +402,14 @@ namespace NMib::NProcess::NPlatform
 			else
 			{
 				if (pParams->m_fOnReceiveInput)
-					pParams->m_fOnReceiveInput(_Type, NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()));
+					pParams->m_fOnReceiveInput(_Type, NStr::CStrIO(_Buffer.f_GetArray(), _Buffer.f_GetLen()));
 				else
 					pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
 			}
 		}
 	}
 
-	void CWindowsStdInReaderImplementation::fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrSecure const &_String)
+	void CWindowsStdInReaderImplementation::fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrIO const &_String)
 	{
 		DMibRequire(_Type != EStdInReaderOutputType_StdIn || !m_bIsPipe);
 		auto &SubSystem = *g_SubSystem_Process_Platform_Windows_StdInReader;

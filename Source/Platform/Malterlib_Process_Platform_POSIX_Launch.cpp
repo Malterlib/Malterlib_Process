@@ -1849,7 +1849,7 @@ namespace NMib::NProcess::NPlatform
 		return (f_GetState() == NThread::EThreadState_Running);
 	}
 
-	void CPOSIXLaunchContext::f_SendText(NStr::CStrSecure const &_Text)
+	void CPOSIXLaunchContext::f_SendText(NStr::CStrIO const &_Text)
 	{
 		DMibLock(mp_PipeLock);
 		if (mp_hStdinWrite == -1)
@@ -1867,7 +1867,7 @@ namespace NMib::NProcess::NPlatform
 		fp_DestroyPipe(mp_hStdinWrite);
 	}
 
-	void CPOSIXLaunchContext::f_SendBinary(NContainer::CSecureByteVector const &_Data)
+	void CPOSIXLaunchContext::f_SendBinary(NContainer::CIOByteVector const &_Data)
 	{
 		DMibLock(mp_PipeLock);
 		if (mp_hStdinWrite == -1)
@@ -1967,7 +1967,7 @@ bool NMib::NProcess::NPlatform::fg_ProcessLaunch_IsRunning(void *_pLaunch)
 	return pLaunch->f_IsRunning();
 }
 
-void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrSecure const &_Data)
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdIn(void *_pLaunch, NMib::NStr::CStrIO const &_Data)
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_SendText(_Data);
@@ -1979,7 +1979,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_CloseStdIn(void *_pLaunch)
 	pLaunch->f_CloseStdIn();
 }
 
-void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::CSecureByteVector const &_Data)
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::CIOByteVector const &_Data)
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	pLaunch->f_SendBinary(_Data);

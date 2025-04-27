@@ -270,7 +270,7 @@ namespace NMib::NProcess
 		return m_Launch.f_IsRunning();
 	}
 
-	void CVirtualProcessLaunch_Default::f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const
+	void CVirtualProcessLaunch_Default::f_SendStdIn(NMib::NStr::CStrIO const &_Data) const
 	{
 		return m_Launch.f_SendStdIn(_Data);
 	}

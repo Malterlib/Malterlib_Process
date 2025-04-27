@@ -121,26 +121,26 @@ namespace NMib::NProcess
 
 		struct CReadEntry
 		{
-			NConcurrency::TCPromise<NStr::CStrSecure> m_Promise;
+			NConcurrency::TCPromise<NStr::CStrIO> m_Promise;
 			CReadEntryInfo m_EntryInfo;
 		};
 
 		struct CReadEntryBinary
 		{
-			NConcurrency::TCPromise<NContainer::CSecureByteVector> m_Promise;
-			NContainer::CSecureByteVector m_Buffer;
+			NConcurrency::TCPromise<NContainer::CIOByteVector> m_Promise;
+			NContainer::CIOByteVector m_Buffer;
 		};
 
 		struct CBufferedStdIn
 		{
 			EStdInReaderOutputType m_Type;
-			NStr::CStrSecure m_Input;
+			NStr::CStrIO m_Input;
 		};
 
 		struct CBufferedStdInBinary
 		{
 			EStdInReaderOutputType m_Type;
-			NContainer::CSecureByteVector m_Input;
+			NContainer::CIOByteVector m_Input;
 			NStr::CStr m_Error;
 		};
 
@@ -573,7 +573,7 @@ namespace NMib::NProcess
 			(
 				CStdInReaderParams::fs_Create
 				(
-					[=, this, pThisWeak = fg_ThisActor(m_pThis).f_Weak()](EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)
+					[=, this, pThisWeak = fg_ThisActor(m_pThis).f_Weak()](EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)
 					{
 						auto pThis = pThisWeak.f_Lock();
 						if (!pThis)
@@ -618,7 +618,7 @@ namespace NMib::NProcess
 			(
 				CStdInReaderParams::fs_CreateBinary
 				(
-					[=, this, pThisWeak = fg_ThisActor(m_pThis).f_Weak()](EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, CStr const &_Error)
+					[=, this, pThisWeak = fg_ThisActor(m_pThis).f_Weak()](EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, CStr const &_Error)
 					{
 						auto pThis = pThisWeak.f_Lock();
 						if (!pThis)
@@ -666,7 +666,7 @@ namespace NMib::NProcess
 				(
 					CStdInReaderParams::fs_Create
 					(
-						[fOnInput = fg_Move(_fOnInput), _MaxSize](EStdInReaderOutputType _Type, NStr::CStrSecure const &_Input)
+						[fOnInput = fg_Move(_fOnInput), _MaxSize](EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)
 						{
 							mint InputLen = _Input.f_GetLen();
 							if (InputLen > _MaxSize)
@@ -715,7 +715,7 @@ namespace NMib::NProcess
 				(
 					CStdInReaderParams::fs_CreateBinary
 					(
-						[fOnInput = fg_Move(_fOnInput), _MaxSize](EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Input, CStr const &_Error)
+						[fOnInput = fg_Move(_fOnInput), _MaxSize](EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, CStr const &_Error)
 						{
 							mint InputLen = _Input.f_GetLen();
 							if (InputLen > _MaxSize)
@@ -727,7 +727,7 @@ namespace NMib::NProcess
 										, _MaxSize
 										, [&](mint _Start, mint _Len)
 										{
-											NContainer::CSecureByteVector ToSend;
+											NContainer::CIOByteVector ToSend;
 											ToSend.f_Insert(_Input.f_GetArray() + _Start, _Len);
 
 											fOnInput.f_CallDiscard(_Type, fg_Move(ToSend), _Error);
@@ -758,7 +758,7 @@ namespace NMib::NProcess
 		}
 	}
 
-	NConcurrency::TCFuture<NStr::CStrSecure> CStdInActor::f_ReadLine()
+	NConcurrency::TCFuture<NStr::CStrIO> CStdInActor::f_ReadLine()
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -770,7 +770,7 @@ namespace NMib::NProcess
 		co_return co_await Entry.m_Promise.f_Future();
 	}
 
-	NConcurrency::TCFuture<NContainer::CSecureByteVector> CStdInActor::f_ReadBinary()
+	NConcurrency::TCFuture<NContainer::CIOByteVector> CStdInActor::f_ReadBinary()
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -781,7 +781,7 @@ namespace NMib::NProcess
 		co_return co_await Entry.m_Promise.f_Future();
 	}
 
-	NConcurrency::TCFuture<NStr::CStrSecure> CStdInActor::f_ReadPrompt(CStdInReaderPromptParams _Params)
+	NConcurrency::TCFuture<NStr::CStrIO> CStdInActor::f_ReadPrompt(CStdInReaderPromptParams _Params)
 	{
 		auto &Internal = *mp_pInternal;
 

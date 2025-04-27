@@ -152,7 +152,7 @@ namespace NMib::NProcess
 			ESimpleLaunchFlag m_SimpleFlags = ESimpleLaunchFlag_None;
 			NConcurrency::TCActor<CStdInActor> m_StdInActor;
 			NConcurrency::CActorSubscription m_StdInSubscription;
-			NContainer::CSecureByteVector m_StdInBuffer;
+			NContainer::CIOByteVector m_StdInBuffer;
 			bool m_bLaunched = false;
 		};
 
@@ -208,7 +208,7 @@ namespace NMib::NProcess
 				(
 					&CStdInActor::f_RegisterForInputBinary
 					, NConcurrency::g_ActorFunctor / [pState, fLogError, fSendStdInBuffer]
-					(EStdInReaderOutputType _Type, NContainer::CSecureByteVector _Input, CStr _Error) mutable -> NConcurrency::TCFuture<void>
+					(EStdInReaderOutputType _Type, NContainer::CIOByteVector _Input, CStr _Error) mutable -> NConcurrency::TCFuture<void>
 					{
 						if (_Type == EStdInReaderOutputType_StdIn)
 						{
@@ -705,7 +705,7 @@ namespace NMib::NProcess
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdInBinary(NContainer::CSecureByteVector _Data) const
+	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdInBinary(NContainer::CIOByteVector _Data) const
 	{
 		auto &Internal = *mp_pInternal;
 		return Internal.f_RunBlocking
@@ -718,7 +718,7 @@ namespace NMib::NProcess
 		;
 	}
 
-	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdIn(NMib::NStr::CStrSecure _Data) const
+	NConcurrency::TCFuture<void> CProcessLaunchActor::f_SendStdIn(NMib::NStr::CStrIO _Data) const
 	{
 		auto &Internal = *mp_pInternal;
 		return Internal.f_RunBlocking

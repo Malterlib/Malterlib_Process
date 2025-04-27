@@ -250,7 +250,7 @@ namespace NMib::NProcess
 		return NPlatform::fg_ProcessLaunch_IsRunning(m_pProcessLaunch);
 	}
 
-	void CProcessLaunch::f_SendStdIn(NMib::NStr::CStrSecure const &_Data) const
+	void CProcessLaunch::f_SendStdIn(NMib::NStr::CStrIO const &_Data) const
 	{
 		fp_CheckOpen();
 		NPlatform::fg_ProcessLaunch_SendStdIn(m_pProcessLaunch, _Data);
@@ -262,7 +262,7 @@ namespace NMib::NProcess
 		NPlatform::fg_ProcessLaunch_CloseStdIn(m_pProcessLaunch);
 	}
 
-	void CProcessLaunch::f_SendStdInBinary(NContainer::CSecureByteVector const &_Data) const
+	void CProcessLaunch::f_SendStdInBinary(NContainer::CIOByteVector const &_Data) const
 	{
 		fp_CheckOpen();
 		NPlatform::fg_ProcessLaunch_SendStdInBinary(m_pProcessLaunch, _Data);

@@ -41,9 +41,9 @@ namespace NMib::NProcess::NPlatform
 		void f_Close(EProcessLaunchCloseFlag _Flags);
 
 		bool f_IsRunning();
-		void f_SendText(NStr::CStrSecure const &_Text);
+		void f_SendText(NStr::CStrIO const &_Text);
 		void f_CloseStdIn();
-		void f_SendBinary(NContainer::CSecureByteVector const &_Data);
+		void f_SendBinary(NContainer::CIOByteVector const &_Data);
 		fp64 f_GetRunningTime();
 		mint f_GetID();
 #ifdef DPlatformFamily_macOS

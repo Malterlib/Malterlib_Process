@@ -86,9 +86,9 @@ namespace NMib::NProcess
 
 		NConcurrency::TCFuture<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch _SimpleLaunch);
 
-		NConcurrency::TCFuture<void> f_SendStdIn(NMib::NStr::CStrSecure _Data) const;
+		NConcurrency::TCFuture<void> f_SendStdIn(NMib::NStr::CStrIO _Data) const;
 		NConcurrency::TCFuture<void> f_CloseStdIn() const;
-		NConcurrency::TCFuture<void> f_SendStdInBinary(NContainer::CSecureByteVector _Data) const;
+		NConcurrency::TCFuture<void> f_SendStdInBinary(NContainer::CIOByteVector _Data) const;
 		NConcurrency::TCFuture<uint32> f_StopProcess() const; // Soft termination
 		NConcurrency::TCFuture<uint32> f_StopProcessGroup() const; // Soft termination
 		NConcurrency::TCFuture<void> f_Signal(int32 _Signal) const; // Only for unix

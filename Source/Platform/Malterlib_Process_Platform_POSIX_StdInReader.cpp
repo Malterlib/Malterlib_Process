@@ -192,7 +192,7 @@ namespace NMib::NProcess::NPlatform
 			return 0;
 		}
 
-		NContainer::CSecureByteVector mp_StdInReadBuffer;
+		NContainer::CIOByteVector mp_StdInReadBuffer;
 
 
 		bool fp_Read()
@@ -205,7 +205,7 @@ namespace NMib::NProcess::NPlatform
 			auto ReadBytes = read(0, mp_StdInReadBuffer.f_GetArray(), 4096);
 
 			if (ReadBytes > 0)
-				fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_StdIn, NContainer::CSecureByteVector(mp_StdInReadBuffer.f_GetArray(), ReadBytes));
+				fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), ReadBytes));
 			else if (ReadBytes < 0)
 			{
 				int ErrNo = errno;
@@ -229,8 +229,8 @@ namespace NMib::NProcess::NPlatform
 			return bRet;
 		}
 
-		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer);
-		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure const &_String);
+		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Buffer);
+		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrIO const &_String);
 	};
 
 	struct CSubSystem_Process_Platform_POSIX_StdInReader : public CSubSystem
@@ -273,7 +273,7 @@ namespace NMib::NProcess::NPlatform
 			}
 		}
 	}
-	void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CSecureByteVector const &_Buffer)
+	void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Buffer)
 	{
 		DMibRequire(_Type == EStdInReaderOutputType_StdIn);
 
@@ -288,7 +288,7 @@ namespace NMib::NProcess::NPlatform
 				{
 					pParams->m_fDispatcher
 						(
-							[_Type, String = NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()), pParams]()
+							[_Type, String = NStr::CStrIO(_Buffer.f_GetArray(), _Buffer.f_GetLen()), pParams]()
 							{
 								pParams->m_fOnReceiveInput(_Type, String);
 							}
@@ -311,14 +311,14 @@ namespace NMib::NProcess::NPlatform
 			else
 			{
 				if (pParams->m_fOnReceiveInput)
-					pParams->m_fOnReceiveInput(_Type, NStr::CStrSecure(_Buffer.f_GetArray(), _Buffer.f_GetLen()));
+					pParams->m_fOnReceiveInput(_Type, NStr::CStrIO(_Buffer.f_GetArray(), _Buffer.f_GetLen()));
 				else
 					pParams->m_fOnReceiveBinaryInput(_Type, _Buffer, {});
 			}
 		}
 	}
 
-	void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure const &_String)
+	void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrIO const &_String)
 	{
 		DMibRequire(_Type != EStdInReaderOutputType_StdIn);
 
