@@ -7,7 +7,7 @@
 #include <Mib/Core/PlatformSpecific/WindowsError>
 #include <Mib/Core/PlatformSpecific/WindowsUndocumented>
 #include <Mib/Core/PlatformSpecific/WindowsOptional>
-#include <Mib/Encoding/EJSON>
+#include <Mib/Encoding/EJson>
 #include "../Malterlib_Process_Platform.h"
 #include <Windows.h>
 #include "Malterlib_Process_Platform_Windows.h"
@@ -149,13 +149,13 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 						{
 							using namespace NEncoding;
 
-							CEJSONSorted JsonBuildData = CEJSONSorted::fs_FromString(BuildData);
+							CEJsonSorted JsonBuildData = CEJsonSorted::fs_FromString(BuildData);
 
-							if (auto pValue = JsonBuildData.f_GetMember("MalterlibBranch", EJSONType_String))
+							if (auto pValue = JsonBuildData.f_GetMember("MalterlibBranch", EJsonType_String))
 								_VersionInfo.m_Branch = pValue->f_String();
-							if (auto pValue = JsonBuildData.f_GetMember("MalterlibGitBranch", EJSONType_String))
+							if (auto pValue = JsonBuildData.f_GetMember("MalterlibGitBranch", EJsonType_String))
 								_VersionInfo.m_GitBranch = pValue->f_String();
-							if (auto pValue = JsonBuildData.f_GetMember("MalterlibGitCommit", EJSONType_String))
+							if (auto pValue = JsonBuildData.f_GetMember("MalterlibGitCommit", EJsonType_String))
 								_VersionInfo.m_GitCommit = pValue->f_String();
 						}
 						catch (NException::CException const &)

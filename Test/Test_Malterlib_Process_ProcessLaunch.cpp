@@ -7,7 +7,7 @@
 #include <Mib/Process/ProxiedProcessLaunch>
 #include <Mib/Cryptography/UUID>
 #include <Mib/Process/StdIn>
-#include <Mib/Encoding/JSON>
+#include <Mib/Encoding/Json>
 
 #include "MalterlibBuild.h"
 
@@ -54,10 +54,10 @@ namespace
 			{
 				Ret.f_Insert("--groups");
 
-				NMib::NEncoding::CJSONSorted JSON = NMib::NEncoding::EJSONType_Array;
+				NMib::NEncoding::CJsonSorted Json = NMib::NEncoding::EJsonType_Array;
 				for (auto iGroup = Groups.f_GetIterator(); iGroup; ++iGroup)
-					JSON.f_Insert(iGroup.f_GetKey());
-				Ret.f_Insert(JSON.f_ToString(nullptr));
+					Json.f_Insert(iGroup.f_GetKey());
+				Ret.f_Insert(Json.f_ToString(nullptr));
 			}
 
 			return NMib::NProcess::CProcessLaunchParams::fs_GetParams(Ret);

@@ -4,7 +4,7 @@
 #include <Mib/Process/ProcessLaunch>
 #include <Mib/Test/Test>
 #include <Mib/File/File>
-#include <Mib/Encoding/JSON>
+#include <Mib/Encoding/Json>
 #include <Mib/Cryptography/RandomID>
 
 #ifndef DPlatformFamily_Windows
@@ -41,10 +41,10 @@ namespace
 			{
 				Params.f_Insert("--groups");
 
-				CJSONSorted JSON = EJSONType_Array;
+				CJsonSorted Json = EJsonType_Array;
 				for (auto iGroup = Groups.f_GetIterator(); iGroup; ++iGroup)
-					JSON.f_Insert(iGroup.f_GetKey());
-				Params.f_Insert(JSON.f_ToString(nullptr));
+					Json.f_Insert(iGroup.f_GetKey());
+				Params.f_Insert(Json.f_ToString(nullptr));
 			}
 
 			return Params;
