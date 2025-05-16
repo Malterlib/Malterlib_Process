@@ -23,7 +23,7 @@ namespace
 	{
 		if (!NMib::NFile::CFile::fs_FileExists(_File))
 			return 0;
-		uint32 TimeStamp = 0;
+		uint32 Timestamp = 0;
 		NMib::NFile::CFile File;
 		File.f_Open(_File, NMib::NFile::EFileOpen_Read | NMib::NFile::EFileOpen_ShareAll);
 		uint32 Chunk[sizeof(uint32) * 256];
@@ -66,7 +66,7 @@ namespace
 			ToRead -= ThisTime;
 			FilePos += ThisTime;
 		}
-		return TimeStamp;
+		return Timestamp;
 	}
 }
 
@@ -175,7 +175,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 
 	uint16 PEMajor = 0;
 	uint16 PEMinor = 0;
-	uint32 TimeStamp = fg_GetPEInfo(_File, PEMajor, PEMinor);
+	uint32 Timestamp = fg_GetPEInfo(_File, PEMajor, PEMinor);
 	if (PEMajor > _VersionInfo.m_Major)
 	{
 		_VersionInfo.m_Major = PEMajor;
@@ -183,7 +183,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		_VersionInfo.m_Revision = PEMinor % 1000;
 	}
 
-	_VersionInfo.m_BuildTime = NTime::CTimeConvert::fs_CreateTime(1970) + NTime::CTimeSpan((int64)TimeStamp);
+	_VersionInfo.m_BuildTime = NTime::CTimeConvert::fs_CreateTime(1970) + NTime::CTimeSpan((int64)Timestamp);
 }
 
 void NMib::NProcess::NPlatform::fg_Process_SetPriority(EExecutionPriority _Priority)
