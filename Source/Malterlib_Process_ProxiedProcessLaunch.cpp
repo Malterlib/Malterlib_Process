@@ -70,7 +70,7 @@ namespace NMib::NProcess::NPrivate
 	class TCIDToType<d_TypeID>\
 	{\
 	public:\
-		typedef d_Type CType;\
+		using CType = d_Type;\
 		static constexpr bool mc_Defined = true;\
 		static_assert(TCIDToType<d_TypeID == 0 ? 0 : d_TypeID-1>::mc_Defined, "Gap detected in type IDs");\
 	};
@@ -1858,7 +1858,7 @@ namespace NMib::NProcess
 		)
 	{
 		NStorage::TCSharedPointer<NAtomic::TCAtomic<smint>> pErrorHandled = fg_Construct();
-		typedef typename tf_CMessage::CResponse CResponse;
+		using CResponse = typename tf_CMessage::CResponse;
 		auto pErrorScope
 			= fg_OnScopeExit
 			(
@@ -1935,7 +1935,7 @@ namespace NMib::NProcess
 		)
 	{
 		NStorage::TCSharedPointer<NAtomic::TCAtomic<smint>> pErrorHandled = fg_Construct();
-		typedef typename tf_CMessage::CResponse CResponse;
+		using CResponse = typename tf_CMessage::CResponse;
 		auto pErrorScope
 			= fg_OnScopeExit
 			(

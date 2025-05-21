@@ -8,7 +8,7 @@
 
 using namespace NMib;
 
-typedef void (FOnOpenURL)(NStr::CStr const& _URL);
+using FOnOpenURL = void (NStr::CStr const &_URL);
 
 #ifdef DPlatformFamily_macOS
 void fg_CreateMacOSEventHandler(FOnOpenURL* _pfOnOpenURL);

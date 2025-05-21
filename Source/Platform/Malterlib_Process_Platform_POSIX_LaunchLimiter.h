@@ -72,7 +72,7 @@ namespace NMib::NProcess::NPlatform
 		~CCPULimiterRef();
 	};
 
-	typedef NStorage::TCSharedPointer<CCPULimiterRef> CSharedLimiter;
+	using CSharedLimiter = NStorage::TCSharedPointer<CCPULimiterRef>;
 
 	CSharedLimiter fg_GetCPULimiter(NStr::CStr const &_ProcessGroup, fp32 _CPUUsage, pid_t _ProcessID);
 

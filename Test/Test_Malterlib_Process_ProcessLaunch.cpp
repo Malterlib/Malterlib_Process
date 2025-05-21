@@ -180,18 +180,18 @@ namespace
 		template <EProxyType t_ProxyType, typename t_CDummy = void>
 		struct TCGetProxiedType
 		{
-			typedef NMib::NProcess::CProcessLaunch CType;
+			using CType = NMib::NProcess::CProcessLaunch;
 		};
 
 		template <typename t_CDummy>
 		struct TCGetProxiedType<EProxyType_Proxied, t_CDummy>
 		{
-			typedef CProxiedProcessLaunch CType;
+			using CType = CProxiedProcessLaunch;
 		};
 		template <typename t_CDummy>
 		struct TCGetProxiedType<EProxyType_ElevatedProxied, t_CDummy>
 		{
-			typedef CProxiedProcessLaunch CType;
+			using CType = CProxiedProcessLaunch;
 		};
 
 		template <bool t_bProxied>

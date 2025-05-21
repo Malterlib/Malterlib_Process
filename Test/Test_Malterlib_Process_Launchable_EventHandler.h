@@ -5,11 +5,10 @@
 
 #import <Mib/Core/Core>
 
-typedef void (FOnOpenURL)(NMib::NStr::CStr const& _URL);
+using FOnOpenURL = void (NMib::NStr::CStr const &_URL);
 
 @interface CMacOSEventHandler : NSObject
 {
-
 	FOnOpenURL* m_pfOnOpenURL;
 }
 @end
