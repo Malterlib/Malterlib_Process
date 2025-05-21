@@ -196,14 +196,14 @@ namespace
 
 		template <bool t_bProxied>
 		auto f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
-			-> typename NMib::TCEnableIf<!t_bProxied, NMib::NStorage::TCUniquePointer<NMib::NProcess::CProcessLaunch>>::CType
+			-> NMib::TCEnableIf<!t_bProxied, NMib::NStorage::TCUniquePointer<NMib::NProcess::CProcessLaunch>>
 		{
 			return NMib::fg_Construct(_Params, _Flag);
 		}
 
 		template <bool t_bProxied>
 		auto f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
-			-> typename NMib::TCEnableIf<t_bProxied, NMib::NStorage::TCUniquePointer<CProxiedProcessLaunch>>::CType
+			-> NMib::TCEnableIf<t_bProxied, NMib::NStorage::TCUniquePointer<CProxiedProcessLaunch>>
 		{
 			return NMib::fg_Construct(_Params, _Flag, this);
 		}
