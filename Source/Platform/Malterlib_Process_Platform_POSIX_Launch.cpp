@@ -47,6 +47,12 @@ extern "C"
 #ifdef DPlatformFamily_macOS
 #include <libproc.h>
 #include <pthread/spawn.h>
+
+extern "C"
+{
+	int posix_spawnattr_set_uid_np(const posix_spawnattr_t * __restrict, uid_t) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
+	int posix_spawnattr_set_gid_np(const posix_spawnattr_t * __restrict, gid_t) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
+}
 #endif
 
 #ifdef DPlatformFamily_Linux
@@ -532,13 +538,14 @@ namespace NMib::NProcess::NPlatform
 
 			mp_ProcessID.f_Store(-1);
 
-
 			uid_t RunAsUser = -1;
 			gid_t RunAsGroup = -1;
 
 			try
 			{
-				if (!mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
+				if (mp_LastLaunchOptions.m_bMakeEffectiveUserReal)
+					RunAsUser = geteuid();
+				else if (!mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
 				{
 					NStr::CStr UserID;
 					if (!NSys::fg_UserManagement_UserExists(mp_LastLaunchOptions.m_RunAsUser, UserID))
@@ -548,7 +555,10 @@ namespace NMib::NProcess::NPlatform
 					}
 					RunAsUser = UserID.f_ToInt(uid_t(-1));
 				}
-				if (!mp_LastLaunchOptions.m_RunAsGroup.f_IsEmpty())
+
+				if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
+					RunAsGroup = getegid();
+				else if (!mp_LastLaunchOptions.m_RunAsGroup.f_IsEmpty())
 				{
 					NStr::CStr GroupID;
 					if (!NSys::fg_UserManagement_GroupExists(mp_LastLaunchOptions.m_RunAsGroup, GroupID))
@@ -595,8 +605,11 @@ namespace NMib::NProcess::NPlatform
 			}
 
 			NStr::CStr ProgramToLaunch = fl_ConvertChrootPath(Program);
+			NStr::CStr ProgramToLaunchNoHelper = ProgramToLaunch;
 
 			bool bCanSpawnChdir = false;
+			bool bCanSpawnUID = false;
+			bool bCanSpawnGID = false;
 
 #ifdef DPlatformFamily_Linux
 			if (NLocal::g_f_posix_spawn_file_actions_addchdir_np)
@@ -604,17 +617,23 @@ namespace NMib::NProcess::NPlatform
 #elifdef DPlatformFamily_macOS
 			if (__builtin_available(macOS 10.15, *))
 				bCanSpawnChdir = true;
+			if (__builtin_available(macOS 10.15, *))
+			{
+				bCanSpawnUID = true;
+				bCanSpawnGID = true;
+			}
 #endif
 
 			bool bNeedsTwoPhaseSpawn =
 				(!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() && mp_LastLaunchOptions.m_WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory() && !bCanSpawnChdir)
 				|| mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default
 				|| !mp_LastLaunchOptions.m_Limits.f_IsEmpty()
-				|| mp_LastLaunchOptions.m_bMakeEffectiveGroupReal
-				|| mp_LastLaunchOptions.m_bMakeEffectiveUserReal
 				|| !Chroot.f_IsEmpty()
-				|| RunAsGroup != gid_t(-1)
-				|| RunAsUser != uid_t(-1)
+				|| (RunAsGroup != gid_t(-1) && !bCanSpawnGID)
+				|| (RunAsUser != uid_t(-1) && !bCanSpawnUID)
+#ifdef DPlatformFamily_macOS
+				|| (RunAsUser != uid_t(-1) && RunAsUser != uid_t(0) && mp_LastLaunchOptions.m_bLaunchInUserSession)
+#endif
 			;
 
 			bool bShouldSpawn = !mp_LastLaunchOptions.m_bForceFork;
@@ -633,7 +652,7 @@ namespace NMib::NProcess::NPlatform
 					bShouldSpawn = false;
 				}
 			}
-			else
+			else if (!mp_LastLaunchOptions.m_bLaunchInUserSession)
 				bNeedsTwoPhaseSpawn = false;
 
 			NStr::CStr WorkingDirectory;
@@ -642,6 +661,8 @@ namespace NMib::NProcess::NPlatform
 			NContainer::TCVector<ch8 *> ParametersList;
 
 			NStr::CStr ChrootLaunchHelper;
+			NStr::CStr UserIDForLaunch;
+			NStr::CStr ProgramToLaunchCopy;
 
 			if (!Chroot.f_IsEmpty())
 			{
@@ -679,7 +700,28 @@ namespace NMib::NProcess::NPlatform
 				if (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty())
 					WorkingDirectory = fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
 
-				ParametersList.f_Insert(ProgramToLaunch.f_GetStrUniqueWritable());
+				if (bNeedsTwoPhaseSpawn)
+					ProgramToLaunch = SpawnHelperExecutable;
+
+#ifdef DPlatformFamily_macOS
+				if (RunAsUser != uid_t(-1) && RunAsUser != uid_t(0) && mp_LastLaunchOptions.m_bLaunchInUserSession)
+				{
+					UserIDForLaunch = NStr::CStr::fs_ToStr(RunAsUser);
+
+					ProgramToLaunchCopy = ProgramToLaunch;
+					ProgramToLaunch = "/bin/launchctl";
+
+					ParametersList.f_Insert((char *)"/bin/launchctl");
+					ParametersList.f_Insert((char *)"asuser");
+					ParametersList.f_Insert(UserIDForLaunch.f_GetStrUniqueWritable());
+					ParametersList.f_Insert(ProgramToLaunchCopy.f_GetStrUniqueWritable());
+				}
+				else
+#endif
+				{
+					ParametersList.f_Insert(ProgramToLaunchNoHelper.f_GetStrUniqueWritable());
+				}
+
 				if (bNeedsTwoPhaseSpawn)
 					ParametersList.f_Insert(Parameters.f_Insert("--malterlib-launch").f_GetStrUniqueWritable());
 			}
@@ -740,7 +782,7 @@ namespace NMib::NProcess::NPlatform
 				if (ChrootLaunchHelper)
 					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Executable={}"_f << ChrootLaunchHelper).f_GetStrUniqueWritable());
 				else
-					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Executable={}"_f << ProgramToLaunch).f_GetStrUniqueWritable());
+					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Executable={}"_f << ProgramToLaunchNoHelper).f_GetStrUniqueWritable());
 
 				if (Chroot.f_IsEmpty() && !WorkingDirectory.f_IsEmpty() && WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory())
 					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_WorkingDirectory={}"_f << WorkingDirectory).f_GetStrUniqueWritable());
@@ -788,15 +830,11 @@ namespace NMib::NProcess::NPlatform
 					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_Limits={}"_f << Limits).f_GetStrUniqueWritable());
 
 				// Group needs to be set first as permissions to change group and user will be lost after setting user
-				if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
-					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetGid={}"_f << uint64(getegid())).f_GetStrUniqueWritable());
-				else if (RunAsGroup != gid_t(-1))
+				if (RunAsGroup != gid_t(-1))
 					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetGid={}"_f << uint64(RunAsGroup)).f_GetStrUniqueWritable());
 
 				// User needs to be last command as other commands might rely on permissions that are lost when changing user
-				if (mp_LastLaunchOptions.m_bMakeEffectiveUserReal)
-					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetUid={}"_f << uint64(geteuid())).f_GetStrUniqueWritable());
-				else if (RunAsUser != uid_t(-1))
+				if (RunAsUser != uid_t(-1))
 					EnvList.f_Insert(Env.f_Insert("MalterlibLaunch_SetUid={}"_f << uint64(RunAsUser)).f_GetStrUniqueWritable());
 
 				EnvList.f_Insert(Env.f_Insert("MalterlibLaunchEnd=true").f_GetStrUniqueWritable());
@@ -850,16 +888,39 @@ namespace NMib::NProcess::NPlatform
 					if (bCanSpawnChdir && !WorkingDirectory.f_IsEmpty())
 					{
 #ifdef DPlatformFamily_Linux
-						fCallPosixSpawnApi(*NLocal::g_f_posix_spawn_file_actions_addchdir_np, "posix_spawn_file_actions_addchdir_np", WorkingDirectory.f_GetStr(), &SpawnFileActions, WorkingDirectory.f_GetStr());
+						fCallPosixSpawnApi
+							(
+								*NLocal::g_f_posix_spawn_file_actions_addchdir_np
+								, "posix_spawn_file_actions_addchdir_np"
+								, WorkingDirectory.f_GetStr()
+								, &SpawnFileActions
+								, WorkingDirectory.f_GetStr()
+							)
+						;
 #elifdef DPlatformFamily_macOS
 						if (__builtin_available(macOS 10.15, *))
 							DCallPosixSpawnApi(posix_spawn_file_actions_addchdir_np, "", &SpawnFileActions, WorkingDirectory.f_GetStr());
 #endif
 					}
 
-
 					posix_spawnattr_t SpawnAttributes;
 					DCallPosixSpawnApi(posix_spawnattr_init, "", &SpawnAttributes);
+
+					if (!bNeedsTwoPhaseSpawn && bCanSpawnGID && RunAsGroup != uid_t(-1))
+					{
+#ifdef DPlatformFamily_macOS
+						if (__builtin_available(macOS 10.15, *))
+							DCallPosixSpawnApi(posix_spawnattr_set_gid_np, "", &SpawnAttributes, RunAsGroup);
+#endif
+					}
+
+					if (!bNeedsTwoPhaseSpawn && bCanSpawnUID && RunAsUser != uid_t(-1))
+					{
+#ifdef DPlatformFamily_macOS
+						if (__builtin_available(macOS 10.15, *))
+							DCallPosixSpawnApi(posix_spawnattr_set_uid_np, "", &SpawnAttributes, RunAsUser);
+#endif
+					}
 
 					auto Cleanup2 = g_OnScopeExit / [&]
 						{
@@ -934,9 +995,6 @@ namespace NMib::NProcess::NPlatform
 						DCallPosixSpawnApi(posix_spawnattr_setflags, "", &SpawnAttributes, NewFlags);
 
 					auto pExecutable = ProgramToLaunch.f_GetStr();
-					if (bNeedsTwoPhaseSpawn)
-						pExecutable = SpawnHelperExecutable.f_GetStr();
-
 
 					pid_t Pid = -1;
 					{
@@ -1079,9 +1137,7 @@ namespace NMib::NProcess::NPlatform
 						}
 
 						// Group needs to be set first as permissions to change group and user will be lost after setting user
-						if (mp_LastLaunchOptions.m_bMakeEffectiveGroupReal)
-							setgid(getegid());
-						else if (RunAsGroup != gid_t(-1))
+						if (!bNeedsTwoPhaseSpawn && RunAsGroup != gid_t(-1))
 						{
 							if (setgid(RunAsGroup))
 							{
@@ -1091,9 +1147,7 @@ namespace NMib::NProcess::NPlatform
 							}
 						}
 
-						if (mp_LastLaunchOptions.m_bMakeEffectiveUserReal)
-							setuid(geteuid());
-						else if (RunAsUser != uid_t(-1))
+						if (!bNeedsTwoPhaseSpawn && RunAsUser != uid_t(-1))
 						{
 							if (setuid(RunAsUser))
 							{
@@ -1699,7 +1753,7 @@ namespace NMib::NProcess::NPlatform
 			if (!_pProcess)
 				m_ExitTime = TimeSinceStart;
 		}
-//				if (mp_LastLaunchOptions.m_bAllowLaunchedInForground && _pProcess)
+//				if (mp_LastLaunchOptions.m_bAllowLaunchedInForeground && _pProcess)
 //					AllowSetForegroundWindow(GetProcessId(_pProcess));
 		if (mp_LastLaunchOptions.m_fOnStateChange)
 		{

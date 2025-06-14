@@ -153,29 +153,30 @@ namespace NMib::NProcess
 
 		NContainer::TCMap<EProcessLimit, CProcessLimit> m_Limits;
 
-		EProcessLaunchType m_LaunchType;
+		EProcessLaunchType m_LaunchType = EProcessLaunchType_Executable;
 
-		EExecutionPriority m_LaunchPriority;
+		EExecutionPriority m_LaunchPriority = EExecutionPriority_Default;
 
-		uint32 m_bMergeEnvironment:1;
-		uint32 m_bEnableStdRedirection:1;
-		uint32 m_bThreaded:1;
-		uint32 m_bSeparateStdErr:1;
-		uint32 m_bSandboxed:1;
-		uint32 m_bCopyRootToSandbox:1;
-		uint32 m_bShowLaunched:1;
-		uint32 m_bAllowLaunchedInForground:1;
-		uint32 m_bAllowExecutableLocate:1;
-		uint32 m_bDisplayBusyCursor:1;
-		uint32 m_bStdOutPID:1;
-		uint32 m_bMakeEffectiveUserReal:1;
-		uint32 m_bMakeEffectiveGroupReal:1;
-		uint32 m_bCreateNewProcessGroup:1;
-		uint32 m_bForceFork:1;
+		uint32 m_bMergeEnvironment:1 = true;
+		uint32 m_bEnableStdRedirection:1 = true;
+		uint32 m_bThreaded:1 = true;
+		uint32 m_bSeparateStdErr:1 = true;
+		uint32 m_bSandboxed:1 = false;
+		uint32 m_bCopyRootToSandbox:1 = true;
+		uint32 m_bShowLaunched:1 = true;
+		uint32 m_bAllowLaunchedInForeground:1 = true;
+		uint32 m_bAllowExecutableLocate:1 = false;
+		uint32 m_bDisplayBusyCursor:1 = false;
+		uint32 m_bStdOutPID:1 = false;
+		uint32 m_bMakeEffectiveUserReal:1 = false;
+		uint32 m_bMakeEffectiveGroupReal:1 = false;
+		uint32 m_bCreateNewProcessGroup:1 = false;
+		uint32 m_bForceFork:1 = false;
+		uint32 m_bLaunchInUserSession:1 = true; // Together with m_RunAsUser on macOS this will launch through "launchctl asuser" to provide the correct bootstrap namespace for things like XPC
 
-		fp32 m_CPUUsage;		// Percentage of available processing power to use.
+		fp32 m_CPUUsage = 0.0f;		// Percentage of available processing power to use.
 
-		EProcessLaunchElevation m_Elevation;
+		EProcessLaunchElevation m_Elevation = EProcessLaunchElevation_None;
 		NStr::CStr m_RunAsUser;		// Only supported on unix and when running as root
 		NStr::CStrSecure m_RunAsUserPassword; // Only used for launches on Windows
 		NStr::CStr m_RunAsGroup;	// Only supported on unix and when running as root
@@ -234,7 +235,7 @@ namespace NMib::NProcess
 
 		enum : uint32
 		{
-			EProtocolVersion_Current = 0x107
+			EProtocolVersion_Current = 0x108
 		};
 
 		template <typename tf_CStream>
@@ -270,7 +271,7 @@ namespace NMib::NProcess
 			_Stream << Temp;
 			Temp = m_bShowLaunched;
 			_Stream << Temp;
-			Temp = m_bAllowLaunchedInForground;
+			Temp = m_bAllowLaunchedInForeground;
 			_Stream << Temp;
 			Temp = m_bAllowExecutableLocate;
 			_Stream << Temp;
@@ -285,6 +286,8 @@ namespace NMib::NProcess
 			Temp = m_bCreateNewProcessGroup;
 			_Stream << Temp;
 			Temp = m_bForceFork;
+			_Stream << Temp;
+			Temp = m_bLaunchInUserSession;
 			_Stream << Temp;
 
 			_Stream << m_CPUUsage;
@@ -335,7 +338,7 @@ namespace NMib::NProcess
 			_Stream >> Temp;
 			m_bShowLaunched = Temp;
 			_Stream >> Temp;
-			m_bAllowLaunchedInForground = Temp;
+			m_bAllowLaunchedInForeground = Temp;
 			_Stream >> Temp;
 			m_bAllowExecutableLocate = Temp;
 			_Stream >> Temp;
@@ -359,6 +362,12 @@ namespace NMib::NProcess
 			{
 				_Stream >> Temp;
 				m_bForceFork = Temp;
+			}
+
+			if (Version >= 0x108)
+			{
+				_Stream >> Temp;
+				m_bLaunchInUserSession = Temp;
 			}
 
 			_Stream >> m_CPUUsage;

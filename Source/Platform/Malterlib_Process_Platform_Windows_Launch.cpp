@@ -2098,7 +2098,7 @@ namespace NMib::NProcess::NPlatform
 				if (!_pProcess)
 					m_ExitTime = TimeSinceStart;
 			}
-			if (mp_LastLaunchOptions.m_bAllowLaunchedInForground && _pProcess)
+			if (mp_LastLaunchOptions.m_bAllowLaunchedInForeground && _pProcess)
 				AllowSetForegroundWindow(GetProcessId(_pProcess));
 			if (mp_LastLaunchOptions.m_fOnStateChange)
 			{
