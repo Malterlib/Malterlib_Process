@@ -5,6 +5,9 @@
 #include "../Malterlib_Process_Platform.h"
 #include <Windows.h>
 #include <Mib/Core/PlatformSpecific/WindowsOptional>
+#include <Mib/Core/PlatformSpecific/WindowsError>
+
+using namespace NMib::NStr;
 
 namespace NMib::NProcess::NPlatform
 {
@@ -186,7 +189,15 @@ namespace NMib::NProcess::NPlatform
 							}
 						}
 						else
+						{
+							DWORD dwError = GetLastError();
+
+							if (dwError == ERROR_BROKEN_PIPE || dwError == ERROR_NO_DATA || dwError == ERROR_HANDLE_EOF)
+								fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
+							else
+								fp_SendToReaders(EStdInReaderOutputType_GeneralError, "PeekNamedPipe failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwError));
 							bRet = false;
+						}
 						if (!nBytesRead)
 							break;
 					}
@@ -288,16 +299,28 @@ namespace NMib::NProcess::NPlatform
 
 						DWORD nBytesRead = 0;
 						if (!ReadFile(mp_hStdInFile, mp_StdInReadBuffer.f_GetArray(), 4096, &nBytesRead, nullptr))
-							bRet = false;
-
-						if (nBytesRead)
-							fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
-						else if (bRet)
 						{
-							// Does nBytesRead == 0 mean we have found EOF?
-							fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
+							DWORD dwError = GetLastError();
+
+							if (dwError == ERROR_BROKEN_PIPE || dwError == ERROR_NO_DATA || dwError == ERROR_HANDLE_EOF)
+								fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
+							else
+								fp_SendToReaders(EStdInReaderOutputType_GeneralError, "ReadFile failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwError));
 							bRet = false;
 						}
+						else
+						{
+
+							if (nBytesRead)
+								fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
+							else
+							{
+								// nBytesRead == 0 also means EOF
+								fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
+								bRet = false;
+							}
+						}
+
 						if (nBytesRead != 4096)
 							break;
 					}
