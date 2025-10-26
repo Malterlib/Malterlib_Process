@@ -372,7 +372,7 @@ namespace NMib::NProcess::NPlatform
 			};
 
 			NThread::CMutual mp_PipeLock;
-			
+
 			HANDLE mp_hStdinWrite;	// write end of child's stdin pipe
 			HANDLE mp_hStdoutRead;	// read end of child's stdout pipe
 			HANDLE mp_hStderrRead;	// read end of child's stderr pipe
@@ -1037,7 +1037,7 @@ namespace NMib::NProcess::NPlatform
 										if (Elevation != NMib::NProcess::EProcessElevation_IsNotElevated)
 											continue;
 										NStr::CStr Name = fg_GetProcessName(pThisProcess);
-										if 
+										if
 										(
 											(i == 0 && Name.f_CmpNoCase("explorer.exe") == 0)
 											|| (i == 1 && Name.f_CmpNoCase("LogonUI.exe") == 0)
@@ -1996,7 +1996,16 @@ namespace NMib::NProcess::NPlatform
 				else if (Object == WAIT_OBJECT_0 || mp_hChildProcess == nullptr)
 				{
 					bExited = true;
-					mp_CleanupLoadedProfiles.f_Clear();
+					if (!mp_CleanupLoadedProfiles.f_IsEmpty())
+					{
+						if (NMib::NPlatform::fg_IsShuttingDown())
+						{
+							// When shutting down unloading a profile will hang for several minutes, instead leak the profiles
+							for (auto &pProfile : mp_CleanupLoadedProfiles)
+								pProfile->f_Clear();
+						}
+						mp_CleanupLoadedProfiles.f_Clear();
+					}
 					break;
 				}
 				else if (Object == WAIT_OBJECT_0 + 1)
@@ -2048,9 +2057,12 @@ namespace NMib::NProcess::NPlatform
 					}
 					if (!bNeedWait)
 					{
-						for (auto &pProfile : mp_CleanupLoadedProfiles)
-							pProfile->f_Clear(); // Process still running, let the profile leak
-						mp_CleanupLoadedProfiles.f_Clear();
+						if (!mp_CleanupLoadedProfiles.f_IsEmpty())
+						{
+							for (auto &pProfile : mp_CleanupLoadedProfiles)
+								pProfile->f_Clear(); // Process still running, let the profile leak
+							mp_CleanupLoadedProfiles.f_Clear();
+						}
 						break;
 					}
 				}
@@ -2076,15 +2088,14 @@ namespace NMib::NProcess::NPlatform
 				{
 					DWORD ExitCode = 255;
 					if (mp_hChildProcess)
-					{
 						GetExitCodeProcess(mp_hChildProcess, &ExitCode);
-
-					}
 					fp_OnExit(ExitCode);
 				}
 			}
+
 			if (bExited)
 				fp_ClearSandbox();
+
 			fp_Close();
 			return 0;
 		}
