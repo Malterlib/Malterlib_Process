@@ -1618,7 +1618,7 @@ namespace NMib::NProcess::NPlatform
 							= NStr::CWStr::CFormat(str_utf16("Local\\AnonMalterlibJobObject.{nfh,sf0,sj8}.{nfh,sf0,sj8}.{nfh,sf0,sj8}.{nfh,sf0,sj16}"))
 							<< GetCurrentProcessId()
 							<< ++g_PipeSerialNumber
-							<< NMisc::fg_GetRandomUnsigned()
+							<< NMisc::fg_GetSecureRandomUnsigned()
 							<< &g_PipeSerialNumber
 						;
 
@@ -2269,7 +2269,7 @@ namespace NMib::NProcess::NPlatform
 				= NStr::CWStr::CFormat(str_utf16("\\\\.\\Pipe\\AnonOverlapped.{nfh,sf0,sj8}.{nfh,sf0,sj8}.{nfh,sf0,sj8}.{nfh,sf0,sj16}"))
 				<< GetCurrentProcessId()
 				<< ++g_PipeSerialNumber
-				<< NMisc::fg_GetRandomUnsigned()
+				<< NMisc::fg_GetSecureRandomUnsigned()
 				<< &g_PipeSerialNumber
 			;
 
@@ -3078,4 +3078,3 @@ NMib::NProcess::EProcessElevation NMib::NProcess::NPlatform::fg_Process_GetEleva
 {
 	return fg_Process_GetElevation(::GetCurrentProcess());
 }
-
