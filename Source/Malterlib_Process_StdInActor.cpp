@@ -19,7 +19,7 @@ namespace NMib::NProcess
 				: m_StdInReader(fg_Move(_Params))
 			{
 			}
-			
+
 			CStdInReader m_StdInReader;
 		};
 
@@ -169,12 +169,12 @@ namespace NMib::NProcess
 
 		NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> m_StdOutActor;
 	};
-	
+
 	CStdInActor::CStdInActor()
 		: mp_pInternal(fg_Construct(this))
 	{
 	}
-	
+
 	CStdInActor::~CStdInActor()
 	{
 	}
@@ -763,11 +763,14 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 
 		auto &Entry = Internal.m_ReadEntries.f_Insert();
+		auto Future = Entry.m_Promise.f_Future();
+
 		Entry.m_EntryInfo = CInternal::CLine{};
+
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
-		co_return co_await Entry.m_Promise.f_Future();
+		co_return co_await fg_Move(Future);
 	}
 
 	NConcurrency::TCFuture<NContainer::CIOByteVector> CStdInActor::f_ReadBinary()
@@ -775,10 +778,12 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 
 		auto &Entry = Internal.m_ReadEntriesBinary.f_Insert();
+		auto Future = Entry.m_Promise.f_Future();
+
 		Internal.f_RegisterForReadBinary();
 		Internal.f_HandleBufferedStdInBinary();
 
-		co_return co_await Entry.m_Promise.f_Future();
+		co_return co_await fg_Move(Future);
 	}
 
 	NConcurrency::TCFuture<NStr::CStrIO> CStdInActor::f_ReadPrompt(CStdInReaderPromptParams _Params)
@@ -786,10 +791,13 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 
 		auto &Entry = Internal.m_ReadEntries.f_Insert();
+		auto Future = Entry.m_Promise.f_Future();
+
 		Entry.m_EntryInfo = CInternal::CPrompt{_Params, Internal.m_StdOutActor};
+
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
 
-		co_return co_await Entry.m_Promise.f_Future();
+		co_return co_await fg_Move(Future);
 	}
 }
