@@ -209,7 +209,11 @@ namespace NMib::NProcess
 		while (true)
 		{
 			if (m_ReadEntries.f_IsEmpty())
+			{
+				if (!m_Subscriptions.f_IsEmpty())
+					m_BufferedStdIn.f_Clear();
 				return;
+			}
 
 			auto &ReadEntry = m_ReadEntries.f_GetFirst();
 
