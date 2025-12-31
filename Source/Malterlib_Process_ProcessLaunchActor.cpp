@@ -2,6 +2,7 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
+#include <Mib/Concurrency/AsyncDestroy>
 #include <Mib/Concurrency/ActorFunctorWeak>
 #include <Mib/Concurrency/ActorSubscription>
 #include <Mib/Concurrency/ActorSequencerActor>
@@ -941,8 +942,10 @@ namespace NMib::NProcess
 
 	auto DMibWorkaroundUBSanSectionErrors CProcessLaunchActor::fs_LaunchSimple(CSimpleLaunch _SimpleLaunch) -> NConcurrency::TCFuture<CSimpleLaunchResult>
 	{
-		NConcurrency::TCActor<CProcessLaunchActor> LaunchActor;
-		LaunchActor = fg_Construct();
+		NConcurrency::TCActor<CProcessLaunchActor> LaunchActor{fg_Construct()};
+
+		auto Destroy = co_await fg_AsyncDestroy(LaunchActor);
+
 		co_return co_await LaunchActor(&CProcessLaunchActor::f_LaunchSimple, fg_Move(_SimpleLaunch));
 	}
 }
