@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -15,12 +15,14 @@ namespace NMib::NProcess
 		enum ELogFlag
 		{
 			ELogFlag_None = 0
-			, ELogFlag_Error = DMibBit(0)
+			, ELogFlag_OtherError = DMibBit(0)
 			, ELogFlag_StdOut = DMibBit(1)
 			, ELogFlag_StdErr = DMibBit(2)
 			, ELogFlag_Info = DMibBit(3)
 			, ELogFlag_AdditionallyOutputToStdErr = DMibBit(4)
 			, ELogFlag_AdditionallyOutputToStdErrDirectStdErr = DMibBit(5)
+			, ELogFlag_ErrorExit = DMibBit(6)
+			, ELogFlag_Error = ELogFlag_OtherError | ELogFlag_ErrorExit
 			, ELogFlag_All = ELogFlag_Error | ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Info
 		};
 
@@ -117,5 +119,5 @@ namespace NMib::NProcess
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NProcess;	
+	using namespace NMib::NProcess;
 #endif

@@ -165,17 +165,17 @@ namespace NMib::NProcess
 			co_return DMibErrorInstance("On state change cannot be specified for simple launch");
 
 		CStr LogName;
-		if (_SimpleLaunch.m_ToLog & ELogFlag_Error)
+		if (_SimpleLaunch.m_ToLog & ELogFlag_OtherError)
 		{
 			if (_SimpleLaunch.m_LogName.f_IsEmpty())
 				LogName = NFile::CFile::fs_GetFileNoExt(_SimpleLaunch.m_Params.m_Target);
 			else
 				LogName = _SimpleLaunch.m_LogName;
 		}
-		
+
 		auto fLogError = [ToLog = _SimpleLaunch.m_ToLog, LogName](CStr _Error)
 			{
-				if (ToLog & ELogFlag_Error)
+				if (ToLog & ELogFlag_OtherError)
 				{
 					if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 					{
@@ -440,7 +440,7 @@ namespace NMib::NProcess
 							}
 						default:
 							{
-								if (ToLog & ELogFlag_Error)
+								if (ToLog & ELogFlag_OtherError)
 								{
 									if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 									{
@@ -542,7 +542,7 @@ namespace NMib::NProcess
 										}
 										else
 										{
-											if (pState->m_ToLog & ELogFlag_Error)
+											if (pState->m_ToLog & ELogFlag_ErrorExit)
 											{
 												auto LogScope = pState->f_LogScope();
 												DMibLog(Error, "Launch exited with error code: {}", ExitCode);
@@ -593,7 +593,7 @@ namespace NMib::NProcess
 								case NProcess::EProcessLaunchState_LaunchFailed:
 									{
 #if (DMibSysLogSeverities) != 0
-										if (pState->m_ToLog & ELogFlag_Error)
+										if (pState->m_ToLog & ELogFlag_OtherError)
 										{
 											auto LogScope = pState->f_LogScope();
 											DMibLog(Error, "Launch failed: {}", State.f_Get<EProcessLaunchState_LaunchFailed>());
@@ -670,7 +670,7 @@ namespace NMib::NProcess
 		{
 			(void)_Exception;
 #if (DMibSysLogSeverities) != 0
-			if (pState->m_ToLog & ELogFlag_Error)
+			if (pState->m_ToLog & ELogFlag_OtherError)
 			{
 				auto LogScope = pState->f_LogScope();
 				DMibLog(Error, "Exception launching: {}", _Exception.f_GetErrorStr());
@@ -802,7 +802,7 @@ namespace NMib::NProcess
 				Promise.f_SetCurrentException();
 			}
 		;
-		
+
 		co_return co_await fg_Move(Promise.m_Future);
 	}
 
