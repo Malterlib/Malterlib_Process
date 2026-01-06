@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 using namespace NMib;
@@ -97,7 +97,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerName()
 	NMib::NStr::CStr HostnameStr = Hostname;
 
 	NMib::NStr::CStr ComputerName = fg_GetStrSep(HostnameStr, ".");
-	
+
 	return ComputerName;
 }
 
@@ -108,7 +108,7 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerAddress()
 	NMib::NStr::CStr ComputerName = fg_GetStrSep(HostnameStr, ".");
 	if (HostnameStr == "local")
 		return ComputerName + "." + HostnameStr;
-	
+
 	return ComputerName;
 }
 
@@ -185,14 +185,14 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
     sigaddset(&WaitSet, SIGINT);
 
     pthread_sigmask(SIG_BLOCK, &WaitSet, nullptr);
-	
+
 	for (;;)
 	{
 		errno = 0;
 
 		int Signal = 0;
 		sigwait(&WaitSet, &Signal);
-		
+
 		if (errno == EINTR)
 			continue;
 		else if (errno != 0)

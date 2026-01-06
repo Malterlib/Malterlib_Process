@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -75,7 +75,7 @@ namespace NMib::NProcess::NPlatform
 
 					dwSidSize = dwSdSizeNeeded;
 
-					if 
+					if
 						(
 							!GetUserObjectSecurity
 							(

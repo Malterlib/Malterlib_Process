@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -15,7 +15,7 @@ extern "C"
 		NMib::NProcess::CProcessLaunchParams Params;
 		Params.m_Target = NMib::NStr::CStr(_pProgram);
 		Params.m_Parameters = NMib::NStr::CStr(_pParams);
-		
+
 		Params.m_fOnStateChange
 			= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 			{
@@ -41,7 +41,7 @@ extern "C"
 		{
 			NMib::NProcess::CProcessLaunch Launcher(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 		}
-		
+
 		return ExitCode;
 	}
 }

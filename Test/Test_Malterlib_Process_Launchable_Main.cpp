@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -46,7 +46,7 @@ int calling_convention_c main(int _ArgC, char ** _pArgV)
 	{
 		return 0;
 	}
-	
+
 	for (auto & Arg : CommandLineArgs)
 	{
 		DMibTrace("Arg: {}\n", Arg);
@@ -82,7 +82,7 @@ int calling_convention_c main(int _ArgC, char ** _pArgV)
 			return 0;
 		}
 	}
-	
+
 	CommandLineArgs.f_Clear();
 
 #ifdef DPlatformFamily_macOS
@@ -102,8 +102,8 @@ int calling_convention_c main(int _ArgC, char ** _pArgV)
 DMibAppNoClass;
 
 #ifdef DPlatformFamily_Windows
-int __stdcall wWinMain(struct HINSTANCE__ * hInstance, struct HINSTANCE__ * hPrevInstance, wchar_t *lpCmdLine,int nShowCmd){;} 
-int __cdecl wmain(int argc, wchar_t *argv[], wchar_t *envp[]){} 
-//int __cdecl main(int argc, wchar_t *argv[]){} 
+int __stdcall wWinMain(struct HINSTANCE__ * hInstance, struct HINSTANCE__ * hPrevInstance, wchar_t *lpCmdLine,int nShowCmd){;}
+int __cdecl wmain(int argc, wchar_t *argv[], wchar_t *envp[]){}
+//int __cdecl main(int argc, wchar_t *argv[]){}
 int __stdcall WinMain(struct HINSTANCE__ * hInstance, struct HINSTANCE__ * hPrevInstance, char *lpCmdLine,int nShowCmd){;}
 #endif

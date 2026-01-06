@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #import "Test_Malterlib_Process_Launchable_EventHandler.h"
@@ -7,7 +7,7 @@
 
 @implementation CMacOSEventHandler
 
-- (void)getUrl:(NSAppleEventDescriptor *)event 
+- (void)getUrl:(NSAppleEventDescriptor *)event
 	withReplyEvent:(NSAppleEventDescriptor *)replyEvent
 {
 	// Get the URL
@@ -20,7 +20,7 @@
 		m_pfOnOpenURL(URL);
 
 		[[NSApplication sharedApplication] stop: NSApp];
-	}	
+	}
 }
 
 -(void)setOnOpenURL:(FOnOpenURL *)_pfHandler
@@ -38,17 +38,17 @@ void fg_CreateMacOSEventHandler(FOnOpenURL *_pfOnOpenURL)
 	[g_pMacOSEventHandler setOnOpenURL: _pfOnOpenURL];
 
 	NSAppleEventManager *pEventManager = [NSAppleEventManager sharedAppleEventManager];
-	[pEventManager 
+	[pEventManager
 		setEventHandler:g_pMacOSEventHandler
-		andSelector:@selector(getUrl:withReplyEvent:) 
-		forEventClass:kInternetEventClass 
+		andSelector:@selector(getUrl:withReplyEvent:)
+		forEventClass:kInternetEventClass
 		andEventID:kAEGetURL
-	];	
+	];
 
 	[pEventManager
 		setEventHandler:g_pMacOSEventHandler
-		andSelector:@selector(getUrl:withReplyEvent:) 
-		forEventClass:'WWW!' 
+		andSelector:@selector(getUrl:withReplyEvent:)
+		forEventClass:'WWW!'
 		andEventID:'OURL'
 	];
 }

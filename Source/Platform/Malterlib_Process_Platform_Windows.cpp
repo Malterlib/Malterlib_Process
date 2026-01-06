@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -97,7 +97,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 	_VersionInfo.m_Revision = 0;
 	_VersionInfo.m_MinorRevision = 0;
 
-	do 
+	do
 	{
 		DWORD Size = GetFileVersionInfoSizeW(File, nullptr);
 		if (Size == 0)
@@ -209,7 +209,7 @@ NMib::EExecutionPriority NMib::NProcess::NPlatform::fg_Process_GetPriority()
 NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum)
 {
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
-	
+
 	CProcessEntry RootProcess;
 	HANDLE hProcessSnap;
 	PROCESSENTRY32 ProcessEntry;
@@ -225,7 +225,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			do
 			{
 				auto & NewProcess = Ret.f_Insert();
-				
+
 				NewProcess.m_ProcessID = ProcessEntry.th32ProcessID;
 				if (_ToGet & EProcessInfoFlag_ParentProcessID)
 					NewProcess.m_ParentProcessID = ProcessEntry.th32ParentProcessID;
@@ -340,7 +340,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 
 				if (pThisProcess)
 					CloseHandle(pThisProcess);
-			} 
+			}
 			while (Process32Next(hProcessSnap, &ProcessEntry))
 				;
 		}
@@ -348,13 +348,13 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 		CloseHandle(hProcessSnap);
 	}
 	return Ret;
-}		
+}
 
 NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetUserName()
 {
 	uint32 Size = 0;
 	::GetUserNameW(nullptr, &Size);
-	
+
 	++Size;
 	NMib::NStr::CWStr Return;
 	::GetUserNameW(Return.f_GetStr(Size), &Size);
@@ -371,7 +371,7 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerName()
 {
 	uint32 Size = 0;
 	::GetComputerNameW(nullptr, &Size);
-	
+
 	++Size;
 	NMib::NStr::CWStr Return;
 	::GetComputerNameW(Return.f_GetStr(Size), &Size);
@@ -465,18 +465,18 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 	FILETIME ExitTime1;
 	FILETIME KernelTime1;
 	FILETIME UserTime1;
-	
+
 	if (GetProcessTimes(_pProcess, &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
 	{
 		NTime::CTime CreateTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(CreateTime1);
 		NTime::CTimeSpan KernelTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(KernelTime1);
 		NTime::CTimeSpan UserTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTimeSpan(UserTime1);
 		NTime::CTimeSpan RunTime = NTime::CTime::fs_NowUTC() - CreateTime;
-		
+
 		fp64 KernelSeconds = KernelTime.f_GetSecondsFraction();
 		fp64 UserSeconds = UserTime.f_GetSecondsFraction();
 		fp64 RunSeconds = RunTime.f_GetSecondsFraction();
-		
+
 		_Stats.m_Statistics("CPU utilization Total", CProcessStat(EProcessStatUnit_Fraction, (KernelSeconds + UserSeconds) / RunSeconds));
 		_Stats.m_Statistics("CPU utilization User", CProcessStat(EProcessStatUnit_Fraction, UserSeconds / RunSeconds));
 		_Stats.m_Statistics("CPU utilization Kernel", CProcessStat(EProcessStatUnit_Fraction, KernelSeconds / RunSeconds));
@@ -534,7 +534,7 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 		return "";
 
 	if (VersionInfo.dwMajorVersion == 6)
-	{			
+	{
 		if (VersionInfo.wProductType == VER_NT_WORKSTATION)
 		{
 			if (VersionInfo.dwMinorVersion == 0)

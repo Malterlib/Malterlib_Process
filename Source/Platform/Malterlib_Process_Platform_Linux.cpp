@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -26,25 +26,25 @@ bool NMib::NProcess::NPlatform::fg_Process_IsRunning(mint _ProcessID)
 			return false;
 
 		auto FileData = NMib::NPlatform::fg_ReadProcFSNonTracked(FileName);
-		
+
 		NMib::NStr::CStrPtr Data;
 		Data.f_SetConstPtr(FileData.f_GetArray(), FileData.f_GetLen());
-		
+
 		aint nParsed;
 		int32 pid = 0;
 		NMib::NStr::CStr comm;
 		NMib::NStr::CStr state;
-		
+
 		(
-			NMib::NStr::CStrPtr::CParse("{} ({}) {} ") 
-			>> pid 
-			>> comm 
-			>> state 
+			NMib::NStr::CStrPtr::CParse("{} ({}) {} ")
+			>> pid
+			>> comm
+			>> state
 		).f_Parse(Data, nParsed);
-		
+
 		if (nParsed != 3)
 			return false;
-		
+
 		if (state == "Z")
 			return false;
 		return true;
@@ -52,7 +52,7 @@ bool NMib::NProcess::NPlatform::fg_Process_IsRunning(mint _ProcessID)
 	catch (NException::CException const &)
 	{
 	}
-	
+
 	return false;
 }
 
@@ -62,7 +62,7 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int
 	int Major, Minor, Fix;
 	EOperatingSystemArch Arch;
 	NSys::fg_System_GetOperatingSystemVersion(Major, Minor, Fix, Arch);
-	
+
 	if (Major > _MajorMax || (Major == _MajorMax && Minor > _MinorMax))
 	{
 		Major = _MajorMax;
@@ -99,9 +99,9 @@ namespace
 	NMib::NContainer::TCVector<CProcInfo> fg_Linux_Process_GetAllRunning()
 	{
 		NMib::NContainer::TCVector<CProcInfo> Return;
-		
+
 		auto Files = NMib::NFile::CFile::fs_FindFiles("/proc/*", NMib::NFile::EFileAttrib_Directory, false, false);
-		
+
 		for (auto iFile = Files.f_GetIterator(); iFile; ++iFile)
 		{
 			int32 ProcessID = NMib::NStr::CStr(NMib::NFile::CFile::fs_GetFile(*iFile)).f_ToIntExact(int32(-1));
@@ -113,7 +113,7 @@ namespace
 
 					NMib::NStr::CStrPtr Data;
 					Data.f_SetConstPtr(FileData.f_GetArray(), FileData.f_GetLen());
-					
+
 					aint nParsed;
 					int32 pid = 0;
 					NMib::NStr::CStr comm;
@@ -137,12 +137,12 @@ namespace
 					int64 num_threads = 0;
 					int64 itrealvalue = 0;
 					uint64 starttime = 0;
-					
+
 					(
-						NMib::NStr::CStrPtr::CParse("{} ({}) {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} ") 
-						>> pid 
-						>> comm 
-						>> state 
+						NMib::NStr::CStrPtr::CParse("{} ({}) {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} ")
+						>> pid
+						>> comm
+						>> state
 						>> ppid
 						>> pgrp
 						>> session
@@ -163,7 +163,7 @@ namespace
 						>> itrealvalue
 						>> starttime
 					).f_Parse(Data, nParsed);
-					
+
 					if (nParsed == 22)
 					{
 						auto &New = Return.f_Insert();
@@ -171,33 +171,33 @@ namespace
 						New.m_ParentProcessID = ppid;
 						New.m_StartTime = starttime;
 						New.m_Name = NMib::fg_Move(comm);
-					}						
-					
+					}
+
 				}
 				catch (NMib::NException::CException const &)
 				{
 				}
 			}
 		}
-		
-		return Return;			
+
+		return Return;
 	}
 
 	struct CProcessEntry
 	{
 		DMibListLinkDS_Link(CProcessEntry, m_Link);
 		DMibListLinkDS_List(CProcessEntry, m_Link) m_Children;
-		
+
 		NMib::NContainer::TCMap<pid_t, CProcessEntry> m_AllProcesses;
-		
+
 		void *m_pPausedToken = nullptr;
 		bool m_bTriedPause = false;
-		
+
 		pid_t f_GetID() const
 		{
 			return NMib::NContainer::TCMap<pid_t, CProcessEntry>::fs_GetKey(this);
 		}
-		
+
 		void f_MapProcess(pid_t _ID);
 		void f_MapProcessParent(pid_t _ID, pid_t _ParentID);
 		void f_KillTree(NMib::NStr::CStr &_Log, aint _Depth = 0);
@@ -220,9 +220,9 @@ namespace
 	void CProcessEntry::f_MapProcessParent(pid_t _ID, pid_t _ParentID)
 	{
 		CProcessEntry &Entry = m_AllProcesses[_ID];
-		
+
 		CProcessEntry *pParent = m_AllProcesses.f_FindEqual(_ParentID);
-		
+
 		if (!pParent)
 			return;
 
@@ -301,9 +301,9 @@ bool NMib::NProcess::NPlatform::fg_Linux_Process_TerminateTree(pid_t _ProcessID,
 			}
 		}
 	}
-	
+
 	return true;
-}		
+}
 
 NMib::NContainer::TCVector<NMib::NProcess::NPlatform::CPOSIXProcessInfo> NMib::NProcess::NPlatform::fg_Posix_ImpSpecefic_EnumProcesses()
 {
@@ -348,7 +348,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
 
 	NContainer::TCMap<mint, NProcess::CProcessInfo *> OldInfo;
-	
+
 	if (_pOldEnum)
 	{
 		for (auto iOld = _pOldEnum->f_GetIterator(); iOld; ++iOld)
@@ -356,9 +356,9 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			OldInfo[iOld->m_ProcessID] = &*iOld;
 		}
 	}
-	
+
 	NException::CDisableExceptionTraceScope DisableTrace;
-	
+
 	auto Processes = fg_Linux_Process_GetAllRunning();
 	for (auto iProcess = Processes.f_GetIterator(); iProcess; ++iProcess)
 	{
@@ -371,11 +371,11 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 				continue;
 			}
 		}
-		
+
 		auto &New = Ret.f_Insert();
 		New.m_ProcessID = Process.m_ProcessID;
 		New.m_StartTime = Process.m_StartTime;
-		
+
 		if (_ToGet & NProcess::EProcessInfoFlag_ParentProcessID)
 			New.m_ParentProcessID = Process.m_ParentProcessID;
 		if (_ToGet & NProcess::EProcessInfoFlag_FileName)
@@ -443,7 +443,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 		}
 	}
 	return Ret;
-}		
+}
 
 mint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
 {

@@ -1,4 +1,4 @@
-// Copyright © 2016 Hansoft AB 
+// Copyright © 2016 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>

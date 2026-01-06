@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -27,36 +27,36 @@ namespace NMib::NProcess
 
 		m_pStdInReader = fg_Construct(fg_Move(Params));
 	}
-	
+
 	CBlockingStdInReader::~CBlockingStdInReader()
 	{
 		m_pStdInReader.f_Clear();
 	}
-	
+
 	NStr::CStr CBlockingStdInReader::f_TryReadLine()
 	{
 		{
 			DMibLock(m_Lock);
 			if (!m_Errors.f_IsEmpty())
 				DMibError(m_Errors);
-			
+
 			aint iNewLine = m_Buffer.f_FindChar('\n');
 			if (iNewLine >= 0)
 				return NStr::fg_GetStrLineSep(m_Buffer);
 		}
 		return NStr::CStr();
 	}
-	
+
 	NStr::CStr CBlockingStdInReader::f_ReadLine()
 	{
 		while (true)
 		{
 			{
 				DMibLock(m_Lock);
-				
+
 				if (!m_Errors.f_IsEmpty())
 					DMibError(m_Errors);
-				
+
 				aint iNewLine = m_Buffer.f_FindChar('\n');
 				if (iNewLine >= 0)
 					return NStr::fg_GetStrLineSep(m_Buffer);
@@ -71,7 +71,7 @@ namespace NMib::NProcess
 		bool bAborted = false;
 		bool bCompleted = false;
 		NStr::CUStr Result;
-		
+
 		if (!_Params.m_Prompt.f_IsEmpty())
 			DMibConOutRaw(_Params.m_Prompt);
 
@@ -86,12 +86,12 @@ namespace NMib::NProcess
 				if (!m_Buffer.f_IsEmpty())
 				{
 					auto iUTFChar = m_Buffer.f_GetUnicodeIterator();
-					
+
 					while (iUTFChar && iUTFChar.f_IsWholeCodePoint())
 					{
 						auto NewChar = *iUTFChar;
 						++iUTFChar;
-					
+
 						if (NewChar == '\x1B' || NewChar == '\x3')		// Escape or end of text (ctrl break)
 						{
 							bAborted = true;
@@ -124,7 +124,7 @@ namespace NMib::NProcess
 								DMibConOutRaw("*");
 						}
 					}
-					
+
 					m_Buffer = m_Buffer.f_Extract(iUTFChar.f_GetLastWholeCodePointPos());
 				}
 			}
@@ -148,13 +148,13 @@ namespace NMib::NProcess
 	{
 		m_pStdInReader = NPlatform::fg_Process_StdInReader_Open(fg_Move(_Params));
 	}
-	
+
 	CStdInReader::~CStdInReader()
 	{
 		if (m_pStdInReader)
 			NPlatform::fg_Process_StdInReader_Close(m_pStdInReader);
 	}
-	
+
 	CStdInReader::CStdInReader(CStdInReader &&_Other)
 		: m_pStdInReader(_Other.m_pStdInReader)
 	{

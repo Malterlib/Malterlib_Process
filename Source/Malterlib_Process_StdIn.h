@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -75,7 +75,7 @@ namespace NMib::NProcess
 		~CStdInReader();
 		CStdInReader(CStdInReader &&_Other);
 	};
-	
+
 	class CBlockingStdInReader
 	{
 	public:
@@ -101,5 +101,5 @@ namespace NMib::NProcess
 #include "Malterlib_Process_StdIn.hpp"
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NProcess;	
+	using namespace NMib::NProcess;
 #endif

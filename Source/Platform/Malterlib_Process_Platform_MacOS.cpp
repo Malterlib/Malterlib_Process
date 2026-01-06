@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -8,7 +8,7 @@
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
-#include <errno.h> 
+#include <errno.h>
 #include <signal.h>
 #include <mach/mach.h>
 
@@ -40,15 +40,15 @@ namespace
 	NMib::NContainer::TCVector<kinfo_proc> fg_MacOS_Process_GetAllRunning()
 	{
 		NMib::NContainer::TCVector<kinfo_proc> Return;
-		
+
 		int SysCtlData[4];
-		
+
 		SysCtlData[0] = CTL_KERN;
 		SysCtlData[1] = KERN_PROC;
 		SysCtlData[2] = KERN_PROC_ALL;
 		SysCtlData[3] = 0;
-		
-		while (true) 
+
+		while (true)
 		{
 			size_t Length = 0;
 			int Error = sysctl
@@ -61,14 +61,14 @@ namespace
 					, 0
 				)
 			;
-			if (Error == -1) 
+			if (Error == -1)
 				Error = errno;
-			
-			if (Error == 0) 
+
+			if (Error == 0)
 				Return.f_SetLen(Length / sizeof(kinfo_proc) * 2); // Alloc the current size we need times 2 if new process has already been created
 			else
 				DMibError(NMib::NPlatform::fg_FormatErrno("sysctl (get all processes)", Error));
-			
+
 			Length = Return.f_GetLen() * sizeof(kinfo_proc);
 			Error = sysctl
 				(
@@ -80,27 +80,27 @@ namespace
 					, 0
 				)
 			;
-			
-			if (Error == -1) 
+
+			if (Error == -1)
 				Error = errno;
-			if (Error == 0) 
+			if (Error == 0)
 			{
 				Return.f_SetLen(Length / sizeof(kinfo_proc));
 				break;
-			} 
-			else if (Error != ENOMEM) 
+			}
+			else if (Error != ENOMEM)
 				DMibError(NMib::NPlatform::fg_FormatErrno("sysctl (get all processes)", Error));
 		}
-		
-		return Return;			
+
+		return Return;
 	}
 	struct CProcessEntry
 	{
 		DMibListLinkDS_Link(CProcessEntry, m_Link);
 		DMibListLinkDS_List(CProcessEntry, m_Link) m_Children;
-		
+
 		NMib::NContainer::TCMap<pid_t, CProcessEntry> m_AllProcesses;
-		
+
 		void *m_pPausedToken = nullptr;
 		bool m_bTriedPause = false;
 
@@ -108,7 +108,7 @@ namespace
 		{
 			return NMib::NContainer::TCMap<pid_t, CProcessEntry>::fs_GetKey(this);
 		}
-		
+
 		void f_MapProcess(pid_t _ID);
 		void f_MapProcessParent(pid_t _ID, pid_t _ParentID);
 		void f_KillTree(NMib::NStr::CStr &_Log, aint _Depth = 0);
@@ -131,9 +131,9 @@ namespace
 	void CProcessEntry::f_MapProcessParent(pid_t _ID, pid_t _ParentID)
 	{
 		CProcessEntry &Entry = m_AllProcesses[_ID];
-		
+
 		CProcessEntry *pParent = m_AllProcesses.f_FindEqual(_ParentID);
-		
+
 		if (!pParent)
 			return;
 
@@ -195,7 +195,7 @@ bool NMib::NProcess::NPlatform::fg_MacOS_Process_TerminateTree(pid_t _ProcessID,
 		}
 		for (auto iProcess = RunningProcesses.f_GetIterator(); iProcess; ++iProcess)
 		{
-			if 
+			if
 				(
 					iProcess->kp_proc.p_starttime.tv_sec > ThisStartTime.tv_sec
 					|| (iProcess->kp_proc.p_starttime.tv_sec == ThisStartTime.tv_sec && iProcess->kp_proc.p_starttime.tv_usec >= ThisStartTime.tv_usec)
@@ -217,7 +217,7 @@ bool NMib::NProcess::NPlatform::fg_MacOS_Process_TerminateTree(pid_t _ProcessID,
 			}
 		}
 	}
-	
+
 	return true;
 }
 
@@ -233,7 +233,7 @@ NMib::NContainer::TCVector<NMib::NProcess::NPlatform::CPOSIXProcessInfo> NMib::N
 		New.m_ParentProcessID = Process.kp_eproc.e_ppid;
 		New.m_StartTime = uint64(Process.kp_proc.p_starttime.tv_sec) << 32 | uint64(Process.kp_proc.p_starttime.tv_usec);
 	}
-	
+
 	return Ret;
 }
 
@@ -245,9 +245,9 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	if (sysctl(mib, 2, &KernMax, &ArgMaxSize, nullptr, 0))
 		DMibError(NMib::NPlatform::fg_FormatErrno("sysctl (KERN_ARGMAX)", errno));
 
-	
+
 	NContainer::TCMap<mint, NProcess::CProcessInfo *> OldInfo;
-	
+
 	if (_pOldEnum)
 	{
 		for (auto iOld = _pOldEnum->f_GetIterator(); iOld; ++iOld)
@@ -255,9 +255,9 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			OldInfo[iOld->m_ProcessID] = &*iOld;
 		}
 	}
-	
+
 	NContainer::CByteVector Data;
-	
+
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
 	auto Processes = fg_MacOS_Process_GetAllRunning();
 	for (auto iProcess = Processes.f_GetIterator(); iProcess; ++iProcess)
@@ -307,9 +307,9 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 		{
 			mib[1] = KERN_PROCARGS2;
 			mib[2] = (int)Process.kp_proc.p_pid;
-			
+
 			Data.f_SetAtLeastLen(KernMax);
-			
+
 			size_t Size = KernMax;
 			if (!sysctl(mib, 3, Data.f_GetArray(), &Size, NULL, 0))
 			{
@@ -321,12 +321,12 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 				// env variable (ascii string)
 				// padding (1 -3 null bytes)
 				// next env variable
-				
+
 				try
 				{
 					NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamNativeEndian> Stream;
 					Stream.f_OpenRead(Data.f_GetArray(), Data.f_GetLen());
-					
+
 					int32 nArgc;
 					Stream >> nArgc;
 					NStr::CStr CmdName;
@@ -334,18 +334,18 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 					{
 						uint8 Data;
 						Stream.f_ConsumeBytes(&Data, 1);
-						
+
 						if (!Data)
 							break;
 
 						CmdName.f_AddChar(Data);
 					}
-					
+
 					//NStream::fg_AlignStream(Stream, 4);
 
 					if (_ToGet & NProcess::EProcessInfoFlag_FullPath)
 						New.m_FullPath = CmdName;
-					
+
 					if (_ToGet & NProcess::EProcessInfoFlag_Args)
 					{
 						while (nArgc)
@@ -356,7 +356,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 							{
 								uint8 Data;
 								Stream.f_ConsumeBytes(&Data, 1);
-								
+
 								if (!Data)
 								{
 									if (!bFirst)
@@ -364,15 +364,15 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 									while (!Data && !Stream.f_IsAtEndOfStream())
 										Stream.f_ConsumeBytes(&Data, 1);
 								}
-								
+
 								bFirst = false;
 								Argument.f_AddChar(Data);
 							}
-							
+
 							//NStream::fg_AlignStream(Stream, 4);
-							
+
 							New.m_Args.f_Insert(fg_Move(Argument));
-						
+
 							--nArgc;
 						}
 					}
@@ -392,9 +392,9 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			}
 		}
 	}
-	
+
 	return Ret;
-}		
+}
 
 void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
 {
