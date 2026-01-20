@@ -100,10 +100,3 @@ int calling_convention_c main(int _ArgC, char ** _pArgV)
 }
 
 DMibAppNoClass;
-
-#ifdef DPlatformFamily_Windows
-int __stdcall wWinMain(struct HINSTANCE__ * hInstance, struct HINSTANCE__ * hPrevInstance, wchar_t *lpCmdLine,int nShowCmd){;}
-int __cdecl wmain(int argc, wchar_t *argv[], wchar_t *envp[]){}
-//int __cdecl main(int argc, wchar_t *argv[]){}
-int __stdcall WinMain(struct HINSTANCE__ * hInstance, struct HINSTANCE__ * hPrevInstance, char *lpCmdLine,int nShowCmd){;}
-#endif
