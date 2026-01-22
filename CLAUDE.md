@@ -210,8 +210,8 @@ The module includes helper executables for testing:
 
 ### Running Tests
 ```bash
-# Run all Process module tests
-./mib test --test Malterlib/Process
+# Bulid all tests and run all Process module tests
+MalterlibBuildShowProgress=false ./mib test --paths '["Malterlib/Process/*"]'
 
 # Run process tests
 /opt/Deploy/Tests/RunAllTests --paths '["Malterlib/Process/*"]'
