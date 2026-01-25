@@ -199,10 +199,12 @@ Property
 	{
 		!!PlatformFamily "macOS"
 		Dependency.Link false
+		Dependency.Stage "Runtime"
 	}
 	%Dependency "Dll_Test_Malterlib_Helper_Process"
 	{
 		Dependency.Link false
+		Dependency.Stage "Runtime"
 	}
 }
 
