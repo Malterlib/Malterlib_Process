@@ -760,7 +760,7 @@ namespace NMib::NProcess::NPlatform
 
 									if (NFile::CFile::fs_FileExists(Program) && LocalPath.f_Find("%1") >= 0)
 									{
-										Params = LocalPath.f_Replace("%1", NStr::NPlatform::fg_StrToWindows(mp_LastLaunchOptions.m_Target));
+										Params = LocalPath.f_Replace("%1", mp_LastLaunchOptions.m_Target);
 										if (Params.f_FindChar('%') < 0)
 											bTryCreateProcess = true;
 									}
@@ -801,7 +801,7 @@ namespace NMib::NProcess::NPlatform
 
 								if (NFile::CFile::fs_FileExists(Program) && LocalPath.f_Find("%1") >= 0)
 								{
-									Params = LocalPath.f_Replace("%1", NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_Target, false));
+									Params = LocalPath.f_Replace("%1", NStr::CStr(NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_Target, false)));
 									if (Params.f_FindChar('%') < 0)
 										bTryCreateProcess = true;
 								}
@@ -1170,7 +1170,7 @@ namespace NMib::NProcess::NPlatform
 						CWStr Line{pEnvironment};
 						mint LineLength = Line.f_GetLen();
 						auto Key = fg_GetStrSep(Line, "=");
-						UserEnvironment[Key] = Line;
+						UserEnvironment[CStr(Key)] = Line;
 						pEnvironment += LineLength + 1;
 					}
 
