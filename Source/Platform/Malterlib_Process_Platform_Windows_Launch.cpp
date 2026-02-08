@@ -10,6 +10,7 @@
 #include <Mib/Core/PlatformSpecific/WindowsFile>
 #include <Mib/Core/PlatformSpecific/WindowsInject>
 #include <Mib/Core/PlatformSpecific/Windows>
+#include <Mib/Cryptography/RandomID>
 
 #include <Mib/Process/Platform>
 #include "Malterlib_Process_Platform_Windows_Launch.h"
@@ -912,10 +913,99 @@ namespace NMib::NProcess::NPlatform
 					return false;
 				}
 
+				// When stdio redirection is enabled, create named pipes and pass
+				// pipe base name to child via --OutputPID. The child connects its
+				// stdio to these pipes early in startup.
+				HANDLE hStdOutPipe = nullptr;
+				HANDLE hStdErrPipe = nullptr;
+				HANDLE hStdInPipe = nullptr;
+				NStr::CStr PipeBaseName;
+
+				if (mp_LastLaunchOptions.m_bEnableStdRedirection && mp_LastLaunchOptions.m_bStdOutPID)
+				{
+					// Generate cryptographically random pipe base name
+					PipeBaseName = NStr::CStr::CFormat("\\\\.\\pipe\\MalterlibStdLaunch_{}") << NCryptography::fg_RandomID();
+
+					// Create stdout pipe (parent reads, child writes)
+					NStr::CWStr StdOutPipeName = NStr::NPlatform::fg_StrToWindows(PipeBaseName + "_StdOut");
+					hStdOutPipe = CreateNamedPipeW(
+						StdOutPipeName.f_GetStr(),
+						PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+						PIPE_TYPE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+						1, 4096, 4096, 120 * 1000, nullptr);
+
+					if (!hStdOutPipe || hStdOutPipe == INVALID_HANDLE_VALUE)
+					{
+						hStdOutPipe = nullptr;
+						_Errors += NStr::CStr::CFormat("CreateNamedPipe (StdOut) failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
+						return false;
+					}
+
+					// Create stderr pipe if separate stderr requested
+					if (mp_LastLaunchOptions.m_bSeparateStdErr)
+					{
+						NStr::CWStr StdErrPipeName = NStr::NPlatform::fg_StrToWindows(PipeBaseName + "_StdErr");
+						hStdErrPipe = CreateNamedPipeW(
+							StdErrPipeName.f_GetStr(),
+							PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+							PIPE_TYPE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+							1, 4096, 4096, 120 * 1000, nullptr);
+
+						if (!hStdErrPipe || hStdErrPipe == INVALID_HANDLE_VALUE)
+						{
+							hStdErrPipe = nullptr;
+							CloseHandle(hStdOutPipe);
+							_Errors += NStr::CStr::CFormat("CreateNamedPipe (StdErr) failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
+							return false;
+						}
+					}
+
+					// Create stdin pipe (parent writes, child reads)
+					// FILE_FLAG_OVERLAPPED needed for ConnectNamedPipe with WaitForMultipleObjects
+					NStr::CWStr StdInPipeName = NStr::NPlatform::fg_StrToWindows(PipeBaseName + "_StdIn");
+					hStdInPipe = CreateNamedPipeW(
+						StdInPipeName.f_GetStr(),
+						PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+						PIPE_TYPE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+						1, 4096, 4096, 120 * 1000, nullptr);
+
+					if (!hStdInPipe || hStdInPipe == INVALID_HANDLE_VALUE)
+					{
+						hStdInPipe = nullptr;
+						CloseHandle(hStdOutPipe);
+						if (hStdErrPipe)
+							CloseHandle(hStdErrPipe);
+						_Errors += NStr::CStr::CFormat("CreateNamedPipe (StdIn) failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
+						return false;
+					}
+				}
+
+				auto PipeCleanup
+					= fg_OnScopeExit
+					(
+						[&]
+						{
+							if (hStdOutPipe)
+								CloseHandle(hStdOutPipe);
+							if (hStdErrPipe)
+								CloseHandle(hStdErrPipe);
+							if (hStdInPipe)
+								CloseHandle(hStdInPipe);
+						}
+					)
+				;
+
 				SHELLEXECUTEINFOW ExecInfo;
 
 				NStr::CWStr File = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate);;
 				NStr::CWStr Params = NStr::NPlatform::fg_StrToWindows(mp_LastLaunchOptions.m_Parameters);
+				if (!PipeBaseName.f_IsEmpty())
+				{
+					if (!Params.f_IsEmpty())
+						Params += " ";
+					Params += "--OutputPID ";
+					Params += PipeBaseName;
+				}
 				NStr::CWStr Directory = !mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() ? NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_WorkingDirectory, true) : NStr::CWStr();
 
 				//DDTrace("FileLen: {}\n", File.f_GetLen());
@@ -937,12 +1027,104 @@ namespace NMib::NProcess::NPlatform
 					_Errors += NStr::CStr::CFormat("ShellExecuteExW failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 					return false;
 				}
-				else
+
+				mp_hChildProcess = ExecInfo.hProcess;
+				mp_ProcessID = GetProcessId(ExecInfo.hProcess);
+
+				// Connect named pipes and verify client PID.
+				// Uses overlapped ConnectNamedPipe + WaitForMultipleObjects so we
+				// detect child death instead of blocking forever.
+				if (!PipeBaseName.f_IsEmpty())
 				{
-					mp_hChildProcess = ExecInfo.hProcess;
-					mp_ProcessID = GetProcessId(ExecInfo.hProcess);
-					return true;
+					auto fConnectAndVerify = [&](HANDLE _hPipe, char const *_pName) -> bool
+						{
+							while (true)
+							{
+								OVERLAPPED Overlapped = {};
+								Overlapped.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+								if (!Overlapped.hEvent)
+								{
+									_Errors += NStr::CStr::CFormat("CreateEvent ({}) failed: {}" DMibNewLine) << _pName << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
+									return false;
+								}
+								auto EventCleanup = fg_OnScopeExit([&] { CloseHandle(Overlapped.hEvent); });
+
+								BOOL bConnected = ConnectNamedPipe(_hPipe, &Overlapped);
+								DWORD Error = GetLastError();
+
+								if (!bConnected && Error == ERROR_IO_PENDING)
+								{
+									// Wait for either pipe connection or child process exit
+									HANDLE WaitHandles[2] = { Overlapped.hEvent, mp_hChildProcess };
+									DWORD WaitResult = WaitForMultipleObjects(2, WaitHandles, FALSE, 120 * 1000);
+
+									if (WaitResult == WAIT_OBJECT_0 + 1)
+									{
+										CancelIo(_hPipe);
+										_Errors += NStr::CStr::CFormat("Child process exited before connecting to {} pipe" DMibNewLine) << _pName;
+										return false;
+									}
+									else if (WaitResult == WAIT_TIMEOUT)
+									{
+										CancelIo(_hPipe);
+										_Errors += NStr::CStr::CFormat("Timed out waiting for child to connect to {} pipe" DMibNewLine) << _pName;
+										return false;
+									}
+									else if (WaitResult != WAIT_OBJECT_0)
+									{
+										CancelIo(_hPipe);
+										_Errors += NStr::CStr::CFormat("WaitForMultipleObjects ({}) failed: {}" DMibNewLine) << _pName << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
+										return false;
+									}
+								}
+								else if (!bConnected && Error != ERROR_PIPE_CONNECTED)
+								{
+									_Errors += NStr::CStr::CFormat("ConnectNamedPipe ({}) failed: {}" DMibNewLine) << _pName << NMib::NPlatform::fg_Win32_GetLastErrorStr(Error);
+									return false;
+								}
+
+								// Verify the connecting process is the child we launched
+								ULONG ClientPid = 0;
+								if (GetNamedPipeClientProcessId(_hPipe, &ClientPid) && ClientPid == mp_ProcessID)
+									return true;
+
+								// Wrong process connected, disconnect and retry
+								DisconnectNamedPipe(_hPipe);
+							}
+						}
+					;
+
+					if (!fConnectAndVerify(hStdOutPipe, "StdOut"))
+						return false;
+
+					if (hStdErrPipe)
+					{
+						if (!fConnectAndVerify(hStdErrPipe, "StdErr"))
+							return false;
+					}
+
+					if (!fConnectAndVerify(hStdInPipe, "StdIn"))
+						return false;
+
+					// Transfer pipe ownership to member variables
+					mp_hStdoutRead = hStdOutPipe;
+					hStdOutPipe = nullptr;
+
+					if (hStdErrPipe)
+					{
+						mp_hStderrRead = hStdErrPipe;
+						hStdErrPipe = nullptr;
+					}
+
+					{
+						DMibLock(mp_PipeLock);
+						mp_hStdinWrite = hStdInPipe;
+						hStdInPipe = nullptr;
+					}
 				}
+
+				PipeCleanup.f_Clear();
+				return true;
 			}
 			else
 			{
@@ -2409,12 +2591,20 @@ namespace NMib::NProcess::NPlatform
 			sa.lpSecurityDescriptor = nullptr;
 			sa.bInheritHandle = TRUE;
 
+			// For elevated launches with stdio redirection, named pipes are created
+			// in fp_LaunchChild instead of anonymous pipes here, because
+			// ShellExecuteExW with "runas" does not support handle inheritance.
+			bool bElevatedStdio = mp_LastLaunchOptions.m_bEnableStdRedirection
+				&& mp_LastLaunchOptions.m_bStdOutPID
+				&& mp_LastLaunchOptions.m_Elevation == NMib::NProcess::EProcessLaunchElevation_Elevate
+			;
+
 			BOOL bOK = false;
 			do
 			{
 				// Create a child stdout pipe.
 				{
-					if (mp_LastLaunchOptions.m_bEnableStdRedirection)
+					if (mp_LastLaunchOptions.m_bEnableStdRedirection && !bElevatedStdio)
 					{
 						NStr::CStr ExtendedError;
 						if (!CreatePipeEx(&hStdoutReadTmp, &hStdoutWrite, &sa, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
@@ -2780,6 +2970,8 @@ namespace NMib::NProcess::NPlatform
 				return NMib::NProcess::EProcessElevation_None;
 			}
 
+			auto TokenCleanup = fg_OnScopeExit([&] { ::CloseHandle(hToken); });
+
 			DWORD dwReturnLength = 0;
 
 			TOKEN_ELEVATION_TYPE Ret;
@@ -2798,12 +2990,20 @@ namespace NMib::NProcess::NPlatform
 				DMibCheck( dwReturnLength == sizeof( Ret ) );
 			}
 
-			::CloseHandle( hToken );
 			switch (Ret)
 			{
 			default:
 			case TokenElevationTypeDefault:
-				return NMib::NProcess::EProcessElevation_None;
+				{
+					// TokenElevationTypeDefault means UAC is not involved (e.g. services
+					// running as SYSTEM, or UAC disabled). Check TOKEN_ELEVATION to
+					// determine if the token is actually elevated. Return _IsRoot
+					// since there is no limited token to de-elevate to.
+					TOKEN_ELEVATION Elevation = {};
+					if (::GetTokenInformation(hToken, TokenElevation, &Elevation, sizeof(Elevation), &dwReturnLength) && Elevation.TokenIsElevated)
+						return NMib::NProcess::EProcessElevation_IsRoot;
+					return NMib::NProcess::EProcessElevation_None;
+				}
 			case TokenElevationTypeFull:
 				return NMib::NProcess::EProcessElevation_IsElevated;
 			case TokenElevationTypeLimited:
