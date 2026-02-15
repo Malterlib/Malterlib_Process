@@ -159,7 +159,7 @@ namespace
 
 	void CProcessEntry::f_KillTree(NMib::NStr::CStr &_Log, aint _Depth)
 	{
-	//			DMibConOut("{sj*}Killing: {}\n", "" << _Depth*3 << f_GetID());
+	//			DMibConOut("{sj*}Killing: {}\n", "", _Depth*3, f_GetID());
 		if (kill(f_GetID(), SIGKILL))
 		{
 			int ErrNo = errno;

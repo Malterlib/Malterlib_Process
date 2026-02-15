@@ -180,7 +180,7 @@ namespace NMib::NProcess
 					if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 					{
 						DMibLock(g_StdOutLogLock);
-						DMibConErrOut2("{}: {}\n", LogName, _Error);
+						DMibConErrOut("{}: {}\n", LogName, _Error);
 					}
 
 					DMibLogWithCategoryStr(LogName, Error, "{}", _Error);
@@ -408,7 +408,7 @@ namespace NMib::NProcess
 									if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 									{
 										DMibLock(g_StdOutLogLock);
-										DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
+										DMibConErrOut("{}: {}\n", LogName, Output.f_TrimRight());
 									}
 #if (DMibSysLogSeverities) != 0
 									auto LogScope = fs_LogScope(LogName);
@@ -426,9 +426,9 @@ namespace NMib::NProcess
 									{
 										DMibLock(g_StdOutLogLock);
 										if (ToLog & ELogFlag_AdditionallyOutputToStdErrDirectStdErr)
-											DMibConErrOut2("{}", Output);
+											DMibConErrOut("{}", Output);
 										else
-											DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
+											DMibConErrOut("{}: {}\n", LogName, Output.f_TrimRight());
 									}
 #if (DMibSysLogSeverities) != 0
 									auto LogScope = fs_LogScope(LogName);
@@ -445,7 +445,7 @@ namespace NMib::NProcess
 									if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 									{
 										DMibLock(g_StdOutLogLock);
-										DMibConErrOut2("{}: {}\n", LogName, Output.f_TrimRight());
+										DMibConErrOut("{}: {}\n", LogName, Output.f_TrimRight());
 									}
 #if (DMibSysLogSeverities) != 0
 									auto LogScope = fs_LogScope(LogName);

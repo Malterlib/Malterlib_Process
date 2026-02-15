@@ -348,7 +348,7 @@ namespace NMib::NProcess
 												Prompt.m_bInsert = !Prompt.m_bInsert;
 #if DMibProcessLogStdInPrompt
 											else
-												DMibConOut2("Unknown ~: {}\n", Parameters);
+												DMibConOut("Unknown ~: {}\n", Parameters);
 #endif
 											break;
 										}
@@ -357,7 +357,7 @@ namespace NMib::NProcess
 										{
 											NStr::CUStr End;
 											End.f_AddChar(Command);
-											DMibConOut2("Param: {}   Inter: {}   End: {}\n", Parameters, Intermediate, End);
+											DMibConOut("Param: {}   Inter: {}   End: {}\n", Parameters, Intermediate, End);
 											break;
 										}
 #endif
@@ -368,7 +368,7 @@ namespace NMib::NProcess
 								else
 								{
 #if DMibProcessLogStdInPrompt
-									DMibConOut2("Invalid Escape: {}\n", *iEscape);
+									DMibConOut("Invalid Escape: {}\n", *iEscape);
 #endif
 									// Invalid CSI?
 									++iEscape;
@@ -398,7 +398,7 @@ namespace NMib::NProcess
 										++iEscape;
 										iUTFChar = iEscape;
 #if DMibProcessLogStdInPrompt
-										DMibConOut2("Ignore OSC: {}\n", Command);
+										DMibConOut("Ignore OSC: {}\n", Command);
 #endif
 										break;
 									}
@@ -414,7 +414,7 @@ namespace NMib::NProcess
 #if DMibProcessLogStdInPrompt
 								NStr::CUStr End;
 								End.f_AddChar(*iEscape);
-								DMibConOut2("Ignore Esc: {}\n", End);
+								DMibConOut("Ignore Esc: {}\n", End);
 #endif
 								// Ignore other escape escape sequences
 								++iEscape;
@@ -484,7 +484,7 @@ namespace NMib::NProcess
 						else
 						{
 #if DMibProcessLogStdInPrompt
-							DMibConOut2("Ignore: {nfh}\n", NewChar);
+							DMibConOut("Ignore: {nfh}\n", NewChar);
 #endif
 							++iUTFChar; // Ignore all other control characters
 						}

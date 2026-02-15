@@ -589,7 +589,7 @@ namespace NMib::NProcess::NPlatform
 						NStr::CStr Return = CanonicalPath.f_Extract(Chroot.f_GetLen());
 						if (Return.f_IsEmpty())
 							Return = "/";
-						DMibTrace("Chroot path: {} -> {}\n", CanonicalPath << Return);
+						DMibTrace("Chroot path: {} -> {}\n", CanonicalPath, Return);
 						return Return;
 					}
 					DMibTrace("Chroot path: {}\n", CanonicalPath);
@@ -2089,7 +2089,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
-		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes << (sizeof(TaskInfoAll)) << NMib::NPlatform::fg_FormatErrno("", ErrNo));
+		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes, (sizeof(TaskInfoAll)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
 	else
 		fg_ConvertExecutionStatistics(Stats, TaskInfoAll);
@@ -2119,7 +2119,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
-		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes << (sizeof(TaskInfo)) << NMib::NPlatform::fg_FormatErrno("", ErrNo));
+		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes, (sizeof(TaskInfo)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
 	else
 		NMib::NProcess::NPlatform::fg_ConvertMemoryStatistics(Stats, TaskInfo);
@@ -2159,7 +2159,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pPr
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
-		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes << (sizeof(TaskInfo)) << NMib::NPlatform::fg_FormatErrno("", ErrNo));
+		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes, (sizeof(TaskInfo)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
 	else
 		fg_ConvertMemoryStatistics(_Stats, TaskInfo);
@@ -2185,7 +2185,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
-		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes << (sizeof(TaskInfoAll)) << NMib::NPlatform::fg_FormatErrno("", ErrNo));
+		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes, (sizeof(TaskInfoAll)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
 	else
 		fg_ConvertExecutionStatistics(_Stats, TaskInfoAll);

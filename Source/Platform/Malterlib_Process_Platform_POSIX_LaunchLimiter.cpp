@@ -218,7 +218,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			m_RootEntry.f_UnPauseTree(Children);
 			NextUpdate = -(m_CPULimit / (fp64(fp64(1.0)/Interval) * m_CPULimit - fp64(fp64(1.0)/Interval)));
-			//DMibTrace("Unpausing for: {} {}\n", NextUpdate << LastUpdateTime);
+			//DMibTrace("Unpausing for: {} {}\n", NextUpdate, LastUpdateTime);
 		}
 		else
 		{
@@ -227,7 +227,7 @@ namespace NMib::NProcess::NPlatform
 			//NextUpdate = -(ReverseLimit / (fp64(10.0) * ReverseLimit - fp64(10.0)));
 			fp64 WantedTime = NextUpdate = -(m_CPULimit / (fp64(fp64(1.0)/Interval) * m_CPULimit - fp64(fp64(1.0)/Interval)));
 			NextUpdate = Interval * (LastUpdateTime / WantedTime);
-			//DMibTrace("Pausing for: {} {}\n", NextUpdate << LastUpdateTime);
+			//DMibTrace("Pausing for: {} {}\n", NextUpdate, LastUpdateTime);
 		}
 
 		m_bDidPause = !m_bDidPause;

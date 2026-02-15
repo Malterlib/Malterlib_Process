@@ -55,7 +55,7 @@ namespace
 			DMibTestSuite("New Process Group")
 			{
 				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-					DMibConOut2("{}\n", NProcess::NPlatform::fg_Process_GetCurrentGroupUID());
+					DMibConOut("{}\n", NProcess::NPlatform::fg_Process_GetCurrentGroupUID());
 				else
 				{
 					TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
@@ -89,7 +89,7 @@ namespace
 			{
 				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
 				{
-					DMibConOut2("User: {} Group: {}\n", NSys::fg_UserManagement_GetProcessRealUserName(), NSys::fg_UserManagement_GetProcessRealGroupName());
+					DMibConOut("User: {} Group: {}\n", NSys::fg_UserManagement_GetProcessRealUserName(), NSys::fg_UserManagement_GetProcessRealGroupName());
 					return;
 				}
 				CStr RunAsPath = fg_TestGetCurrentPath();
@@ -217,7 +217,7 @@ namespace
 			DMibTestSuite("Priority")
 			{
 				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-					DMibConOut2("{}\n", int32(NProcess::NPlatform::fg_Process_GetPriority()));
+					DMibConOut("{}\n", int32(NProcess::NPlatform::fg_Process_GetPriority()));
 				else
 				{
 					TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
@@ -257,11 +257,11 @@ namespace
 					rlimit Limits;
 					if (!getrlimit(RLIMIT_FSIZE, &Limits))
 					{
-						DMibConOut2("Current: {} Max: {}\n", Limits.rlim_cur, Limits.rlim_max);
+						DMibConOut("Current: {} Max: {}\n", Limits.rlim_cur, Limits.rlim_max);
 						return;
 					}
 
-					DMibConOut2("Error getting rlimit\n");
+					DMibConOut("Error getting rlimit\n");
 				}
 				else
 				{

@@ -1326,7 +1326,7 @@ namespace NMib::NProcess::NPlatform
 							{
 								if (!UnloadUserProfile(hToken, hProfile))
 								{
-									DMibDTrace2("When launching as user, failed to unload user profile: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+									DMibDTrace("When launching as user, failed to unload user profile: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
 								}
 							}
 						)
@@ -1389,7 +1389,7 @@ namespace NMib::NProcess::NPlatform
 							{
 								if (!SetProcessWindowStation(hCurrentWindowStation))
 								{
-									DMibDTrace2("When launching as user, failed to restore window station: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+									DMibDTrace("When launching as user, failed to restore window station: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
 								}
 							}
 						;
@@ -1425,7 +1425,7 @@ namespace NMib::NProcess::NPlatform
 									bool bAdded;
 									if (!fg_ChangeAceToWindowStation(hWindowStation, pLogonSid, true, bAdded))
 									{
-										DMibDTrace2("When launching as user, failed to remove access from window station: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+										DMibDTrace("When launching as user, failed to remove access from window station: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
 									}
 								}
 							)
@@ -1449,7 +1449,7 @@ namespace NMib::NProcess::NPlatform
 									bool bAdded;
 									if (!fg_ChangeAceToDesktop(hDesktop, pLogonSid, true, bAdded))
 									{
-										DMibDTrace2("When launching as user, failed to remove access from desktop: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
+										DMibDTrace("When launching as user, failed to remove access from desktop: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
 									}
 								}
 							)
