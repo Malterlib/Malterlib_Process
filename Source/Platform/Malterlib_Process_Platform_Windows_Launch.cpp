@@ -2960,37 +2960,26 @@ namespace NMib::NProcess::NPlatform
 			if (!NMib::NPlatform::fg_IsVista())
 				return NMib::NProcess::EProcessElevation_None;
 
-			HANDLE hToken	= nullptr;
+			HANDLE hToken = nullptr;
 
-			if ( !::OpenProcessToken(
-						_pProcess,
-						TOKEN_QUERY,
-						&hToken ) )
-			{
+			if (!::OpenProcessToken(_pProcess,TOKEN_QUERY,&hToken))
 				return NMib::NProcess::EProcessElevation_None;
-			}
 
-			auto TokenCleanup = fg_OnScopeExit([&] { ::CloseHandle(hToken); });
+			auto TokenCleanup = g_OnScopeExit / [&]
+				{
+					::CloseHandle(hToken);
+				}
+			;
 
 			DWORD dwReturnLength = 0;
 
-			TOKEN_ELEVATION_TYPE Ret;
-			if ( !::GetTokenInformation(
-						hToken,
-						TokenElevationType,
-						&Ret,
-						sizeof( Ret ),
-						&dwReturnLength ) )
-			{
-				//ASSERT( FALSE );
-				Ret = (TOKEN_ELEVATION_TYPE)0;
-			}
+			TOKEN_ELEVATION_TYPE ElevationType;
+			if (!::GetTokenInformation(hToken, TokenElevationType, &ElevationType, sizeof(ElevationType), &dwReturnLength))
+				ElevationType = (TOKEN_ELEVATION_TYPE)0;
 			else
-			{
-				DMibCheck( dwReturnLength == sizeof( Ret ) );
-			}
+				DMibCheck(dwReturnLength == sizeof(ElevationType));
 
-			switch (Ret)
+			switch (ElevationType)
 			{
 			default:
 			case TokenElevationTypeDefault:
@@ -3002,7 +2991,8 @@ namespace NMib::NProcess::NPlatform
 					TOKEN_ELEVATION Elevation = {};
 					if (::GetTokenInformation(hToken, TokenElevation, &Elevation, sizeof(Elevation), &dwReturnLength) && Elevation.TokenIsElevated)
 						return NMib::NProcess::EProcessElevation_IsRoot;
-					return NMib::NProcess::EProcessElevation_None;
+
+					return NMib::NProcess::EProcessElevation_IsNotElevated;
 				}
 			case TokenElevationTypeFull:
 				return NMib::NProcess::EProcessElevation_IsElevated;
