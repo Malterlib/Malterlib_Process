@@ -147,7 +147,7 @@ namespace NMib::NProcess::NPlatform
 	{
 		NMib::NProcess::EProcessElevation fg_Process_GetElevation(void *_pProcess);
 
-		NAtomic::TCAtomicAggregate<uint32> g_PipeSerialNumber = {0};
+		constinit NAtomic::TCAtomic<uint32> g_PipeSerialNumber{0};
 
 
 		uint32 fg_GetActiveSessionID()
