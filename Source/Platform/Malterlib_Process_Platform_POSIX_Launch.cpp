@@ -383,7 +383,7 @@ namespace NMib::NProcess::NPlatform
 		NAtomic::TCAtomic<int32> g_FastPosixSpawn = 2;
 		bool fg_GLibcSupportsFastPosixSpawn()
 		{
-			auto CurrentValue = g_FastPosixSpawn.f_Load(NAtomic::EMemoryOrder_Relaxed);
+			auto CurrentValue = g_FastPosixSpawn.f_Load(NAtomic::gc_MemoryOrder_Relaxed);
 			if (CurrentValue < 2)
 				return !!CurrentValue;
 
