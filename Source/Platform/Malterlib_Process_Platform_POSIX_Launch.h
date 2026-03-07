@@ -95,7 +95,7 @@ namespace NMib::NProcess::NPlatform
 
 		NThread::CMutual m_ExitTimeLock;
 		fp64 m_ExitTime;
-		NTime::CClock m_TimeSinceStart;
+		NTime::CStopwatch m_TimeSinceStart;
 
 		NMib::NProcess::CProcessLaunchParams mp_LastLaunchOptions;
 		NAtomic::TCAtomic<pid_t> mp_ProcessID;

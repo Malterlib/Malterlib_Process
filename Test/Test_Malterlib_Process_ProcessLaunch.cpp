@@ -1348,10 +1348,10 @@ namespace
 					{
 					}
 
-					NMib::NTime::CClock Clock;
-					Clock.f_Start();
+					NMib::NTime::CStopwatch Stopwatch;
+					Stopwatch.f_Start();
 					// Block for 1 seconds
-					while (Clock.f_GetTime() < 1.0)
+					while (Stopwatch.f_GetTime() < 1.0)
 						;
 
 					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
@@ -2004,10 +2004,10 @@ namespace
 						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit | NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess);
 
 						// Wait until all child processes are launched
-						NMib::NTime::CClock Clock;
-						Clock.f_Start();
+						NMib::NTime::CStopwatch Stopwatch;
+						Stopwatch.f_Start();
 						bool bTimedOutCreated = true;
-						while (bTimedOutCreated && Clock.f_GetTime() < 100.0)
+						while (bTimedOutCreated && Stopwatch.f_GetTime() < 100.0)
 						{
 							bTimedOutCreated = false;
 							for (int i = 0; i < 10; ++i)
@@ -2029,10 +2029,10 @@ namespace
 
 					// Wait until all child processes are launched
 					{
-						NMib::NTime::CClock Clock;
-						Clock.f_Start();
+						NMib::NTime::CStopwatch Stopwatch;
+						Stopwatch.f_Start();
 						bool bTimedOutTerminate = true;
-						while (bTimedOutTerminate && Clock.f_GetTime() < 100.0)
+						while (bTimedOutTerminate && Stopwatch.f_GetTime() < 100.0)
 						{
 							bTimedOutTerminate = false;
 							for (int i = 0; i < 10; ++i)

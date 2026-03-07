@@ -182,7 +182,7 @@ namespace NMib::NProcess
 
 	bool CProcessLaunchHandler::f_BlockOnExit(fp32 _Timeout, mint _nMaxRunning, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats)
 	{
-		NTime::CClock BlockTime;
+		NTime::CStopwatch BlockTime;
 		BlockTime.f_Start();
 		while (1)
 		{

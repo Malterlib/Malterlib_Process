@@ -1,11 +1,13 @@
 // Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
-#include <Mib/Process/StdIn>
-#include "../Malterlib_Process_Platform.h"
 #include <Windows.h>
-#include <Mib/Core/PlatformSpecific/WindowsOptional>
+#include "../Malterlib_Process_Platform.h"
+
 #include <Mib/Core/PlatformSpecific/WindowsError>
+#include <Mib/Core/PlatformSpecific/WindowsOptional>
+#include <Mib/Process/StdIn>
+#include <Mib/Time/TimeMeasure>
 
 using namespace NMib::NStr;
 
@@ -114,7 +116,7 @@ namespace NMib::NProcess::NPlatform
 			fp64 TotalWaitTime = 0.0;
 			while (f_GetState() != NMib::NThread::EThreadState_EventWantQuit)
 			{
-				NTime::CTimer Timer;
+				NTime::CTimeMeasure Timer;
 				Timer.f_Start();
 				bool bReadSuccess = fp_Read();
 				Timer.f_Stop();

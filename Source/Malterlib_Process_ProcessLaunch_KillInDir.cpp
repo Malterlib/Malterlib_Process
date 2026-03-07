@@ -40,7 +40,7 @@ namespace NMib::NProcess
 		if (!ProcessIDs.f_IsEmpty())
 		{
 			// Gracefully stop
-			NTime::CClock Clock;
+			NTime::CStopwatch Stopwatch;
 
 #ifndef DPlatformFamily_Windows
 			for (auto ProcessID : ProcessIDs)
@@ -56,8 +56,8 @@ namespace NMib::NProcess
 			}
 
 			// Wait 30 seconds for stop to complete
-			Clock.f_Start();
-			while (Clock.f_GetTime() < _Timeout)
+			Stopwatch.f_Start();
+			while (Stopwatch.f_GetTime() < _Timeout)
 			{
 				ProcessIDs = fg_GetProcesses(_fProcessFilter, _InfoFlags);
 				if (ProcessIDs.f_IsEmpty())
@@ -79,8 +79,8 @@ namespace NMib::NProcess
 			}
 
 			// Wait for terminate to finish
-			Clock.f_Start();
-			while (Clock.f_GetTime() < _Timeout)
+			Stopwatch.f_Start();
+			while (Stopwatch.f_GetTime() < _Timeout)
 			{
 				ProcessIDs = fg_GetProcesses(_fProcessFilter, _InfoFlags);
 				if (ProcessIDs.f_IsEmpty())

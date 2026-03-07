@@ -355,7 +355,7 @@ namespace NMib::NProcess::NPlatform
 		private:
 			NThread::CEventAutoReset mp_Event;
 
-			NTime::CClock m_TimeSinceStart;
+			NTime::CStopwatch m_TimeSinceStart;
 
 			NThread::CMutual m_ExitTimeLock;
 			fp64 m_ExitTime;
@@ -2475,7 +2475,7 @@ namespace NMib::NProcess::NPlatform
 					if (bRetry)
 					{
 						bRetry = false;
-						NTime::CClock Time;
+						NTime::CStopwatch Time;
 						Time.f_Start();
 						while (!WaitNamedPipe(PipeName, 20000))
 						{
@@ -2535,7 +2535,7 @@ namespace NMib::NProcess::NPlatform
 					if (bRetry2)
 					{
 						bRetry2 = false;
-						NTime::CClock Time;
+						NTime::CStopwatch Time;
 						Time.f_Start();
 						while (!WaitNamedPipe(PipeName, 20000))
 						{

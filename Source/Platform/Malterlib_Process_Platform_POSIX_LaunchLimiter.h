@@ -16,7 +16,7 @@ namespace NMib::NProcess::NPlatform
 		fp32 m_CPULimit;
 		bool m_bDidPause = false;
 
-		NTime::CClock m_Clock;
+		NTime::CStopwatch m_Stopwatch;
 		zfp64 m_LastUpdate;
 
 		NStorage::TCUniquePointer<NThread::CThreadObject> m_pUpdateThread;

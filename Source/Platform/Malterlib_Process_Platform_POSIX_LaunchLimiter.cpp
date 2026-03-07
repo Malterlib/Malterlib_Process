@@ -180,7 +180,7 @@ namespace NMib::NProcess::NPlatform
 
 	fp32 CProcessLaunchLimiter::f_Update()
 	{
-		fp64 Now = m_Clock.f_GetTime();
+		fp64 Now = m_Stopwatch.f_GetTime();
 		fp64 LastUpdateTime = Now - m_LastUpdate;
 		m_LastUpdate = Now;
 		auto Processes = fg_Posix_ImpSpecefic_EnumProcesses();
@@ -259,7 +259,7 @@ namespace NMib::NProcess::NPlatform
 			(
 				[this](NThread::CThreadObject *_pThread) -> aint
 				{
-					m_Clock.f_Start();
+					m_Stopwatch.f_Start();
 					while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 					{
 						fp32 NextWakeup = f_Update();

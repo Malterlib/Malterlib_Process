@@ -1351,7 +1351,7 @@ namespace NMib::NProcess::NPlatform
 
 	void CPOSIXLaunchContext::fp_RedirectOutput(bool _bWaitForEOF)
 	{
-//				DMibScopeConOutTimer("fp_RedirectOutput");
+//				DMibScopeConOutTimeMeasure("fp_RedirectOutput");
 		auto fl_Read
 			= [&](int _FileDes, EProcessLaunchOutputType _OutputType) -> bool
 			{
@@ -1359,7 +1359,7 @@ namespace NMib::NProcess::NPlatform
 				while (1)
 				{
 					{
-						//DMibScopeConOutTimer("AllRead");
+						//DMibScopeConOutTimeMeasure("AllRead");
 						uint8 Buffer[4096];
 
 						ssize_t ReadBytes;
@@ -1655,7 +1655,7 @@ namespace NMib::NProcess::NPlatform
 					while (1)
 					{
 						{
-							//DMibScopeConOutTimer("AllRead");
+							//DMibScopeConOutTimeMeasure("AllRead");
 							uint8 Buffer[16];
 
 							ssize_t ReadBytes;

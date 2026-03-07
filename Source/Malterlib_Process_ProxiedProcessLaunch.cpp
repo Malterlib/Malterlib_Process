@@ -748,7 +748,7 @@ namespace NMib::NProcess
 			NAtomic::TCAtomic<smint> m_bOpen;
 			NAtomic::TCAtomic<smint> m_bIsRunning;
 			mutable NThread::CMutual m_RunningTimeLock;
-			NTime::CClock m_RunningTime;
+			NTime::CStopwatch m_RunningTime;
 			NThread::CEvent m_FinishedEvent;
 
 			CLaunchState(CProxiedLaunchClient::CInternal *_pClient, CProcessLaunchParams  const &_Params, EProcessLaunchCloseFlag _DestructFlags);
