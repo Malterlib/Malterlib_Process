@@ -62,7 +62,7 @@ namespace NMib::NProcess::NPlatform
 	{
 		m_AllProcess.f_DeleteAllDefiniteType();
 	}
-	bool CProcessEntry::operator == (uint32 _Process) const
+	bool CProcessEntry::operator == (uint32 _Process) const noexcept
 	{
 		return m_Process == _Process;
 	}
