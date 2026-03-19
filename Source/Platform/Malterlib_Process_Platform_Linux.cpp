@@ -16,7 +16,7 @@
 #include <linux/limits.h>
 #include <unistd.h>
 
-bool NMib::NProcess::NPlatform::fg_Process_IsRunning(mint _ProcessID)
+bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
 {
 	try
 	{
@@ -347,7 +347,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 {
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
 
-	NContainer::TCMap<mint, NProcess::CProcessInfo *> OldInfo;
+	NContainer::TCMap<umint, NProcess::CProcessInfo *> OldInfo;
 
 	if (_pOldEnum)
 	{
@@ -363,7 +363,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	for (auto iProcess = Processes.f_GetIterator(); iProcess; ++iProcess)
 	{
 		auto &Process = *iProcess;
-		if (auto pOld = OldInfo.f_FindEqual(mint(Process.m_ProcessID)))
+		if (auto pOld = OldInfo.f_FindEqual(umint(Process.m_ProcessID)))
 		{
 			if ((*pOld)->m_StartTime == Process.m_StartTime)
 			{
@@ -395,7 +395,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 				ch8 const *pEnd = pParse + FileData.f_GetLen() - 1;
 				while (pParse < pEnd)
 				{
-					mint nChars = NStr::fg_StrLen(pParse, pEnd - pParse);
+					umint nChars = NStr::fg_StrLen(pParse, pEnd - pParse);
 					New.m_Args.f_Insert(NStr::CStr(pParse, nChars));
 					pParse += nChars + 1;
 				}
@@ -445,10 +445,10 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	return Ret;
 }
 
-mint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
+umint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
 {
 	auto FileData = NMib::NPlatform::fg_ReadProcFSNonTracked("/proc/sys/fs/file-max");
 	NMib::NStr::CStrPtr Data;
 	Data.f_SetConstPtr(FileData.f_GetArray(), FileData.f_GetLen());
-	return Data.f_ToInt(mint(0));
+	return Data.f_ToInt(umint(0));
 }

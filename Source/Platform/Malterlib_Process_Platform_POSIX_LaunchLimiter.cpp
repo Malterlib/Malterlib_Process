@@ -130,14 +130,14 @@ namespace NMib::NProcess::NPlatform
 
 	bool CProcessLaunchLimiter::CProcessEntry::f_PauseTree(NContainer::TCVector<CProcessEntry *> const &_Children)
 	{
-		mint nChildren = _Children.f_GetLen();
-		mint nLoops = nChildren;
+		umint nChildren = _Children.f_GetLen();
+		umint nLoops = nChildren;
 		++m_StartPause;
 		if (m_StartPause >= nChildren)
 			m_StartPause = 0;
 
 		bool bRet = false;
-		for (mint iChild = m_StartPause; nLoops; --nLoops)
+		for (umint iChild = m_StartPause; nLoops; --nLoops)
 		{
 			auto &Child = *(_Children[iChild]);
 			if (!Child.m_pPausedToken)
@@ -155,13 +155,13 @@ namespace NMib::NProcess::NPlatform
 
 	bool CProcessLaunchLimiter::CProcessEntry::f_UnPauseTree(NContainer::TCVector<CProcessEntry *> const &_Children)
 	{
-		mint nChildren = _Children.f_GetLen();
-		mint nLoops = nChildren;
+		umint nChildren = _Children.f_GetLen();
+		umint nLoops = nChildren;
 		if (m_StartPause >= nChildren)
 			m_StartPause = 0;
 
 		bool bRet = false;
-		for (mint iChild = m_StartPause; nLoops; --nLoops)
+		for (umint iChild = m_StartPause; nLoops; --nLoops)
 		{
 			auto &Child = *(_Children[iChild]);
 			if (Child.m_pPausedToken)

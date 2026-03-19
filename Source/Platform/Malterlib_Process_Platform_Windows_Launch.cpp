@@ -429,7 +429,7 @@ namespace NMib::NProcess::NPlatform
 			void f_CloseStdIn();
 			void f_SendBinary(NContainer::CIOByteVector const &_Data);
 			void f_StopProcess();
-			mint f_GetID() const;
+			umint f_GetID() const;
 			NMib::NProcess::CProcessStatistics f_GetOverallExecutionStatistics();
 			NMib::NProcess::CProcessStatistics f_GetOverallMemoryStatistics();
 
@@ -568,10 +568,10 @@ namespace NMib::NProcess::NPlatform
 						DWORD_PTR Affinity = 0;
 
 						{ // Use the last X processors.
-							mint nProcessors = fg_NumBitsSet(ProcessAffinity);
+							umint nProcessors = fg_NumBitsSet(ProcessAffinity);
 
-							mint nAllowedProcessors = (fp32(nProcessors) * (fp32(_LaunchParams.m_CPUUsage))).f_ToInt();
-							nAllowedProcessors = fg_Max(mint(1), nAllowedProcessors);
+							umint nAllowedProcessors = (fp32(nProcessors) * (fp32(_LaunchParams.m_CPUUsage))).f_ToInt();
+							nAllowedProcessors = fg_Max(umint(1), nAllowedProcessors);
 
 							DWORD_PTR Bit = DWORD_PTR(1) << (DWORD_PTR)( (sizeof(DWORD_PTR) * 8) - 1);
 
@@ -1350,7 +1350,7 @@ namespace NMib::NProcess::NPlatform
 					for (ch16 *pEnvironment = (ch16 *)pEnvironmentVoid; *pEnvironment; )
 					{
 						CWStr Line{pEnvironment};
-						mint LineLength = Line.f_GetLen();
+						umint LineLength = Line.f_GetLen();
 						auto Key = fg_GetStrSep(Line, "=");
 						UserEnvironment[CStr(Key)] = Line;
 						pEnvironment += LineLength + 1;
@@ -2887,7 +2887,7 @@ namespace NMib::NProcess::NPlatform
 				return m_ExitTime;
 		}
 
-		mint CConsoleRedirector::f_GetID() const
+		umint CConsoleRedirector::f_GetID() const
 		{
 			return mp_ProcessID;
 		}
@@ -3069,7 +3069,7 @@ fp64 NMib::NProcess::NPlatform::fg_ProcessLaunch_GetRunningTime(void *_pLaunch)
 	return pLaunch->f_GetRunningTime();
 }
 
-mint NMib::NProcess::NPlatform::fg_ProcessLaunch_GetID(void *_pLaunch)
+umint NMib::NProcess::NPlatform::fg_ProcessLaunch_GetID(void *_pLaunch)
 {
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_GetID();

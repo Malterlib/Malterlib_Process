@@ -32,9 +32,9 @@ namespace
 		uint32 EpChunk = uint32('E') << 8 | uint32('P');
 		while (ToRead)
 		{
-			mint ThisTime = NMib::fg_Min(ToRead, 256);
+			umint ThisTime = NMib::fg_Min(ToRead, 256);
 			File.f_Read(Chunk, ThisTime * sizeof(uint32));
-			for (mint i = 0; i < ThisTime; ++i)
+			for (umint i = 0; i < ThisTime; ++i)
 			{
 				if (Chunk[i] == EpChunk)
 				{
@@ -131,7 +131,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 
 		if (VerQueryValue(pBlock, str_utf16("\\VarFileInfo\\Translation"), (LPVOID*)&pTranslate, &QuerySize))
 		{
-			for (mint i = 0; i < (QuerySize/sizeof(struct LANGANDCODEPAGE)); ++i)
+			for (umint i = 0; i < (QuerySize/sizeof(struct LANGANDCODEPAGE)); ++i)
 			{
 				NStr::CWStr SubBlock = NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild"))
 					<< pTranslate[i].wLanguage
@@ -305,7 +305,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 							{
 								if (_ToGet & (EProcessInfoFlag_FileName | EProcessInfoFlag_FullPath))
 								{
-									mint BufferStrLen = ProcessParams.ImagePathName.Length/sizeof(ch16);
+									umint BufferStrLen = ProcessParams.ImagePathName.Length/sizeof(ch16);
 									auto pBuffer = ImageFileName.f_GetStr(BufferStrLen + 1);
 									if (ReadProcessMemory(pThisProcess, ProcessParams.ImagePathName.Buffer, pBuffer, ProcessParams.ImagePathName.Length, &ReadBytes) && ReadBytes == ProcessParams.ImagePathName.Length)
 										pBuffer[BufferStrLen] = 0;
@@ -315,7 +315,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 
 								if (_ToGet & EProcessInfoFlag_Args)
 								{
-									mint BufferStrLen = ProcessParams.CommandLine.Length/sizeof(ch16);
+									umint BufferStrLen = ProcessParams.CommandLine.Length/sizeof(ch16);
 									auto pBuffer = CommandLine.f_GetStr(BufferStrLen + 1);
 									if (ReadProcessMemory(pThisProcess, ProcessParams.CommandLine.Buffer, pBuffer, ProcessParams.CommandLine.Length, &ReadBytes) && ReadBytes == ProcessParams.CommandLine.Length)
 										pBuffer[BufferStrLen] = 0;
@@ -410,12 +410,12 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetComputerDomain()
 	return NStr::NPlatform::fg_StrFromWindows(Temp);
 }
 
-mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
+umint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 {
 	return GetCurrentProcessId();
 }
 
-mint NMib::NProcess::NPlatform::fg_Process_GetCurrentGroupUID()
+umint NMib::NProcess::NPlatform::fg_Process_GetCurrentGroupUID()
 {
 	if (CSystem::ms_PlatformVersion >= 6'2'000000)
 		return fg_GetPEB(fg_GetTEB())->ProcessParameters->ProcessGroupId;
@@ -423,7 +423,7 @@ mint NMib::NProcess::NPlatform::fg_Process_GetCurrentGroupUID()
 		return GetCurrentProcessId();
 }
 
-bool NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
+bool NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(umint _ProcessID)
 {
 	// Not implemented yet
 	return false;
@@ -598,18 +598,18 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 	return "Windows";
 }
 
-void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
+void *NMib::NProcess::NPlatform::fg_Process_Pause(umint _ProcessID)
 {
 	DMibError("fg_Process_Pause not implemented");
 	return nullptr;
 }
 
-void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID, void *_pPauseToken)
+void NMib::NProcess::NPlatform::fg_Process_Resume(umint _ProcessID, void *_pPauseToken)
 {
 	DMibError("fg_Process_Resume not implemented");
 }
 
-void NMib::NProcess::NPlatform::fg_Process_Terminate(mint _ProcessID)
+void NMib::NProcess::NPlatform::fg_Process_Terminate(umint _ProcessID)
 {
 	HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, false, _ProcessID);
 	if (!hProcess)
@@ -625,7 +625,7 @@ void NMib::NProcess::NPlatform::fg_Process_Terminate(mint _ProcessID)
 		DMibError(fg_Format("When terminating process Windows returned an error from TerminateProcess: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
 }
 
-void NMib::NProcess::NPlatform::fg_Process_Stop(mint _ProcessID)
+void NMib::NProcess::NPlatform::fg_Process_Stop(umint _ProcessID)
 {
 	if (!GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, _ProcessID))
 	{
@@ -715,7 +715,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 	;
 }
 
-mint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
+umint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
 {
 	return 0;
 }

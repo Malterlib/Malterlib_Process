@@ -38,7 +38,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 
 	File.f_Open(Path, NMib::NFile::EFileOpen_Read | NMib::NFile::EFileOpen_ShareAll);
 
-	Elf * pElf = elf_begin((mint)File.f_GetOSFile(), ELF_C_READ, nullptr);
+	Elf * pElf = elf_begin((umint)File.f_GetOSFile(), ELF_C_READ, nullptr);
 
 	if (!pElf)
 		DMibError(fg_FormatElfErrno("elf_begin failed", elf_errno()));

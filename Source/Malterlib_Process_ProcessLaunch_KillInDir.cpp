@@ -9,12 +9,12 @@ namespace NMib::NProcess
 {
 	namespace
 	{
-		NContainer::TCVector<mint> fg_GetProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags)
+		NContainer::TCVector<umint> fg_GetProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags)
 		{
-			NContainer::TCVector<mint> Return;
+			NContainer::TCVector<umint> Return;
 			NContainer::TCVector<CProcessInfo> Processes = NPlatform::fg_Process_Enum(_InfoFlags);
 
-			mint ThisProcessID = NPlatform::fg_Process_GetCurrentUID();
+			umint ThisProcessID = NPlatform::fg_Process_GetCurrentUID();
 			for (auto &Process : Processes)
 			{
 				if (Process.m_ProcessID == ThisProcessID)
@@ -30,13 +30,13 @@ namespace NMib::NProcess
 		}
 	}
 
-	mint CProcessLaunch::fs_KillProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags, fp64 _Timeout)
+	umint CProcessLaunch::fs_KillProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags, fp64 _Timeout)
 	{
 		using namespace NMib::NStr;
 
-		NContainer::TCVector<mint> ProcessIDs = fg_GetProcesses(_fProcessFilter, _InfoFlags);
+		NContainer::TCVector<umint> ProcessIDs = fg_GetProcesses(_fProcessFilter, _InfoFlags);
 
-		NContainer::TCSet<mint> Killed;
+		NContainer::TCSet<umint> Killed;
 		if (!ProcessIDs.f_IsEmpty())
 		{
 			// Gracefully stop
@@ -95,7 +95,7 @@ namespace NMib::NProcess
 		return Killed.f_GetLen();
 	}
 
-	mint CProcessLaunch::fs_KillProcessesInDirectory(NStr::CStr const &_NamePattern, NStr::CStr const &_ArgsPattern, NStr::CStr const &_Directory, fp64 _Timeout)
+	umint CProcessLaunch::fs_KillProcessesInDirectory(NStr::CStr const &_NamePattern, NStr::CStr const &_ArgsPattern, NStr::CStr const &_Directory, fp64 _Timeout)
 	{
 		NStr::CStr Directory;
 		if (_Directory.f_IsEmpty())

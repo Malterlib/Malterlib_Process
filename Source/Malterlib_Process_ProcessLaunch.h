@@ -408,7 +408,7 @@ namespace NMib::NProcess
 		void f_CloseStdIn() const;
 		void f_SendStdInBinary(NContainer::CIOByteVector const &_Data) const;
 		fp64 f_GetRunningTime() const;
-		mint f_GetProcessID() const;
+		umint f_GetProcessID() const;
 		void f_StopProcess() const; // Soft termination
 		void f_StopProcessGroup() const;
 
@@ -481,8 +481,8 @@ namespace NMib::NProcess
 			)
 		;
 
-		static mint fs_KillProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags, fp64 _Timeout = 30.0);
-		static mint fs_KillProcessesInDirectory(NStr::CStr const &_NamePattern, NStr::CStr const &_ArgsPattern = {}, NStr::CStr const &_Directory = {}, fp64 _Timeout = 30.0);
+		static umint fs_KillProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags, fp64 _Timeout = 30.0);
+		static umint fs_KillProcessesInDirectory(NStr::CStr const &_NamePattern, NStr::CStr const &_ArgsPattern = {}, NStr::CStr const &_Directory = {}, fp64 _Timeout = 30.0);
 	};
 }
 

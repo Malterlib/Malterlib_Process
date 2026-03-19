@@ -67,7 +67,7 @@ namespace
 						LaunchParams.m_bForceFork = _bForceFork;
 						LaunchParams.m_bCreateNewProcessGroup = true;
 
-						mint ChildProcessGroup = CProcessLaunch::fs_LaunchTool(CFile::fs_GetProgramPath(), RecursiveLaunchParams, LaunchParams).f_Trim().f_ToInt(mint(0));
+						umint ChildProcessGroup = CProcessLaunch::fs_LaunchTool(CFile::fs_GetProgramPath(), RecursiveLaunchParams, LaunchParams).f_Trim().f_ToInt(umint(0));
 						DMibExpect(ChildProcessGroup, !=, NProcess::NPlatform::fg_Process_GetCurrentGroupUID());
 					}
 					{
@@ -76,7 +76,7 @@ namespace
 						LaunchParams.m_bForceFork = _bForceFork;
 						LaunchParams.m_bCreateNewProcessGroup = false;
 
-						mint ChildProcessGroup = CProcessLaunch::fs_LaunchTool(CFile::fs_GetProgramPath(), RecursiveLaunchParams, LaunchParams).f_Trim().f_ToInt(mint(0));
+						umint ChildProcessGroup = CProcessLaunch::fs_LaunchTool(CFile::fs_GetProgramPath(), RecursiveLaunchParams, LaunchParams).f_Trim().f_ToInt(umint(0));
 						DMibExpect(ChildProcessGroup, ==, NProcess::NPlatform::fg_Process_GetCurrentGroupUID());
 					}
 				}
@@ -93,7 +93,7 @@ namespace
 					return;
 				}
 				CStr RunAsPath = fg_TestGetCurrentPath();
-				for (mint i = 0; i < 4; ++i)
+				for (umint i = 0; i < 4; ++i)
 				{
 					bool bForceFork = (i & 1) != 0;
 					bool bUserSession = (i & 2) != 0;
@@ -139,7 +139,7 @@ namespace
 						CFile::fs_CreateDirectory(HomeDir);
 	#ifdef DPlatformFamily_macOS
 						// Workaround flaky API
-						for (mint iRetry = 0; ; ++iRetry)
+						for (umint iRetry = 0; ; ++iRetry)
 						{
 							if (iRetry == 10)
 							{
@@ -268,8 +268,8 @@ namespace
 					TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
 					RecursiveLaunchParams.f_Insert(fs_GetTestGroups());
 
-					mint TryLimitCur = 4 * 1024 * 1024;
-					mint TryLimitMax = 8 * 1024 * 1024;
+					umint TryLimitCur = 4 * 1024 * 1024;
+					umint TryLimitMax = 8 * 1024 * 1024;
 
 					CStr ExpectedOutput = "Current: {} Max: {}"_f << TryLimitCur << TryLimitMax;
 					{

@@ -274,7 +274,7 @@ namespace NMib::NProcess
 		return NPlatform::fg_ProcessLaunch_GetRunningTime(m_pProcessLaunch);
 	}
 
-	mint CProcessLaunch::f_GetProcessID() const
+	umint CProcessLaunch::f_GetProcessID() const
 	{
 		return NPlatform::fg_ProcessLaunch_GetID(m_pProcessLaunch);
 	}
@@ -359,7 +359,7 @@ namespace NMib::NProcess
 			while (true)
 			{
 				bool bShouldCopy = true;
-				mint nSlashes = 0;
+				umint nSlashes = 0;
 
 				while (*pParse == '\\')
 				{
@@ -436,13 +436,13 @@ namespace NMib::NProcess
 				Params += "\"";
 
 				ch8 const *pParse = Param;
-				mint nBackslashes = 0;
+				umint nBackslashes = 0;
 				while (*pParse)
 				{
 					ch8 Char = *pParse;
 					if (Char == '\"')
 					{
-						for (mint i = 0; i < nBackslashes; ++i)
+						for (umint i = 0; i < nBackslashes; ++i)
 							Params.f_AddChar('\\');
 						Params += "\\\"";
 						nBackslashes = 0;
@@ -457,7 +457,7 @@ namespace NMib::NProcess
 					++pParse;
 				}
 
-				for (mint i = 0; i < nBackslashes; ++i)
+				for (umint i = 0; i < nBackslashes; ++i)
 					Params.f_AddChar('\\');
 
 				Params += "\"";

@@ -17,7 +17,7 @@
 
 namespace NMib::NProcess::NPlatform
 {
-	static_assert(sizeof(pid_t) <= sizeof(mint));
+	static_assert(sizeof(pid_t) <= sizeof(umint));
 	class CProcessLaunchLink
 	{
 	public:
@@ -45,7 +45,7 @@ namespace NMib::NProcess::NPlatform
 		void f_CloseStdIn();
 		void f_SendBinary(NContainer::CIOByteVector const &_Data);
 		fp64 f_GetRunningTime();
-		mint f_GetID();
+		umint f_GetID();
 #ifdef DPlatformFamily_macOS
 		task_t f_MachTask();
 #endif

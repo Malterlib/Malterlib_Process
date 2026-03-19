@@ -257,7 +257,7 @@ namespace NMib::NProcess::NPlatform
 							bool bCharAvailable = false;
 							if (PeekConsoleInputW(mp_hStdInFile, Records.f_GetArray(), LastAvailable, &nReadEvents))
 							{
-								for (mint i = 0; i < nReadEvents; ++i)
+								for (umint i = 0; i < nReadEvents; ++i)
 								{
 									if (Records[i].EventType == KEY_EVENT && Records[i].Event.KeyEvent.uChar.UnicodeChar && Records[i].Event.KeyEvent.bKeyDown)
 									{

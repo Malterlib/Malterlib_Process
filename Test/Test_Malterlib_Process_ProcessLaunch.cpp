@@ -374,7 +374,7 @@ namespace
 					DllPath = NMib::NFile::CFile::fs_AppendPath(NMib::NFile::CFile::fs_GetProgramDirectory(), DllPath);
 #endif
 
-					for (mint i = 0; i < 10; ++i)
+					for (umint i = 0; i < 10; ++i)
 					{
 						void *pDll = NMib::NSys::fg_LoadLibrary(DllPath);
 
@@ -452,13 +452,13 @@ namespace
 				;
 				CTestPerformanceMeasure MalterlibTime("Malterlib");
 
-				mint nTests = 256 + 1;
-				mint nLoops = 1;
+				umint nTests = 256 + 1;
+				umint nLoops = 1;
 
-				for(mint j = 0; j < nTests; ++j)
+				for(umint j = 0; j < nTests; ++j)
 				{
 					MalterlibTime.f_Start();
-					for (mint i = 0; i < nLoops; ++i)
+					for (umint i = 0; i < nLoops; ++i)
 					{
 						Exited = EExitResult_None;
 						ExitCode = 66;
@@ -1391,7 +1391,7 @@ namespace
 						}
 					;
 
-					mint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
+					umint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
 					Params.m_LaunchPriority = NMib::EExecutionPriority_Lowest;
 					Params.m_CPUUsage = NMib::fg_Max(fp64(nCores) - 2.0, fp64(1.0)) / fp64(nCores);
 					//Params.m_CPUUsage = fp64(1.0) / fp64(nCores);
@@ -1409,9 +1409,9 @@ namespace
 						}
 					;
 					{
-						mint nLaunches = NMib::fg_Min(nCores*16, 64u);
+						umint nLaunches = NMib::fg_Min(nCores*16, 64u);
 						NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
-						for (mint i = 0; i < nLaunches; ++i)
+						for (umint i = 0; i < nLaunches; ++i)
 							Launches.f_Insert(f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit));
 					}
 
@@ -1555,8 +1555,8 @@ namespace
 				;
 
 				NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
-				mint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
-				for (mint i = 0; i < nCores * 2; ++i)
+				umint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
+				for (umint i = 0; i < nCores * 2; ++i)
 					Launches.f_Insert(f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone));
 
 				Launches.f_Clear();
@@ -1885,7 +1885,7 @@ namespace
 			{
 				DMibTestCategory("KillSandbox")
 				{
-					for (mint i = 0; i < 10; ++i)
+					for (umint i = 0; i < 10; ++i)
 					{
 						NMib::NStr::CStr Suite = NMib::NStr::CStr::fs_ToStr(i);
 						DMibTestSuite(Suite)

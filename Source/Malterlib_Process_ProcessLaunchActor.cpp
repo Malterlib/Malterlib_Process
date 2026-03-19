@@ -374,7 +374,7 @@ namespace NMib::NProcess
 						else
 							break;
 					}
-					mint nFinishedChars = pFinishedOutput - pStartParse;
+					umint nFinishedChars = pFinishedOutput - pStartParse;
 					if (!nFinishedChars)
 					{
 						m_OutputBuffersParsedChars[_OutputType] = pParse - pStartParse;
@@ -467,7 +467,7 @@ namespace NMib::NProcess
 			ELogFlag m_ToLog = ELogFlag_None;
 			NStr::CStr m_LogName;
 			NStr::CStr m_OutputBuffers[EProcessLaunchOutputType_Max];
-			mint m_OutputBuffersParsedChars[EProcessLaunchOutputType_Max] = {};
+			umint m_OutputBuffersParsedChars[EProcessLaunchOutputType_Max] = {};
 			NConcurrency::TCWeakActor<CProcessLaunchActor> m_ThisWeak;
 			CProcessLaunchActor *m_pThis = nullptr;
 			bool m_bWholeLineOutput = true;

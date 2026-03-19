@@ -56,14 +56,14 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetUserName()
 
 #ifndef DPlatformFamily_macOS
 
-void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
+void *NMib::NProcess::NPlatform::fg_Process_Pause(umint _ProcessID)
 {
 	if (kill(_ProcessID, SIGSTOP))
 		return nullptr;
 
 	return (void *)1;
 }
-void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID, void *_pPauseToken)
+void NMib::NProcess::NPlatform::fg_Process_Resume(umint _ProcessID, void *_pPauseToken)
 {
 	if (!_pPauseToken)
 		return;
@@ -73,13 +73,13 @@ void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID, void *_pPause
 
 #endif
 
-void NMib::NProcess::NPlatform::fg_Process_Terminate(mint _ProcessID)
+void NMib::NProcess::NPlatform::fg_Process_Terminate(umint _ProcessID)
 {
 	if (kill(_ProcessID, SIGKILL))
 		DMibError(NMib::NPlatform::fg_FormatErrno(NMib::NStr::CStr::CFormat("kill({}, SIGKILL) when terminating process") << _ProcessID, errno));
 }
 
-void NMib::NProcess::NPlatform::fg_Process_Stop(mint _ProcessID)
+void NMib::NProcess::NPlatform::fg_Process_Stop(umint _ProcessID)
 {
 	if (kill(_ProcessID, SIGTERM))
 		DMibError(NMib::NPlatform::fg_FormatErrno(NMib::NStr::CStr::CFormat("kill({}, SIGTERM) when stopping process") << _ProcessID, errno));
@@ -161,12 +161,12 @@ NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetFullyQualiedHostName()
 #endif
 }
 
-mint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
+umint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 {
 	return getpid();
 }
 
-mint NMib::NProcess::NPlatform::fg_Process_GetCurrentGroupUID()
+umint NMib::NProcess::NPlatform::fg_Process_GetCurrentGroupUID()
 {
 	return getpgid(0);
 }
@@ -242,7 +242,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 	;
 }
 
-bool NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(mint _ProcessID)
+bool NMib::NProcess::NPlatform::fg_Process_GetProcessIsParentProcess(umint _ProcessID)
 {
 	return getppid() == _ProcessID;
 }

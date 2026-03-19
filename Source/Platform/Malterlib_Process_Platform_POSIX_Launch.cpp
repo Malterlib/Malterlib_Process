@@ -239,7 +239,7 @@ namespace NMib::NProcess::NPlatform
 		if (!_bAllowLocate)
 			return _Path;
 
-		for (mint i = 0; i < 2; ++i)
+		for (umint i = 0; i < 2; ++i)
 		{
 			NStr::CStr Path;
 			if (i == 0)
@@ -1506,7 +1506,7 @@ namespace NMib::NProcess::NPlatform
 			return 0;
 		}
 
-		fp_OnLaunched(Errors, (void *)(mint)mp_ProcessID.f_Load(), true);
+		fp_OnLaunched(Errors, (void *)(umint)mp_ProcessID.f_Load(), true);
 
 		bool bExited = false;
 
@@ -1939,7 +1939,7 @@ namespace NMib::NProcess::NPlatform
 			return m_ExitTime;
 	}
 
-	mint CPOSIXLaunchContext::f_GetID()
+	umint CPOSIXLaunchContext::f_GetID()
 	{
 		return mp_ProcessID.f_Load();
 	}
@@ -2061,7 +2061,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_Stop(void *_pLaunch)
 		DMibError(Error);
 }
 
-mint NMib::NProcess::NPlatform::fg_ProcessLaunch_GetID(void *_pLaunch)
+umint NMib::NProcess::NPlatform::fg_ProcessLaunch_GetID(void *_pLaunch)
 {
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_GetID();
@@ -2144,7 +2144,7 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
 #ifdef DPlatformFamily_macOS
-	mint ProcessID = (mint)_pProcess;
+	umint ProcessID = (umint)_pProcess;
 	int bytes;
 	proc_taskinfo TaskInfo = {0};
 	bytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfo, sizeof(TaskInfo));
@@ -2169,7 +2169,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pPr
 void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
 #ifdef DPlatformFamily_macOS
-	mint ProcessID = (mint)_pProcess;
+	umint ProcessID = (umint)_pProcess;
 	[[maybe_unused]] int bytes;
 	proc_taskallinfo TaskInfoAll = {0};
 	bytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));

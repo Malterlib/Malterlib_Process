@@ -46,7 +46,7 @@ namespace NMib::NProcess
 					fs_StdOutput(m_StdOutActor, m_Params.m_Prompt);
 			}
 
-			void f_ChangeInsertPos(mint _iInsertPos)
+			void f_ChangeInsertPos(umint _iInsertPos)
 			{
 				if (_iInsertPos > m_iInsertPos)
 					fs_StdOutput(m_StdOutActor, "\x1B[{}C"_f << (_iInsertPos - m_iInsertPos));
@@ -58,13 +58,13 @@ namespace NMib::NProcess
 				m_iRenderInsertPos = m_iInsertPos = _iInsertPos;
 			}
 
-			void f_Redraw(mint _OldLen, mint _NewInsertPos)
+			void f_Redraw(umint _OldLen, umint _NewInsertPos)
 			{
-				mint ExtraChars = 0;
-				if (_OldLen > mint(m_Result.f_GetLen()))
+				umint ExtraChars = 0;
+				if (_OldLen > umint(m_Result.f_GetLen()))
 					ExtraChars = _OldLen - m_Result.f_GetLen();
 
-				mint InsertPosFromEnd = (m_Result.f_GetLen() + ExtraChars) - _NewInsertPos;
+				umint InsertPosFromEnd = (m_Result.f_GetLen() + ExtraChars) - _NewInsertPos;
 
 				NStr::CStr OutputString;
 
@@ -103,9 +103,9 @@ namespace NMib::NProcess
 
 			CStdInReaderPromptParams m_Params;
 			NStr::CUStrSecure m_Result;
-			mint m_iInsertPos = 0;
-			mint m_iRenderInsertPos = 0;
-			mint m_iDrawInsertPos = 0;
+			umint m_iInsertPos = 0;
+			umint m_iRenderInsertPos = 0;
+			umint m_iDrawInsertPos = 0;
 			bool m_bOutputPrompt = false;
 			bool m_bInsert = true;
 		};
@@ -257,10 +257,10 @@ namespace NMib::NProcess
 					bool bAborted = false;
 					bool bCompleted = false;
 
-					mint QueuedInsertPos = 0;
+					umint QueuedInsertPos = 0;
 					smint QueuedOldLen = -1;
 
-					auto fQueueRedraw = [&](mint _OldLen, mint _InsertPos)
+					auto fQueueRedraw = [&](umint _OldLen, umint _InsertPos)
 						{
 							QueuedInsertPos = _InsertPos;
 							if (QueuedOldLen < 0)
@@ -317,8 +317,8 @@ namespace NMib::NProcess
 									{
 									case 'C':
 										{
-											mint nPlaces = Parameters.f_ToInt(mint(1));
-											auto NewPos = fg_Clamp(Prompt.m_iInsertPos + nPlaces, 0u, mint(Prompt.m_Result.f_GetLen()));
+											umint nPlaces = Parameters.f_ToInt(umint(1));
+											auto NewPos = fg_Clamp(Prompt.m_iInsertPos + nPlaces, 0u, umint(Prompt.m_Result.f_GetLen()));
 											fFlushRedraw();
 											Prompt.f_ChangeInsertPos(NewPos);
 											break;
@@ -335,9 +335,9 @@ namespace NMib::NProcess
 										{
 											if (Parameters == "3")
 											{
-												if (Prompt.m_iInsertPos < mint(Prompt.m_Result.f_GetLen()))
+												if (Prompt.m_iInsertPos < umint(Prompt.m_Result.f_GetLen()))
 												{
-													mint OldLen = Prompt.m_Result.f_GetLen();
+													umint OldLen = Prompt.m_Result.f_GetLen();
 													Prompt.m_Result = Prompt.m_Result.f_Delete(Prompt.m_iInsertPos, 1);
 													fQueueRedraw(OldLen, Prompt.m_iInsertPos);
 												}
@@ -440,7 +440,7 @@ namespace NMib::NProcess
 							++iUTFChar;
 							if (Prompt.m_iInsertPos > 0)
 							{
-								mint OldLen = Prompt.m_Result.f_GetLen();
+								umint OldLen = Prompt.m_Result.f_GetLen();
 								Prompt.m_Result = Prompt.m_Result.f_Delete(Prompt.m_Result.f_GetLen() - 1, 1);
 								fQueueRedraw(OldLen, Prompt.m_iInsertPos - 1);
 							}
@@ -450,13 +450,13 @@ namespace NMib::NProcess
 						else if (NewChar == 1) // Home
 						{
 							++iUTFChar;
-							mint OldLen = Prompt.m_Result.f_GetLen();
+							umint OldLen = Prompt.m_Result.f_GetLen();
 							fQueueRedraw(OldLen, 0);
 						}
 						else if (NewChar == 5) // End
 						{
 							++iUTFChar;
-							mint OldLen = Prompt.m_Result.f_GetLen();
+							umint OldLen = Prompt.m_Result.f_GetLen();
 							fQueueRedraw(OldLen, OldLen);
 						}
 						else if (NewChar >= 32)
@@ -464,7 +464,7 @@ namespace NMib::NProcess
 							++iUTFChar;
 							ch32 Temp[2] = {NewChar, 0};
 
-							mint OldLen = Prompt.m_Result.f_GetLen();
+							umint OldLen = Prompt.m_Result.f_GetLen();
 							if (Prompt.m_bInsert)
 							{
 								if (Prompt.m_iInsertPos == OldLen)
@@ -661,7 +661,7 @@ namespace NMib::NProcess
 		;
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput _fOnInput, EStdInReaderFlag _Flags, mint _MaxSize)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInput(FOnInput _fOnInput, EStdInReaderFlag _Flags, umint _MaxSize)
 	{
 		auto &Internal = *mp_pInternal;
 		try
@@ -672,15 +672,15 @@ namespace NMib::NProcess
 					(
 						[fOnInput = fg_Move(_fOnInput), _MaxSize](EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)
 						{
-							mint InputLen = _Input.f_GetLen();
+							umint InputLen = _Input.f_GetLen();
 							if (InputLen > _MaxSize)
 							{
 								NMisc::fg_ChunkRange
 									(
-										mint(0)
+										umint(0)
 										, InputLen
 										, _MaxSize
-										, [&](mint _Start, mint _Len)
+										, [&](umint _Start, umint _Len)
 										{
 											fOnInput.f_CallDiscard(_Type, _Input.f_Extract(_Start, _Len));
 										}
@@ -710,7 +710,7 @@ namespace NMib::NProcess
 		}
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput _fOnInput, EStdInReaderFlag _Flags, mint _MaxSize)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CStdInActor::f_RegisterForInputBinary(FOnBinaryInput _fOnInput, EStdInReaderFlag _Flags, umint _MaxSize)
 	{
 		auto &Internal = *mp_pInternal;
 		try
@@ -721,15 +721,15 @@ namespace NMib::NProcess
 					(
 						[fOnInput = fg_Move(_fOnInput), _MaxSize](EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, CStr const &_Error)
 						{
-							mint InputLen = _Input.f_GetLen();
+							umint InputLen = _Input.f_GetLen();
 							if (InputLen > _MaxSize)
 							{
 								NMisc::fg_ChunkRange
 									(
-										mint(0)
+										umint(0)
 										, InputLen
 										, _MaxSize
-										, [&](mint _Start, mint _Len)
+										, [&](umint _Start, umint _Len)
 										{
 											NContainer::CIOByteVector ToSend;
 											ToSend.f_Insert(_Input.f_GetArray() + _Start, _Len);

@@ -246,7 +246,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 		DMibError(NMib::NPlatform::fg_FormatErrno("sysctl (KERN_ARGMAX)", errno));
 
 
-	NContainer::TCMap<mint, NProcess::CProcessInfo *> OldInfo;
+	NContainer::TCMap<umint, NProcess::CProcessInfo *> OldInfo;
 
 	if (_pOldEnum)
 	{
@@ -264,7 +264,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	{
 		auto &Process = *iProcess;
 		uint64 StartTime = uint64(Process.kp_proc.p_starttime.tv_sec) << 32 | uint64(Process.kp_proc.p_starttime.tv_usec);
-		if (auto pOld = OldInfo.f_FindEqual(mint(Process.kp_proc.p_pid)))
+		if (auto pOld = OldInfo.f_FindEqual(umint(Process.kp_proc.p_pid)))
 		{
 			if ((*pOld)->m_StartTime == StartTime)
 			{
@@ -293,7 +293,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 		if ((_ToGet & NProcess::EProcessInfoFlag_FullPath))
 		{
 			NStr::CStr FullPath;
-			mint Size = PROC_PIDPATHINFO_MAXSIZE;
+			umint Size = PROC_PIDPATHINFO_MAXSIZE;
 			if (proc_pidpath(New.m_ProcessID, FullPath.f_GetStr(Size), Size) > 0)
 			{
 				bGotFullPath = true;
@@ -396,7 +396,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	return Ret;
 }
 
-void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
+void *NMib::NProcess::NPlatform::fg_Process_Pause(umint _ProcessID)
 {
 	if (fg_Process_GetElevation() >= EProcessElevation_IsElevated)
 	{
@@ -410,7 +410,7 @@ void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
 			if (task_suspend2(Task, &SuspensionToken) != KERN_SUCCESS)
 				return nullptr;
 
-			return (void *)(mint)SuspensionToken;
+			return (void *)(umint)SuspensionToken;
 		}
 		else
 		{
@@ -433,7 +433,7 @@ void *NMib::NProcess::NPlatform::fg_Process_Pause(mint _ProcessID)
 	}
 }
 
-void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID, void *_pPauseToken)
+void NMib::NProcess::NPlatform::fg_Process_Resume(umint _ProcessID, void *_pPauseToken)
 {
 	if (!_pPauseToken)
 		return;
@@ -442,7 +442,7 @@ void NMib::NProcess::NPlatform::fg_Process_Resume(mint _ProcessID, void *_pPause
 	{
 		if (CSystem::ms_PlatformVersion >= 10'09'00)
 		{
-			task_suspension_token_t SuspensionToken = (mint)_pPauseToken;
+			task_suspension_token_t SuspensionToken = (umint)_pPauseToken;
 			if (task_resume2(SuspensionToken) != KERN_SUCCESS)
 				return;
 		}
@@ -484,7 +484,7 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 	return (NStr::CStr::CFormat("macOS {}.{}") << Major << Minor).f_GetStr();
 }
 
-mint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
+umint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
 {
 	int SysCtl[2];
 	SysCtl[0] = CTL_KERN;

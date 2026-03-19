@@ -180,13 +180,13 @@ namespace NMib::NProcess
 			return m_LaunchChanged.f_WaitTimeout(_Timeout);
 	}
 
-	bool CProcessLaunchHandler::f_BlockOnExit(fp32 _Timeout, mint _nMaxRunning, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats)
+	bool CProcessLaunchHandler::f_BlockOnExit(fp32 _Timeout, umint _nMaxRunning, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats)
 	{
 		NTime::CStopwatch BlockTime;
 		BlockTime.f_Start();
 		while (1)
 		{
-			mint nRunning = 0;
+			umint nRunning = 0;
 			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 			{
 				if (!Iter->m_Done.f_Load() && Iter->fp_Lingering())

@@ -126,7 +126,7 @@ namespace NMib::NProcess
 
 		void f_TerminateAll(bool _bBlock = false, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
 		void f_StopAll();
-		bool f_BlockOnExit(fp32 _Timeout = 0.0f, mint _nMaxRunning = 0, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
+		bool f_BlockOnExit(fp32 _Timeout = 0.0f, umint _nMaxRunning = 0, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
 		bool f_WaitForChange(fp32 _Timeout = 0.0f);
 		CLaunchInfo *f_GetFirstNotDone();
 

@@ -103,8 +103,8 @@ namespace NMib::NProcess
 
 	struct CProcessInfo
 	{
-		mint m_ProcessID;								// Always returned
-		mint m_ParentProcessID;							// Returned for EProcessInfoFlag_ParentProcessID
+		umint m_ProcessID;								// Always returned
+		umint m_ParentProcessID;							// Returned for EProcessInfoFlag_ParentProcessID
 		uint64 m_StartTime;								// Returned for EProcessInfoFlag_StartTime
 		NMib::NStr::CStr m_FileName;					// Returned for EProcessInfoFlag_FileName
 		NMib::NStr::CStr m_FullPath;					// Returned for EProcessInfoFlag_FullPath
@@ -120,15 +120,15 @@ namespace NMib::NProcess
 		NMib::NStr::CStr fg_Process_GetComputerDomain();
 		uint64 fg_Process_GetPhysicalMemory();
 
-		void *fg_Process_Pause(mint _ProcessID);
-		void fg_Process_Resume(mint _ProcessID, void *_pPauseToken);
-		void fg_Process_Stop(mint _ProcessID);
-		void fg_Process_Terminate(mint _ProcessID);
+		void *fg_Process_Pause(umint _ProcessID);
+		void fg_Process_Resume(umint _ProcessID, void *_pPauseToken);
+		void fg_Process_Stop(umint _ProcessID);
+		void fg_Process_Terminate(umint _ProcessID);
 
-		mint fg_Process_GetCurrentUID();
-		mint fg_Process_GetCurrentGroupUID();
-		bool fg_Process_GetProcessIsParentProcess(mint _ProcessID);
-		bool fg_Process_IsRunning(mint _ProcessID);
+		umint fg_Process_GetCurrentUID();
+		umint fg_Process_GetCurrentGroupUID();
+		bool fg_Process_GetProcessIsParentProcess(umint _ProcessID);
+		bool fg_Process_IsRunning(umint _ProcessID);
 
 		NMib::NStr::CStr fg_Process_GetUserName();
 		NMib::NStr::CStr fg_Process_GetComputerName();
@@ -159,11 +159,11 @@ namespace NMib::NProcess
 		void fg_ProcessLaunch_SendStdInBinary(void *_pLaunch, NContainer::CIOByteVector const &_Data);
 
 		fp64 fg_ProcessLaunch_GetRunningTime(void *_pLaunch);
-		mint fg_ProcessLaunch_GetID(void *_pLaunch);
+		umint fg_ProcessLaunch_GetID(void *_pLaunch);
 		void fg_ProcessLaunch_Stop(void *_pLaunch);
 		void fg_ProcessLaunch_StopGroup(void *_pLaunch);
 
-		mint fg_Process_GetMaxFilesPerProc();
+		umint fg_Process_GetMaxFilesPerProc();
 
 		void fg_Process_WaitForTermination();
 		void fg_Process_AbortWaitForTermination();
