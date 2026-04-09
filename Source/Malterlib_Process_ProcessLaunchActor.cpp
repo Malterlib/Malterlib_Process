@@ -122,9 +122,10 @@ namespace NMib::NProcess
 	{
 	}
 
-	CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(CProcessLaunchParams const &_Params)
+	CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(CProcessLaunchParams const &_Params, ESimpleLaunchFlag _Flags)
 		: CLaunch{_Params}
 	{
+		m_SimpleFlags = _Flags;
 	}
 
 	CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch
@@ -134,11 +135,10 @@ namespace NMib::NProcess
 			, NStr::CStr const &_WorkingDir
 			, ESimpleLaunchFlag _Flags
 		)
-		: CSimpleLaunch{CProcessLaunchParams::fs_LaunchExecutable(_Executable, _Params, _WorkingDir, {})}
+		: CSimpleLaunch{CProcessLaunchParams::fs_LaunchExecutable(_Executable, _Params, _WorkingDir, {}), _Flags}
 	{
 		m_Params.m_bAllowExecutableLocate = true;
 		m_Params.m_bShowLaunched = false;
-		m_SimpleFlags = _Flags;
 	}
 
 	NConcurrency::TCFuture<CProcessLaunchActor::CSimpleLaunchResult> CProcessLaunchActor::f_LaunchSimple(CSimpleLaunch _SimpleLaunch)

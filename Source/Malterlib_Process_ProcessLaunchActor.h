@@ -55,12 +55,12 @@ namespace NMib::NProcess
 			CSimpleLaunch
 				(
 					NStr::CStr const &_Executable
-					, NContainer::TCVector<NStr::CStr> const &_Params = {}
-					, NStr::CStr const &_WorkingDir = {}
-					, ESimpleLaunchFlag _Flags = ESimpleLaunchFlag_None
+					, NContainer::TCVector<NStr::CStr> const &_Params
+					, NStr::CStr const &_WorkingDir
+					, ESimpleLaunchFlag _Flags
 				)
 			;
-			CSimpleLaunch(CProcessLaunchParams const &_Params);
+			CSimpleLaunch(CProcessLaunchParams const &_Params, ESimpleLaunchFlag _Flags);
 
 			ESimpleLaunchFlag m_SimpleFlags = ESimpleLaunchFlag_None;
 		};
