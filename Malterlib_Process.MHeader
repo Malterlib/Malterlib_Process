@@ -189,6 +189,7 @@ Property
 		%File "Test/Test_Malterlib_Process_ProcessLaunchFeatures.cpp"
 		%File "Test/Test_Malterlib_Process_StdIn.cpp"
 		%File "Test/Test_Malterlib_Process_Info.cpp"
+		%File "Test/Test_Malterlib_Process_ParamEncoding.cpp"
 	}
 	%Dependency {
 		Name: "Exe_Test_Malterlib_Helper_Process"

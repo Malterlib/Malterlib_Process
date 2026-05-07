@@ -442,22 +442,28 @@ namespace NMib::NProcess
 					ch8 Char = *pParse;
 					if (Char == '\"')
 					{
-						for (umint i = 0; i < nBackslashes; ++i)
+						// 2N+1 backslashes + " ==> N backslashes + literal "
+						for (umint i = 0; i < nBackslashes * 2 + 1; ++i)
 							Params.f_AddChar('\\');
-						Params += "\\\"";
+						Params.f_AddChar('"');
 						nBackslashes = 0;
 					}
 					else if (Char == '\\')
 						++nBackslashes;
 					else
 					{
+						// N backslashes followed by a non-quote char are literal
+						for (umint i = 0; i < nBackslashes; ++i)
+							Params.f_AddChar('\\');
 						nBackslashes = 0;
 						Params.f_AddChar(Char);
 					}
 					++pParse;
 				}
 
-				for (umint i = 0; i < nBackslashes; ++i)
+				// Trailing backslashes before the closing quote must be doubled so they
+				// round-trip as N literal backslashes (2N backslashes + " ==> N + quote).
+				for (umint i = 0; i < nBackslashes * 2; ++i)
 					Params.f_AddChar('\\');
 
 				Params += "\"";
