@@ -506,7 +506,7 @@ namespace NMib::NProcess::NPlatform
 			return "CConsoleRedirector";
 		}
 
-		NStr::CWStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate)
+		NStr::CWStr fg_FindExecutableWindows(NStr::CStr const &_Path, bool _bAllowLocate)
 		{
 			// First look in current dir
 			NStr::CWStr FullPathW = NFile::NPlatform::fg_ConvertToWindowsPath(_Path, true);
@@ -692,7 +692,7 @@ namespace NMib::NProcess::NPlatform
 					&&	(Extension.f_CmpNoCase("com") == 0
 					||	Extension.f_IsEmpty()))
 			{
-				NStr::CStr Path = NFile::NPlatform::fg_ConvertFromWindowsPath(fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate));
+				NStr::CStr Path = NFile::NPlatform::fg_ConvertFromWindowsPath(fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate));
 		#if DMibPPtrBits == 64
 				NStr::CStr NewProgramPath = NFile::CFile::fs_AppendPath(NFile::CFile::fs_GetPath(Path), NFile::CFile::fs_GetFileNoExt(Path) + "_x64.exe");
 		#elif DMibPPtrBits == 32
@@ -997,7 +997,7 @@ namespace NMib::NProcess::NPlatform
 
 				SHELLEXECUTEINFOW ExecInfo;
 
-				NStr::CWStr File = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate);;
+				NStr::CWStr File = fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate);;
 				NStr::CWStr Params = NStr::NPlatform::fg_StrToWindows(mp_LastLaunchOptions.m_Parameters);
 				if (!PipeBaseName.f_IsEmpty())
 				{
@@ -1139,7 +1139,7 @@ namespace NMib::NProcess::NPlatform
 
 				auto Environment = mp_LastLaunchOptions.m_Environment;
 
-				NStr::CWStr ProgramPathFull = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate);
+				NStr::CWStr ProgramPathFull = fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate);
 
 				if (ProgramPathFull.f_IsEmpty())
 				{
@@ -3000,6 +3000,15 @@ namespace NMib::NProcess::NPlatform
 				return NMib::NProcess::EProcessElevation_IsNotElevated;
 			}
 		}
+	}
+
+	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate)
+	{
+		NStr::CStr Path = NFile::NPlatform::fg_ConvertFromWindowsPath(fg_FindExecutableWindows(_Path, _bAllowLocate));
+		if (NFile::CFile::fs_FileExists(Path, NFile::EFileAttrib_File))
+			return Path;
+
+		return _Path;
 	}
 }
 

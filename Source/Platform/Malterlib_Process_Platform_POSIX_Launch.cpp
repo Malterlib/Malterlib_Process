@@ -265,6 +265,11 @@ namespace NMib::NProcess::NPlatform
 		return _Path;
 	}
 
+	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate)
+	{
+		return fg_FindExecutable(_Path, _bAllowLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, {});
+	}
+
 
 	CPOSIXLaunchContext::CPOSIXLaunchContext()
 		: mp_bStarted(false)

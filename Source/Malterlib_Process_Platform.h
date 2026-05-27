@@ -135,6 +135,7 @@ namespace NMib::NProcess
 		NMib::NStr::CStr fg_Process_GetComputerAddress();
 		NMib::NStr::CStr fg_Process_GetHostName();
 		NMib::NStr::CStr fg_Process_GetFullyQualiedHostName();
+		NMib::NStr::CStr fg_FindExecutable(NMib::NStr::CStr const &_Path, bool _bAllowLocate = true);
 
 		EExecutionPriority fg_Process_GetPriority();
 		void fg_Process_SetPriority(EExecutionPriority _Priority);
