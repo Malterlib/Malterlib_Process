@@ -5,6 +5,8 @@
 
 #include <Mib/Core/Core>
 
+#include <sys/types.h>
+
 namespace NMib::NProcess::NPlatform
 {
 	struct CProcessLaunchLimiter

@@ -1,6 +1,8 @@
 // Copyright © Unbroken AB
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+#include <sys/types.h>
+
 namespace NMib::NProcess::NPlatform
 {
 	struct CPOSIXProcessInfo

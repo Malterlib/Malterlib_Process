@@ -8,9 +8,9 @@ using namespace NMib;
 #include <unistd.h>
 #include <limits.h>
 #include <errno.h>
+#include <sys/resource.h>
 #ifdef DPlatformFamily_Linux
 #include <sys/time.h>
-#include <sys/resource.h>
 #endif
 #ifdef DPlatformFamily_macOS
 #include <mach/mach_init.h>
