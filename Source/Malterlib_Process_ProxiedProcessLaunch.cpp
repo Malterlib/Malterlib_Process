@@ -1548,7 +1548,7 @@ namespace NMib::NProcess
 	{
 		_pClient->f_AddLaunchState(m_pState->m_LaunchID, m_pState);
 
-		EProcessLaunchCloseFlag RemoteCloseFlags = _DestructFlags & EProcessLaunchCloseFlag_TerminateProcess;
+		EProcessLaunchCloseFlag RemoteCloseFlags = _DestructFlags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree);
 
 		NStorage::TCSharedPointer<CLaunchState> pState = m_pState;
 		NPrivate::CProcessLaunch_Launch Launch(_Params, RemoteCloseFlags, m_pState->m_LaunchID);
@@ -1619,10 +1619,18 @@ namespace NMib::NProcess
 		{
 			NStorage::TCSharedPointer<CLaunchState> pState = m_pState;
 
-			if (_CloseFlags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_StopProcess))
+			if (_CloseFlags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_StopProcess))
 			{
 				// We only need to send a message to remote if we need to terminate the process
-				EProcessLaunchCloseFlag RemoteCloseFlags = (_CloseFlags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_StopProcess)) | EProcessLaunchCloseFlag_LingerUntilDone;
+				EProcessLaunchCloseFlag RemoteCloseFlags = _CloseFlags
+					&
+					(
+						EProcessLaunchCloseFlag_TerminateProcess
+						| EProcessLaunchCloseFlag_TerminateProcessTree
+						| EProcessLaunchCloseFlag_StopProcess
+					)
+				;
+				RemoteCloseFlags |= EProcessLaunchCloseFlag_LingerUntilDone;
 
 				// Always linger on the remote side
 

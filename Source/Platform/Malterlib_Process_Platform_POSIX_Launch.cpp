@@ -1684,12 +1684,12 @@ namespace NMib::NProcess::NPlatform
 
 					if (bClosed)
 					{
-						if (NeedTermination & EProcessLaunchCloseFlag_TerminateProcess)
+						if (NeedTermination & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree))
 						{
 							NStr::CStr TempRet;
 							if (mp_ProcessID.f_Load())
 							{
-								if (mp_LastLaunchOptions.m_bSandboxed)
+								if ((NeedTermination & EProcessLaunchCloseFlag_TerminateProcessTree) || mp_LastLaunchOptions.m_bSandboxed)
 								{
 									if (!fg_TerminateProcessTree(mp_ProcessID.f_Load(), TempRet))
 										bNeedWait = false;
@@ -1874,7 +1874,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			{
 				DMibLock(mp_NeedTerminationLock);
-				mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_StopProcess));
+				mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_StopProcess));
 				if (_Flags & (EProcessLaunchCloseFlag_LingerUntilDone | EProcessLaunchCloseFlag_BlockOnExit))
 					mp_bNeedWait = true;
 				mp_bClosed = true;
@@ -1891,7 +1891,7 @@ namespace NMib::NProcess::NPlatform
 		bool bNeedWait;
 		{
 			DMibLock(mp_NeedTerminationLock);
-			mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_StopProcess));
+			mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_StopProcess));
 			if (_Flags & (EProcessLaunchCloseFlag_LingerUntilDone | EProcessLaunchCloseFlag_BlockOnExit))
 				mp_bNeedWait = true;
 			mp_bClosed = true;
