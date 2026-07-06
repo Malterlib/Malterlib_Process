@@ -460,6 +460,19 @@ void NMib::NProcess::NPlatform::fg_Process_Resume(umint _ProcessID, void *_pPaus
 		kill(_ProcessID, SIGCONT);
 }
 
+// A zombie has exited and only waits for its parent to reap it
+bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
+{
+	kinfo_proc ProcessInfo;
+	size_t Length = sizeof(ProcessInfo);
+	int Name[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, int(_ProcessID)};
+
+	if (sysctl(Name, 4, &ProcessInfo, &Length, nullptr, 0) != 0 || Length == 0)
+		return false;
+
+	return ProcessInfo.kp_proc.p_stat != SZOMB;
+}
+
 NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int32 _MajorMax, int32 _MinorMax)
 {
 	int Major, Minor, Fix;

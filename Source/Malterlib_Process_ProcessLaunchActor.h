@@ -93,6 +93,7 @@ namespace NMib::NProcess
 		NConcurrency::TCFuture<void> f_SendStdInBinary(NContainer::CIOByteVector _Data) const;
 		NConcurrency::TCFuture<uint32> f_StopProcess() const; // Soft termination
 		NConcurrency::TCFuture<uint32> f_StopProcessGroup() const; // Soft termination
+		NConcurrency::TCFuture<uint32> f_TerminateProcessTree() const; // Kills the process and its descendants
 		NConcurrency::TCFuture<void> f_Signal(int32 _Signal) const; // Only for unix
 
 		NConcurrency::TCFuture<fp64> f_GetRunningTime() const;
@@ -105,8 +106,15 @@ namespace NMib::NProcess
 		static NConcurrency::TCFuture<CSimpleLaunchResult> fs_LaunchSimple(CSimpleLaunch _SimpleLaunch);
 
 	protected:
+		enum class EStop
+		{
+			mc_Process
+			, mc_ProcessGroup
+			, mc_TerminateProcessTree
+		};
+
 		NConcurrency::TCFuture<void> fp_Destroy() override;
-		NConcurrency::TCFuture<uint32> fp_StopProcess(bool _bGroup) const;
+		NConcurrency::TCFuture<uint32> fp_StopProcess(EStop _Stop) const;
 		virtual bool fp_WillFilterOutput();
 		virtual void fp_FilterOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr &o_Output);
 		virtual void fp_ModifyLaunch(CLaunch &o_Launch);

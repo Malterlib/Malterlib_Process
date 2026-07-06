@@ -287,6 +287,7 @@ namespace NMib::NProcess::NPlatform
 		, mp_bClosed(false)
 		, mp_bNeedWait(false)
 		, mp_ProcessID(-1)
+		, mp_bReaped(0)
 		, m_ExitTime(-1.0)
 		, mp_hStdinWrite(-1)
 		, mp_hStdoutRead(-1)
@@ -1456,6 +1457,24 @@ namespace NMib::NProcess::NPlatform
 						break;
 					}
 				}
+
+				// The process has exited, so the output is held open by descendants, which a tree termination ends
+				bool bTerminateTree = false;
+				{
+					DMibLock(mp_NeedTerminationLock);
+					if (mp_NeedTermination & EProcessLaunchCloseFlag_TerminateProcessTree)
+					{
+						mp_NeedTermination = mp_NeedTermination & ~EProcessLaunchCloseFlag_TerminateProcessTree;
+						bTerminateTree = true;
+					}
+				}
+
+				if (bTerminateTree)
+				{
+					NStr::CStr Errors;
+					if (!f_TerminateTree(Errors))
+						fp_OnOutput(EProcessLaunchOutputType_TerminateMessage, Errors);
+				}
 				if (!bStdOutEof)
 				{
 					if (fl_Read(mp_hStdoutRead, EProcessLaunchOutputType_StdOut))
@@ -1527,6 +1546,38 @@ namespace NMib::NProcess::NPlatform
 		_Errors += "Kill process tree not implemented for this platform";
 		return false;
 #endif
+	}
+
+	// The tree is found through the parents of the processes, which misses processes whose parent has exited. Those stay in
+	// the process group of a launch that made one, which is all that is left to terminate once the process has been reaped
+	bool CPOSIXLaunchContext::f_TerminateTree(NStr::CStr &o_Errors)
+	{
+		pid_t ProcessID = mp_ProcessID.f_Load();
+		if (ProcessID <= 0)
+		{
+			o_Errors += "No process ID to terminate the tree of";
+			return false;
+		}
+
+		bool bReaped = mp_bReaped.f_Load();
+		bool bTerminated = bReaped || fg_TerminateProcessTree(ProcessID, o_Errors);
+
+		if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
+		{
+			// The ID of a process group with members is not given to new processes. So once the process has been reaped, a
+			// process with its ID means that the group is gone and the ID can be that of another group
+			if (bReaped && (kill(ProcessID, 0) == 0 || errno == EPERM))
+				return bTerminated;
+
+			if (kill(-ProcessID, SIGKILL) == 0)
+				return true;
+
+			int ErrNo = errno;
+			if (ErrNo != ESRCH)
+				o_Errors += NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("kill({}) when terminating launch process group") << (-ProcessID), ErrNo);
+		}
+
+		return bTerminated;
 	}
 
 	aint CPOSIXLaunchContext::f_Main()
@@ -1639,6 +1690,7 @@ namespace NMib::NProcess::NPlatform
 
 				if (WaitResult != 0)
 				{
+					mp_bReaped.f_Store(1);
 					fp_UpdateOverallStats
 						(
 							RUsage
@@ -1711,14 +1763,14 @@ namespace NMib::NProcess::NPlatform
 
 					if (bClosed)
 					{
-						if (NeedTermination & EProcessLaunchCloseFlag_TerminateProcess)
+						if (NeedTermination & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree))
 						{
 							NStr::CStr TempRet;
 							if (mp_ProcessID.f_Load())
 							{
-								if (mp_LastLaunchOptions.m_bSandboxed)
+								if ((NeedTermination & EProcessLaunchCloseFlag_TerminateProcessTree) || mp_LastLaunchOptions.m_bSandboxed)
 								{
-									if (!fg_TerminateProcessTree(mp_ProcessID.f_Load(), TempRet))
+									if (!f_TerminateTree(TempRet))
 										bNeedWait = false;
 								}
 								else
@@ -1901,7 +1953,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			{
 				DMibLock(mp_NeedTerminationLock);
-				mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_StopProcess));
+				mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_StopProcess));
 				if (_Flags & (EProcessLaunchCloseFlag_LingerUntilDone | EProcessLaunchCloseFlag_BlockOnExit))
 					mp_bNeedWait = true;
 				mp_bClosed = true;
@@ -1918,13 +1970,20 @@ namespace NMib::NProcess::NPlatform
 		bool bNeedWait;
 		{
 			DMibLock(mp_NeedTerminationLock);
-			mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_StopProcess));
+			mp_NeedTermination = (_Flags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_StopProcess));
 			if (_Flags & (EProcessLaunchCloseFlag_LingerUntilDone | EProcessLaunchCloseFlag_BlockOnExit))
 				mp_bNeedWait = true;
 			mp_bClosed = true;
 			bNeedWait = mp_bNeedWait;
 			ch8 Temp = 0;
 			write(mp_WakeupPipeWrite, &Temp, sizeof(Temp));
+		}
+
+		// The launch thread can be done with a process that has exited while descendants live on
+		if ((_Flags & EProcessLaunchCloseFlag_TerminateProcessTree) && mp_bReaped.f_Load())
+		{
+			NStr::CStr Errors;
+			f_TerminateTree(Errors);
 		}
 		if (_Flags & EProcessLaunchCloseFlag_BlockOnExit || !bNeedWait) // If we are not lingering we need to make sure that the thread is stopped
 			f_Stop(true);
@@ -2082,6 +2141,14 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_StopGroup(void *_pLaunch)
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	NMib::NStr::CStr Error;
 	if (!NPlatform::fg_StopProcessGroup(pLaunch->f_GetID(), Error))
+		DMibError(Error);
+}
+
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_TerminateTree(void *_pLaunch)
+{
+	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
+	NMib::NStr::CStr Error;
+	if (!pLaunch->f_TerminateTree(Error))
 		DMibError(Error);
 }
 

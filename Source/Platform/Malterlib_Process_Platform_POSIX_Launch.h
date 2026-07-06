@@ -46,6 +46,7 @@ namespace NMib::NProcess::NPlatform
 		void f_SendBinary(NContainer::CIOByteVector const &_Data);
 		fp64 f_GetRunningTime();
 		umint f_GetID();
+		bool f_TerminateTree(NStr::CStr &o_Errors);
 #ifdef DPlatformFamily_macOS
 		task_t f_MachTask();
 #endif
@@ -105,6 +106,7 @@ namespace NMib::NProcess::NPlatform
 		bool mp_bClosed;
 		bool mp_bStarted;
 		NAtomic::TCAtomic<uint32> mp_bOverallStatsAvailable;
+		NAtomic::TCAtomic<uint32> mp_bReaped; // Once the process is reaped its ID can be given to another process
 
 		CSharedLimiter mp_pCPULimiter;
 

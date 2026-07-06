@@ -18,6 +18,7 @@ namespace NMib::NProcess
 		, EProcessLaunchCloseFlag_BlockOnExit = DMibBit(2)
 		, EProcessLaunchCloseFlag_StopProcess = DMibBit(3)
 		, EProcessLaunchCloseFlag_CloseInProgress = DMibBit(4)
+		, EProcessLaunchCloseFlag_TerminateProcessTree = DMibBit(5)
 	};
 
 	enum EProcessElevation
@@ -170,6 +171,7 @@ namespace NMib::NProcess
 		umint fg_ProcessLaunch_GetID(void *_pLaunch);
 		void fg_ProcessLaunch_Stop(void *_pLaunch);
 		void fg_ProcessLaunch_StopGroup(void *_pLaunch);
+		void fg_ProcessLaunch_TerminateTree(void *_pLaunch);
 
 		umint fg_Process_GetMaxFilesPerProc();
 		void fg_Process_AllowParentToDebug();

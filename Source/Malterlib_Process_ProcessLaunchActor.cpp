@@ -30,14 +30,18 @@ namespace NMib::NProcess
 		{
 			NFunction::TCFunctionMovable<void (uint32 _ExitCode)> m_fOnStop;
 			NFunction::TCFunctionMovable<void ()> m_fOnException;
+			EStop m_Stop = EStop::mc_Process; // Applied when the process launches, if it had not when the stop was requested
 			bool m_bStopRun;
 		};
+
+		void f_Stop(EStop _Stop);
 
 		NContainer::TCLinkedList<CPendingStop> m_PendingProcessStops;
 
 		NConcurrency::CSequencer m_SendSequencer{"ProcessLaunchSend"};
 
-		EProcessLaunchCloseFlag m_DestructFlags;
+		EProcessLaunchCloseFlag m_DestructFlags = EProcessLaunchCloseFlag_None;
+		uint32 m_ExitCode = 0;
 
 		bool m_bProcessRunning = false;
 		bool m_bProcessExited = false;
@@ -68,6 +72,23 @@ namespace NMib::NProcess
 	{
 	}
 
+	// None of these close the launch, as stdin is sent on other threads and the launch is closed once the sends are done
+	void CProcessLaunchActor::CInternal::f_Stop(EStop _Stop)
+	{
+		switch (_Stop)
+		{
+		case EStop::mc_Process:
+			m_pProcessLaunch->f_StopProcess();
+			break;
+		case EStop::mc_ProcessGroup:
+			m_pProcessLaunch->f_StopProcessGroup();
+			break;
+		case EStop::mc_TerminateProcessTree:
+			m_pProcessLaunch->f_TerminateProcessTree();
+			break;
+		}
+	}
+
 	NConcurrency::TCFuture<void> CProcessLaunchActor::fp_Destroy()
 	{
 		if (!mp_pInternal)
@@ -76,18 +97,34 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch || Internal.m_bProcessExited)
 		{
+			// Descendants can outlive the process, and keep a stdin send blocked that holds the launch
+			if (Internal.m_pProcessLaunch && (Internal.m_DestructFlags & EProcessLaunchCloseFlag_TerminateProcessTree))
+			{
+				try
+				{
+					Internal.f_Stop(EStop::mc_TerminateProcessTree);
+				}
+				catch (NException::CException const &_Exception)
+				{
+					DMibLogWithCategory(ProcessLaunch, Error, "Failed to terminate the process tree: {}", _Exception.f_GetErrorStr());
+				}
+			}
+
 			fg_Move(Internal.m_fOnStateChange).f_Destroy().f_DiscardResult();
 			fg_Move(Internal.m_fOnOutput).f_Destroy().f_DiscardResult();
 			Internal.m_PendingProcessStops.f_Clear();
 			co_return {};
 		}
 
+		// A soft stop only signals the direct child and orphans anything it started
+		auto Stop = (Internal.m_DestructFlags & EProcessLaunchCloseFlag_TerminateProcessTree) ? EStop::mc_TerminateProcessTree : EStop::mc_Process;
+
 		bool bStopRun = false;
 		if (Internal.m_bProcessRunning)
 		{
 			try
 			{
-				Internal.m_pProcessLaunch->f_StopProcess();
+				Internal.f_Stop(Stop);
 			}
 			catch (NException::CException const &)
 			{
@@ -98,6 +135,7 @@ namespace NMib::NProcess
 
 		auto &Pending = Internal.m_PendingProcessStops.f_Insert();
 		NConcurrency::TCPromiseFuturePair<void> PendingStopPromise;
+		Pending.m_Stop = Stop;
 		Pending.m_bStopRun = bStopRun;
 		Pending.m_fOnStop = [PendingStopPromise = PendingStopPromise.m_Promise](uint32 _ExitCode)
 			{
@@ -554,6 +592,7 @@ namespace NMib::NProcess
 											Pending.m_fOnStop(ExitCode);
 
 										Internal.m_PendingProcessStops.f_Clear();
+										Internal.m_ExitCode = ExitCode;
 										Internal.m_bProcessExited = true;
 									}
 									break;
@@ -577,7 +616,7 @@ namespace NMib::NProcess
 													continue;
 												try
 												{
-													Internal.m_pProcessLaunch->f_StopProcess();
+													Internal.f_Stop(Pending.m_Stop);
 												}
 												catch (...)
 												{
@@ -603,6 +642,7 @@ namespace NMib::NProcess
 											Pending.m_fOnStop(-1);
 
 										Internal.m_PendingProcessStops.f_Clear();
+										Internal.m_ExitCode = -1;
 										Internal.m_bProcessExited = true;
 									}
 									break;
@@ -765,11 +805,29 @@ namespace NMib::NProcess
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<uint32> CProcessLaunchActor::fp_StopProcess(bool _bGroup) const
+	NConcurrency::TCFuture<uint32> CProcessLaunchActor::fp_StopProcess(EStop _Stop) const
 	{
 		auto &Internal = *mp_pInternal;
 		if (!Internal.m_pProcessLaunch)
 			co_return 0;
+
+		// There is no exit left to wait for, but descendants can outlive the process
+		if (Internal.m_bProcessExited)
+		{
+			if (_Stop == EStop::mc_TerminateProcessTree)
+			{
+				try
+				{
+					Internal.f_Stop(_Stop);
+				}
+				catch (NException::CException const &)
+				{
+					co_return NException::fg_CurrentException();
+				}
+			}
+
+			co_return Internal.m_ExitCode;
+		}
 
 		bool bStopRun = false;
 
@@ -777,10 +835,7 @@ namespace NMib::NProcess
 		{
 			try
 			{
-				if (_bGroup)
-					Internal.m_pProcessLaunch->f_StopProcessGroup();
-				else
-					Internal.m_pProcessLaunch->f_StopProcess();
+				Internal.f_Stop(_Stop);
 			}
 			catch (NException::CException const &)
 			{
@@ -789,6 +844,7 @@ namespace NMib::NProcess
 			bStopRun = true;
 		}
 		auto &Pending = Internal.m_PendingProcessStops.f_Insert();
+		Pending.m_Stop = _Stop;
 		Pending.m_bStopRun = bStopRun;
 
 		NConcurrency::TCPromiseFuturePair<uint32> Promise;
@@ -808,12 +864,17 @@ namespace NMib::NProcess
 
 	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_StopProcess() const
 	{
-		return fp_StopProcess(false);
+		return fp_StopProcess(EStop::mc_Process);
 	}
 
 	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_StopProcessGroup() const
 	{
-		return fp_StopProcess(true);
+		return fp_StopProcess(EStop::mc_ProcessGroup);
+	}
+
+	NConcurrency::TCFuture<uint32> CProcessLaunchActor::f_TerminateProcessTree() const
+	{
+		return fp_StopProcess(EStop::mc_TerminateProcessTree);
 	}
 
 	template <typename tf_CType, typename tf_FToWrap>

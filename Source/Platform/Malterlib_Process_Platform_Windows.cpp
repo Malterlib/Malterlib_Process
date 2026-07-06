@@ -415,6 +415,19 @@ umint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 	return GetCurrentProcessId();
 }
 
+bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
+{
+	HANDLE hProcess = OpenProcess(SYNCHRONIZE, false, DWORD(_ProcessID));
+	if (!hProcess)
+		return false;
+
+	// The handle is signaled once the process has exited, which the exit code cannot tell when the process exits with STILL_ACTIVE
+	bool bRunning = WaitForSingleObject(hProcess, 0) == WAIT_TIMEOUT;
+	CloseHandle(hProcess);
+
+	return bRunning;
+}
+
 umint NMib::NProcess::NPlatform::fg_Process_GetCurrentGroupUID()
 {
 	if (CSystem::ms_PlatformVersion >= 6'2'000000)

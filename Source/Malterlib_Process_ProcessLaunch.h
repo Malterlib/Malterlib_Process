@@ -412,6 +412,7 @@ namespace NMib::NProcess
 		umint f_GetProcessID() const;
 		void f_StopProcess() const; // Soft termination
 		void f_StopProcessGroup() const;
+		void f_TerminateProcessTree() const; // Kills the process and its descendants and leaves the launch open
 
 		CProcessStatistics f_GetExecutionStatistics() const;
 		CProcessStatistics f_GetMemoryStatistics() const;

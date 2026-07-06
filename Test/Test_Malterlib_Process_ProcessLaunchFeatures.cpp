@@ -6,6 +6,9 @@
 #include <Mib/File/File>
 #include <Mib/Encoding/Json>
 #include <Mib/Cryptography/RandomID>
+#include <Mib/Time/Stopwatch>
+#include <Mib/Process/ProcessLaunchActor>
+#include <Mib/Concurrency/AsyncDestroy>
 
 #ifndef DPlatformFamily_Windows
 	#include <sys/resource.h>
@@ -82,6 +85,248 @@ namespace
 				}
 			};
 		}
+
+		static bool fs_WaitForProcessExit(umint _ProcessID)
+		{
+			CStopwatch Stopwatch(true);
+			while (NProcess::NPlatform::fg_Process_IsRunning(_ProcessID))
+			{
+				if (Stopwatch.f_GetTime() > 30.0)
+					return false;
+				NSys::fg_Thread_Sleep(0.05f);
+			}
+
+			return true;
+		}
+
+		// The launched process starts a grandchild that writes its ID to MibTestTreeIDFile and outlives the launched process,
+		// which exits as soon as it has started it
+		static void fs_RunOrphanedTreeProcess(TCVector<CStr> const &_RecursiveLaunchParams)
+		{
+			CStr IDFile = fg_GetSys()->f_GetEnvironmentVariable("MibTestTreeIDFile");
+			if (fg_GetSys()->f_GetEnvironmentVariable("MibTestTreeRole") == "Grandchild")
+			{
+				CFile::fs_WriteStringToFile(IDFile, fg_Format("{}", NProcess::NPlatform::fg_Process_GetCurrentUID()));
+				NSys::fg_Thread_Sleep(60.0f);
+				return;
+			}
+
+			CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutable
+				(
+					CFile::fs_GetProgramPath()
+					, _RecursiveLaunchParams
+					, CFile::fs_GetCurrentDirectory()
+					, nullptr
+				)
+			;
+			LaunchParams.m_bThreaded = true;
+			LaunchParams.m_Environment["MibTestTreeRole"] = "Grandchild";
+			LaunchParams.m_Environment["MibTestTreeIDFile"] = IDFile;
+
+			CProcessLaunch Launch(LaunchParams, EProcessLaunchCloseFlag_None);
+		}
+
+		void f_TestTerminateOrphanedTree(bool _bForceFork)
+		{
+			DMibTestSuite("Terminate Orphaned Tree")
+			{
+				TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
+				RecursiveLaunchParams.f_Insert(fs_GetTestGroups());
+
+				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+				{
+					fs_RunOrphanedTreeProcess(RecursiveLaunchParams);
+					return;
+				}
+
+				auto fTest = [&](CStr const &_Case, bool _bClose)
+					{
+						DMibTestPath(_Case);
+
+						CStr IDFile = CFile::fs_GetProgramDirectory() / fg_Format("TerminateOrphanedTree_{}.txt", fg_RandomID());
+						auto RemoveIDFile = g_OnScopeExit / [&]
+							{
+								if (CFile::fs_FileExists(IDFile))
+									CFile::fs_DeleteFile(IDFile);
+							}
+						;
+
+						CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutable
+							(
+								CFile::fs_GetProgramPath()
+								, RecursiveLaunchParams
+								, CFile::fs_GetCurrentDirectory()
+								, nullptr
+							)
+						;
+						LaunchParams.m_bThreaded = true;
+						LaunchParams.m_bForceFork = _bForceFork;
+						LaunchParams.m_bCreateNewProcessGroup = true;
+						LaunchParams.m_Environment["MibTestTreeIDFile"] = IDFile;
+
+						umint GrandchildID = 0;
+						{
+							CProcessLaunch Launch(LaunchParams, EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_BlockOnExit);
+
+							CStopwatch Stopwatch(true);
+							while (!GrandchildID && Stopwatch.f_GetTime() < 30.0)
+							{
+								if (CFile::fs_FileExists(IDFile))
+									GrandchildID = CFile::fs_ReadStringFromFile(IDFile).f_Trim().f_ToInt(umint(0));
+								NSys::fg_Thread_Sleep(0.05f);
+							}
+							DMibAssert(GrandchildID, !=, 0);
+
+							DMibAssertTrue(fs_WaitForProcessExit(Launch.f_GetProcessID()));
+							DMibExpectTrue(NProcess::NPlatform::fg_Process_IsRunning(GrandchildID));
+
+							if (_bClose)
+								NSys::fg_Thread_Sleep(1.0f); // Lets the launch thread finish with the process, so only the close is left to end the tree
+							else
+								Launch.f_TerminateProcessTree();
+						}
+
+						DMibExpectTrue(fs_WaitForProcessExit(GrandchildID));
+					}
+				;
+
+				fTest("Terminate", false);
+				fTest("Close", true);
+			};
+		}
+
+		void f_TestActorDestroyAfterExit()
+		{
+			DMibTestSuite("Actor Destroy After Exit") -> NConcurrency::TCFuture<void>
+			{
+				TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
+				RecursiveLaunchParams.f_Insert(fs_GetTestGroups());
+
+				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+				{
+					fs_RunOrphanedTreeProcess(RecursiveLaunchParams);
+					co_return {};
+				}
+
+				CStr IDFile = CFile::fs_GetProgramDirectory() / fg_Format("ActorDestroyAfterExit_{}.txt", fg_RandomID());
+				auto RemoveIDFile = g_OnScopeExit / [IDFile]
+					{
+						if (CFile::fs_FileExists(IDFile))
+							CFile::fs_DeleteFile(IDFile);
+					}
+				;
+
+				NConcurrency::TCActor<CProcessLaunchActor> LaunchActor = fg_Construct();
+
+				CProcessLaunchActor::CLaunch Launch
+					(
+						CProcessLaunchParams::fs_LaunchExecutable(CFile::fs_GetProgramPath(), RecursiveLaunchParams, CFile::fs_GetCurrentDirectory(), nullptr)
+					)
+				;
+				Launch.m_Params.m_bCreateNewProcessGroup = true;
+				Launch.m_Params.m_Environment["MibTestTreeIDFile"] = IDFile;
+				Launch.m_DestructFlags |= EProcessLaunchCloseFlag_TerminateProcessTree;
+
+				NConcurrency::TCPromiseFuturePair<uint32> ExitedPromise;
+				Launch.m_Params.m_fOnStateChange = [ExitedPromise = fg_Move(ExitedPromise.m_Promise)](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						if (_State.f_GetTypeID() == EProcessLaunchState_Exited)
+							ExitedPromise.f_SetResult(_State.f_Get<EProcessLaunchState_Exited>());
+					}
+				;
+
+				auto LaunchSubscription = co_await LaunchActor(&CProcessLaunchActor::f_Launch, fg_Move(Launch), NConcurrency::fg_CurrentActor());
+
+				co_await fg_Move(ExitedPromise.m_Future).f_Timeout(30.0, "Timed out waiting for the exit");
+
+				umint GrandchildID = 0;
+				CStopwatch Stopwatch(true);
+				while (!GrandchildID && Stopwatch.f_GetTime() < 30.0)
+				{
+					if (CFile::fs_FileExists(IDFile))
+						GrandchildID = CFile::fs_ReadStringFromFile(IDFile).f_Trim().f_ToInt(umint(0));
+					else
+						co_await NConcurrency::fg_Timeout(0.05);
+				}
+				DMibAssert(GrandchildID, !=, 0);
+				DMibExpectTrue(NProcess::NPlatform::fg_Process_IsRunning(GrandchildID));
+
+				co_await fg_Move(LaunchActor).f_Destroy();
+
+				Stopwatch.f_Start();
+				while (NProcess::NPlatform::fg_Process_IsRunning(GrandchildID) && Stopwatch.f_GetTime() < 30.0)
+					co_await NConcurrency::fg_Timeout(0.05);
+
+				DMibExpectFalse(NProcess::NPlatform::fg_Process_IsRunning(GrandchildID));
+
+				co_return {};
+			};
+		}
+
+		void f_TestActorStopAfterExit()
+		{
+			DMibTestSuite("Actor Stop After Exit") -> NConcurrency::TCFuture<void>
+			{
+				NConcurrency::TCActor<CProcessLaunchActor> LaunchActor = fg_Construct();
+				auto DestroyLaunchActor = co_await NConcurrency::fg_AsyncDestroy(LaunchActor);
+
+				CProcessLaunchActor::CLaunch Launch
+					(
+						CProcessLaunchParams::fs_LaunchExecutable(CFile::fs_GetProgramPath(), {"--std-out-exit", "5"}, CFile::fs_GetCurrentDirectory(), nullptr)
+					)
+				;
+
+				NConcurrency::TCPromiseFuturePair<uint32> ExitedPromise;
+				Launch.m_Params.m_fOnStateChange = [ExitedPromise = fg_Move(ExitedPromise.m_Promise)](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						if (_State.f_GetTypeID() == EProcessLaunchState_Exited)
+							ExitedPromise.f_SetResult(_State.f_Get<EProcessLaunchState_Exited>());
+					}
+				;
+
+				auto LaunchSubscription = co_await LaunchActor(&CProcessLaunchActor::f_Launch, fg_Move(Launch), NConcurrency::fg_CurrentActor());
+
+				uint32 ExitCode = co_await fg_Move(ExitedPromise.m_Future).f_Timeout(30.0, "Timed out waiting for the exit");
+				DMibExpect(ExitCode, ==, 5);
+
+				uint32 TerminateExitCode = co_await LaunchActor(&CProcessLaunchActor::f_TerminateProcessTree).f_Timeout(30.0, "Timed out terminating after the exit");
+				DMibExpect(TerminateExitCode, ==, 5);
+
+				co_return {};
+			};
+		}
+
+#ifndef DPlatformFamily_Windows
+		void f_TestCloseTreeHoldingOutput(bool _bForceFork)
+		{
+			DMibTestSuite("Close Tree Holding Output")
+			{
+				// The shell exits at once, and the background process that ignores SIGTERM keeps the output open
+				CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutable
+					(
+						"/bin/sh"
+						, {"-c", "trap '' TERM; /bin/sleep 120 & exit 0"}
+						, CFile::fs_GetCurrentDirectory()
+						, nullptr
+					)
+				;
+				LaunchParams.m_bThreaded = true;
+				LaunchParams.m_bForceFork = _bForceFork;
+				LaunchParams.m_bCreateNewProcessGroup = true;
+
+				CStopwatch Stopwatch(true);
+				{
+					CProcessLaunch Launch(LaunchParams, EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_BlockOnExit);
+					DMibAssertTrue(fs_WaitForProcessExit(Launch.f_GetProcessID()));
+
+					// Lets the launch thread reap the shell and wait for the end of the output, which is where the close has to reach it
+					NSys::fg_Thread_Sleep(1.0f);
+				}
+
+				DMibExpect(Stopwatch.f_GetTime(), <, 60.0);
+			};
+		}
+#endif
 
 		void f_TestRunAs()
 		{
@@ -303,9 +548,13 @@ namespace
 			DMibTestCategory("No Fork")
 			{
 				f_TestProcessGroup(false);
+				f_TestTerminateOrphanedTree(false);
+				f_TestActorStopAfterExit();
+				f_TestActorDestroyAfterExit();
 				f_TestPriority(false);
 #ifndef DPlatformFamily_Windows
 				f_TestLimits(false);
+				f_TestCloseTreeHoldingOutput(false);
 #endif
 			};
 
@@ -313,8 +562,10 @@ namespace
 			DMibTestCategory("Fork")
 			{
 				f_TestProcessGroup(false);
+				f_TestTerminateOrphanedTree(true);
 				f_TestPriority(false);
 				f_TestLimits(false);
+				f_TestCloseTreeHoldingOutput(true);
 			};
 #endif
 #ifndef DPlatformFamily_Windows

@@ -373,6 +373,7 @@ namespace NMib::NProcess::NPlatform
 			};
 
 			NThread::CMutual mp_PipeLock;
+			NThread::CMutual mp_ChildProcessLock; // Closing mp_hChildProcess; f_TerminateTree cannot wait for mp_PipeLock, which a blocked stdin write holds
 
 			HANDLE mp_hStdinWrite;	// write end of child's stdin pipe
 			HANDLE mp_hStdoutRead;	// read end of child's stdout pipe
@@ -380,6 +381,7 @@ namespace NMib::NProcess::NPlatform
 			HANDLE mp_hChildProcess;
 
 			HANDLE mp_hSandboxJob;
+			HANDLE mp_hProcessGroupJob; // Holds the processes of a launch with its own process group, also after the launched process has exited
 
 			OVERLAPPED mp_StdOutRead;
 			NContainer::CByteVector mp_StdOutReadBuffer;
@@ -429,6 +431,7 @@ namespace NMib::NProcess::NPlatform
 			void f_CloseStdIn();
 			void f_SendBinary(NContainer::CIOByteVector const &_Data);
 			void f_StopProcess();
+			void f_TerminateTree(NStr::CStr &o_Log);
 			umint f_GetID() const;
 			NMib::NProcess::CProcessStatistics f_GetOverallExecutionStatistics();
 			NMib::NProcess::CProcessStatistics f_GetOverallMemoryStatistics();
@@ -461,6 +464,7 @@ namespace NMib::NProcess::NPlatform
 			, mp_hStderrRead(nullptr)
 			, mp_hChildProcess(nullptr)
 			, mp_hSandboxJob(nullptr)
+			, mp_hProcessGroupJob(nullptr)
 			, mp_ProcessID(0)
 			, m_ExitTime(-1.0)
 		{
@@ -486,6 +490,20 @@ namespace NMib::NProcess::NPlatform
 			}
 		}
 
+		// The job holds the processes whose parent has exited, and the processes that broke away from it are still found
+		// through their parents
+		void CConsoleRedirector::f_TerminateTree(NStr::CStr &o_Log)
+		{
+			{
+				DMibLock(mp_ChildProcessLock);
+				if (mp_hChildProcess)
+					fg_TerminateProcessTree(mp_hChildProcess, o_Log);
+			}
+
+			if (mp_hProcessGroupJob && !TerminateJobObject(mp_hProcessGroupJob, 255))
+				o_Log += NStr::CStr::CFormat("TerminateJobObject failed with: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
+		}
+
 		void CConsoleRedirector::fp_ClearSandbox()
 		{
 			NStr::CStr Errors;
@@ -495,6 +513,7 @@ namespace NMib::NProcess::NPlatform
 		CConsoleRedirector::~CConsoleRedirector()
 		{
 			fp_Close();
+			fp_DestroyHandle(mp_hProcessGroupJob);
 
 			if (mp_hEvent)
 			{
@@ -1248,7 +1267,11 @@ namespace NMib::NProcess::NPlatform
 				DWORD CreateProcessFlags = 0;
 
 				if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
+				{
 					CreateProcessFlags |= CREATE_NEW_PROCESS_GROUP;
+					if (!mp_LastLaunchOptions.m_bSandboxed)
+						CreateProcessFlags |= CREATE_SUSPENDED; // So that its job holds every process it starts
+				}
 
 				auto Environment = mp_LastLaunchOptions.m_Environment;
 
@@ -2107,6 +2130,31 @@ namespace NMib::NProcess::NPlatform
 #endif
 				}
 
+				// Without the job the tree is terminated through the parents of the processes, which works as long as they are alive
+				if (!bFailedLaunch && mp_LastLaunchOptions.m_bCreateNewProcessGroup && !mp_LastLaunchOptions.m_bSandboxed)
+				{
+					HANDLE hJob = CreateJobObjectW(nullptr, nullptr);
+					if (hJob)
+					{
+						// Processes that ask to leave the job can, as they would fail to start otherwise
+						JOBOBJECT_EXTENDED_LIMIT_INFORMATION LimitInfo;
+						NMemory::fg_MemClear(LimitInfo);
+						LimitInfo.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_BREAKAWAY_OK;
+
+						if
+						(
+							SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &LimitInfo, sizeof(LimitInfo))
+							&& AssignProcessToJobObject(hJob, pi.hProcess)
+						)
+						{
+							fp_DestroyHandle(mp_hProcessGroupJob);
+							mp_hProcessGroupJob = hJob;
+						}
+						else
+							CloseHandle(hJob);
+					}
+				}
+
 				if (!bFailedLaunch && (CreateProcessFlags & CREATE_SUSPENDED))
 					ResumeThread(pi.hThread);
 
@@ -2317,12 +2365,12 @@ namespace NMib::NProcess::NPlatform
 						fg_Swap(bNeedWait, mp_bNeedWait);
 					}
 
-					if (NeedTermination & NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess)
+					if (NeedTermination & (NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess | NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree))
 					{
 						NStr::CStr TempRet;
 						if (!mp_LastLaunchOptions.m_bSandboxed) // If we are sandboxed just break and let the sandbox program kill all processes in sandbox
 						{
-							fg_TerminateProcessTree(mp_hChildProcess, TempRet);
+							f_TerminateTree(TempRet);
 						}
 						else
 						{
@@ -2888,7 +2936,14 @@ namespace NMib::NProcess::NPlatform
 			{
 				{
 					DMibLock(mp_NeedTerminationLock);
-					mp_NeedTermination = (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess | NMib::NProcess::EProcessLaunchCloseFlag_StopProcess));
+					mp_NeedTermination = _Flags
+						&
+						(
+							NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess
+							| NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree
+							| NMib::NProcess::EProcessLaunchCloseFlag_StopProcess
+						)
+					;
 					if (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone | NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit))
 						mp_bNeedWait = true;
 				}
@@ -2903,7 +2958,10 @@ namespace NMib::NProcess::NPlatform
 		void CConsoleRedirector::fp_Close()
 		{
 			DMibLock(mp_PipeLock);
-			fp_DestroyHandle(mp_hChildProcess);
+			{
+				DMibLock(mp_ChildProcessLock);
+				fp_DestroyHandle(mp_hChildProcess);
+			}
 			fp_DestroyHandle(mp_hStdinWrite);
 			fp_DestroyHandle(mp_hStdoutRead);
 			fp_DestroyHandle(mp_hStderrRead);
@@ -3019,13 +3077,25 @@ namespace NMib::NProcess::NPlatform
 			{
 				{
 					DMibLock(mp_NeedTerminationLock);
-					mp_NeedTermination = (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess | NMib::NProcess::EProcessLaunchCloseFlag_StopProcess));
+					mp_NeedTermination = _Flags
+						&
+						(
+							NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess
+							| NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree
+							| NMib::NProcess::EProcessLaunchCloseFlag_StopProcess
+						)
+					;
 					if (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone | NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit))
 						mp_bNeedWait = true;
 					bNeedWait = mp_bNeedWait;
 				}
 				SetEvent(mp_hEvent);
 			}
+
+			// The launch thread can be done with a process that has exited while descendants live on in its job
+			if ((_Flags & NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree) && mp_hProcessGroupJob)
+				TerminateJobObject(mp_hProcessGroupJob, 255);
+
 			if (_Flags & NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit || !bNeedWait)
 				f_Stop(true);
 		}
@@ -3215,6 +3285,13 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_StopGroup(void *_pLaunch)
 	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
 
 	pLaunch->f_StopProcess();
+}
+
+void NMib::NProcess::NPlatform::fg_ProcessLaunch_TerminateTree(void *_pLaunch)
+{
+	CConsoleRedirector *pLaunch = fg_AutoStaticCast(_pLaunch);
+	NStr::CStr Log;
+	pLaunch->f_TerminateTree(Log);
 }
 
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetExecutionStatistics(void *_pLaunch)
