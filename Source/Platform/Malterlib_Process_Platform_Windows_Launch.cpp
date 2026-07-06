@@ -2200,7 +2200,7 @@ namespace NMib::NProcess::NPlatform
 						fg_Swap(bNeedWait, mp_bNeedWait);
 					}
 
-					if (NeedTermination & NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess)
+					if (NeedTermination & (NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess | NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree))
 					{
 						NStr::CStr TempRet;
 						if (!mp_LastLaunchOptions.m_bSandboxed) // If we are sandboxed just break and let the sandbox program kill all processes in sandbox
@@ -2771,7 +2771,14 @@ namespace NMib::NProcess::NPlatform
 			{
 				{
 					DMibLock(mp_NeedTerminationLock);
-					mp_NeedTermination = (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess | NMib::NProcess::EProcessLaunchCloseFlag_StopProcess));
+					mp_NeedTermination = _Flags
+						&
+						(
+							NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess
+							| NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree
+							| NMib::NProcess::EProcessLaunchCloseFlag_StopProcess
+						)
+					;
 					if (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone | NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit))
 						mp_bNeedWait = true;
 				}
@@ -2900,7 +2907,14 @@ namespace NMib::NProcess::NPlatform
 			{
 				{
 					DMibLock(mp_NeedTerminationLock);
-					mp_NeedTermination = (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess | NMib::NProcess::EProcessLaunchCloseFlag_StopProcess));
+					mp_NeedTermination = _Flags
+						&
+						(
+							NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess
+							| NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree
+							| NMib::NProcess::EProcessLaunchCloseFlag_StopProcess
+						)
+					;
 					if (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone | NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit))
 						mp_bNeedWait = true;
 					bNeedWait = mp_bNeedWait;

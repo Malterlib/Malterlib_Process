@@ -37,7 +37,7 @@ namespace NMib::NProcess
 
 		NConcurrency::CSequencer m_SendSequencer{"ProcessLaunchSend"};
 
-		EProcessLaunchCloseFlag m_DestructFlags;
+		EProcessLaunchCloseFlag m_DestructFlags = EProcessLaunchCloseFlag_None;
 
 		bool m_bProcessRunning = false;
 		bool m_bProcessExited = false;
@@ -87,7 +87,13 @@ namespace NMib::NProcess
 		{
 			try
 			{
-				Internal.m_pProcessLaunch->f_StopProcess();
+				// Honor a terminate-tree destruct request: a soft stop only signals the direct child and
+				// orphans anything it spawned. The close lingers so the termination runs on the launch
+				// thread; the exit is awaited through the pending stop below.
+				if (Internal.m_DestructFlags & EProcessLaunchCloseFlag_TerminateProcessTree)
+					Internal.m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_LingerUntilDone);
+				else
+					Internal.m_pProcessLaunch->f_StopProcess();
 			}
 			catch (NException::CException const &)
 			{
