@@ -648,7 +648,10 @@ namespace NMib::NProcess
 		if (pState->m_ToLog & ELogFlag_Info)
 		{
 			auto LogScope = pState->f_LogScope();
-			DMibLog(Info, "Launching");
+			if (Params.m_Parameters.f_IsEmpty())
+				DMibLog(Info, "Launching: {}", Params.m_Target);
+			else
+				DMibLog(Info, "Launching: {} {}", Params.m_Target, Params.m_Parameters);
 		}
 #endif
 
