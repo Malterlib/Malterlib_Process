@@ -698,16 +698,19 @@ namespace NMib::NProcess
 			;
 		}
 
-#if (DMibSysLogSeverities) != 0
-		if (pState->m_ToLog & ELogFlag_Info)
-		{
-			auto LogScope = pState->f_LogScope();
-			DMibLog(Info, "Launching");
-		}
-#endif
-
 		try
 		{
+#if (DMibSysLogSeverities) != 0
+			// Escaping can make the command line too long for a string, which throws, and a log destination that can't write the entry throws.
+			// Either fails the launch with that error, so that no process starts without the entry that records it
+			if (pState->m_ToLog & ELogFlag_Info)
+			{
+				auto LogScope = pState->f_LogScope();
+				// The arguments are logged as given, so secrets go to the process through its environment or files, not as arguments
+				DMibLog(Info, "Launching: {}", CProcessLaunchParams::fs_GetLogCommandLine(Params.m_Target, Params.m_Parameters));
+			}
+#endif
+
 			Internal.m_pProcessLaunch = fg_Construct(Params, Launch.m_DestructFlags);
 			co_return NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
 				{
