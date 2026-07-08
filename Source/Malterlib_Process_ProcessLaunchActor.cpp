@@ -698,16 +698,18 @@ namespace NMib::NProcess
 			;
 		}
 
-#if (DMibSysLogSeverities) != 0
-		if (pState->m_ToLog & ELogFlag_Info)
-		{
-			auto LogScope = pState->f_LogScope();
-			DMibLog(Info, "Launching");
-		}
-#endif
-
 		try
 		{
+#if (DMibSysLogSeverities) != 0
+			// An exception while formatting or logging the command line fails the launch before the process starts
+			if (pState->m_ToLog & ELogFlag_Info)
+			{
+				auto LogScope = pState->f_LogScope();
+				// The target and parameters are logged without redaction, so secrets go to the process through its environment or files, not in either
+				DMibLog(Info, "Launching: {}", CProcessLaunchParams::fs_GetLogCommandLine(Params.m_Target, Params.m_Parameters));
+			}
+#endif
+
 			Internal.m_pProcessLaunch = fg_Construct(Params, Launch.m_DestructFlags);
 			co_return NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
 				{

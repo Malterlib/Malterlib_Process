@@ -245,6 +245,39 @@ namespace
 			}
 		};
 
+		DMibTestSuite("LogCommandLine")
+		{
+			using namespace NMib;
+			using namespace NMib::NStr;
+
+			auto fCheck = [&](CStr const &_Case, CStr const &_Target, CStr const &_Parameters, CStr const &_Expected)
+				{
+					DMibTestPath(_Case);
+					DMibExpect(NProcess::CProcessLaunchParams::fs_GetLogCommandLine(_Target, _Parameters), ==, _Expected);
+				}
+			;
+
+			fCheck("NoParameters", "/opt/tool", "", "/opt/tool");
+			fCheck("Parameters", "/opt/tool", "alpha beta", "/opt/tool alpha beta");
+			fCheck("TargetWithSpaces", "/opt/Tool Name/bin/tool", "alpha", "\"/opt/Tool Name/bin/tool\" alpha");
+			fCheck("C0Controls", "/opt/to\x1bol", "\"a\nb\" \x7f", "/opt/to\\x1bol \"a\\x0ab\" \\x7f");
+			fCheck("C1Control", "/opt/tool", "a\xC2\x9B" "31m", "/opt/tool a\\u009b31m");
+			fCheck("Unicode", "/opt/tool", "\xC2\xA0世界", "/opt/tool \xC2\xA0世界");
+			fCheck("LineSeparators", "/opt/tool", "a\xE2\x80\xA8" "b\xE2\x80\xA9" "c\xE2\x80\xA7", "/opt/tool a\\u2028b\\u2029c\xE2\x80\xA7");
+			fCheck("OverlongEscape", "/opt/tool", "a\xC0\x9B" "b", "/opt/tool a\\xc0\\x9bb");
+			fCheck("OverlongC1", "/opt/tool", "a\xE0\x82\x9B" "b", "/opt/tool a\\xe0\\x82\\x9bb");
+			fCheck("StrayContinuation", "/opt/tool", "a\x9B" "b", "/opt/tool a\\x9bb");
+			fCheck("Truncated", "/opt/tool", "a\xE4\xB8", "/opt/tool a\\xe4\\xb8");
+			fCheck("Surrogate", "/opt/tool", "a\xED\xA0\x80", "/opt/tool a\\xed\\xa0\\x80");
+			fCheck("AboveUnicode", "/opt/tool", "a\xF4\x90\x80\x80", "/opt/tool a\\xf4\\x90\\x80\\x80");
+			fCheck("FourByte", "/opt/tool", "a\xF0\x9F\x98\x80", "/opt/tool a\xF0\x9F\x98\x80");
+			fCheck("BackslashBeforeEscapeLetter", "/opt/tool", "C:\\x64 C:\\users", "/opt/tool C:\\x64 C:\\users");
+			fCheck("BackslashBeforeControl", "/opt/tool", "a\\\x7f", "/opt/tool a\\\\x7f");
+			fCheck("OtherBackslash", "/opt/tool", "C:\\Windows", "/opt/tool C:\\Windows");
+			fCheck("EmbeddedNul", "/opt/tool", CStr("alpha\0beta gamma", 16), "/opt/tool alpha\\x00beta gamma");
+			fCheck("LeadingNulIsEmpty", "/opt/tool", CStr(CAllowNUL(), "\0alpha", 6), "/opt/tool");
+		};
+
 		DMibTestSuite("Parse")
 		{
 			// Path with no spaces, no quotes — single executable token.

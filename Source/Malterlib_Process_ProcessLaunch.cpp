@@ -610,6 +610,107 @@ namespace NMib::NProcess
 #endif
 	}
 
+	namespace
+	{
+		/// The length of the well-formed 2 to 4 byte UTF-8 sequence that starts at _pParse, or 0 otherwise. The buffer must be null terminated, so that a
+		/// truncated sequence ends at its NUL
+		umint fg_WellFormedUTF8Length(uch8 const *_pParse)
+		{
+			uch8 Lead = _pParse[0];
+			uch8 SecondMin = 0x80;
+			uch8 SecondMax = 0xbf;
+			umint Length;
+			if (Lead >= 0xc2 && Lead <= 0xdf)
+				Length = 2;
+			else if (Lead >= 0xe0 && Lead <= 0xef)
+			{
+				Length = 3;
+				if (Lead == 0xe0)
+					SecondMin = 0xa0;
+				else if (Lead == 0xed)
+					SecondMax = 0x9f;
+			}
+			else if (Lead >= 0xf0 && Lead <= 0xf4)
+			{
+				Length = 4;
+				if (Lead == 0xf0)
+					SecondMin = 0x90;
+				else if (Lead == 0xf4)
+					SecondMax = 0x8f;
+			}
+			else
+				return 0;
+
+			if (_pParse[1] < SecondMin || _pParse[1] > SecondMax)
+				return 0;
+
+			for (umint iByte = 2; iByte < Length; ++iByte)
+			{
+				if ((_pParse[iByte] & 0xc0) != 0x80)
+					return 0;
+			}
+
+			return Length;
+		}
+	}
+
+	/// The requested _Target and encoded _Parameters, formatted for a log message. The target is encoded like a parameter so that it stays apart from the
+	/// parameters. C0 and C1 control characters, DEL, U+2028, U+2029 and malformed UTF-8 are escaped as \xNN or \uNNNN, so that the text holds no line
+	/// breaks or control characters. Backslashes are kept as they are, so a \xNN in the log can also be that text in the command line.
+	NStr::CStr CProcessLaunchParams::fs_GetLogCommandLine(NStr::CStr const &_Target, NStr::CStr const &_Parameters)
+	{
+		NStr::CStr CommandLine = fs_GetParams({_Target});
+		// CStr treats a parameter string that starts with a NUL as empty, and the launchers don't pass such a string to the process, so it isn't logged
+		if (!_Parameters.f_IsEmpty())
+		{
+			CommandLine.f_AddChar(' ');
+			CommandLine += _Parameters;
+		}
+
+		// Scan the assembled command line by its length, so that an embedded NUL is escaped instead of hiding the text after it
+		NStr::CStr Escaped;
+		uch8 const *pEnd = (uch8 const *)CommandLine.f_GetStr() + CommandLine.f_GetLen();
+		for (uch8 const *pParse = (uch8 const *)CommandLine.f_GetStr(); pParse < pEnd;)
+		{
+			uch8 Char = *pParse;
+			if (Char >= 0x80)
+			{
+				umint Length = fg_WellFormedUTF8Length(pParse);
+				if (!Length)
+				{
+					Escaped += NStr::CStr::CFormat("\\x{nfh,sf0,sj2}") << Char;
+					++pParse;
+				}
+				else if (Char == 0xc2 && pParse[1] <= 0x9f)
+				{
+					Escaped += NStr::CStr::CFormat("\\u{nfh,sf0,sj4}") << pParse[1];
+					pParse += Length;
+				}
+				else if (Char == 0xe2 && pParse[1] == 0x80 && (pParse[2] == 0xa8 || pParse[2] == 0xa9))
+				{
+					Escaped += NStr::CStr::CFormat("\\u{nfh,sf0,sj4}") << (0x2000 | (pParse[2] & 0x3f));
+					pParse += Length;
+				}
+				else
+				{
+					for (umint iByte = 0; iByte < Length; ++iByte)
+						Escaped.f_AddChar(ch8(*pParse++));
+				}
+
+				continue;
+			}
+
+			if (Char < 0x20 || Char == 0x7f)
+				Escaped += NStr::CStr::CFormat("\\x{nfh,sf0,sj2}") << Char;
+			else
+				Escaped.f_AddChar(ch8(Char));
+
+			++pParse;
+		}
+
+		return Escaped;
+	}
+
 	auto CProcessLaunchParams::fs_LaunchDocument
 		(
 			NMib::NStr::CStr const &_Operation
