@@ -9,6 +9,10 @@
 #include <Mib/Process/StdIn>
 #include <Mib/Time/TimeMeasure>
 
+#ifndef ENABLE_VIRTUAL_TERMINAL_INPUT
+#	define ENABLE_VIRTUAL_TERMINAL_INPUT 0x0200
+#endif
+
 using namespace NMib::NStr;
 
 namespace NMib::NProcess::NPlatform
@@ -67,6 +71,31 @@ namespace NMib::NProcess::NPlatform
 		bool m_bDoPolling = false;
 		DWORD m_OldConsoleMode;
 
+		// Reapplies the console mode from the union of all registered readers' flags; must be
+		// called with the subsystem lock held whenever the reader set changes
+		void f_UpdateConsoleMode()
+		{
+			if (!m_bIsChar)
+				return;
+
+			bool bVirtualTerminalInput = false;
+			for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
+			{
+				if (iReader->m_pParams->m_Flags & EStdInReaderFlag_VirtualTerminalInput)
+					bVirtualTerminalInput = true;
+			}
+
+			DWORD NewConsoleMode = m_OldConsoleMode & ~DWORD(ENABLE_LINE_INPUT);
+			if (bVirtualTerminalInput)
+			{
+				// Without virtual terminal input the console only forwards character input;
+				// non character key records and mouse records never reach ReadConsoleW
+				NewConsoleMode = (NewConsoleMode | DWORD(ENABLE_VIRTUAL_TERMINAL_INPUT)) & ~DWORD(ENABLE_ECHO_INPUT);
+			}
+
+			SetConsoleMode(mp_hStdInFile, NewConsoleMode);
+		}
+
 		void f_Init()
 		{
 			if (!mp_hStdInFile)
@@ -76,8 +105,8 @@ namespace NMib::NProcess::NPlatform
 			if (HandleType == FILE_TYPE_CHAR)
 			{
 				GetConsoleMode(mp_hStdInFile, &m_OldConsoleMode);
-				SetConsoleMode(mp_hStdInFile, m_OldConsoleMode & ~DWORD(ENABLE_LINE_INPUT));
 				m_bIsChar = true;
+				f_UpdateConsoleMode();
 				if
 					(
 						NLocal::g_VersionInfo.dwPlatformId == VER_PLATFORM_WIN32_NT
@@ -386,6 +415,8 @@ namespace NMib::NProcess::NPlatform
 				m_Link.f_Unlink();
 				if (pImp->m_Readers.f_IsEmpty())
 					pToDelete = fg_Move(SubSystem.m_pStdInReaderImp);
+				else
+					pImp->f_UpdateConsoleMode();
 			}
 		}
 	}
@@ -522,6 +553,8 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 			pImp->f_Init();
 			SubSystem.m_pStdInReaderImp = fg_Move(pNew);
 		}
+		else
+			pImp->f_UpdateConsoleMode();
 	}
 
 	return pReader.f_Detach();

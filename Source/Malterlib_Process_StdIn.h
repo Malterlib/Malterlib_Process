@@ -12,6 +12,7 @@ namespace NMib::NProcess
 		EStdInReaderFlag_None = 0
 		, EStdInReaderFlag_Exclusive = DMibBit(0) // Set to gurantee exclusive input, otherwise several CStdInReader can be created and all will receive input
 		, EStdInReaderFlag_ForcePolling = DMibBit(1) // Set to force polling behaviour. Mainly for unit testing to make sure that XP polling mode works
+		, EStdInReaderFlag_VirtualTerminalInput = DMibBit(2) // Set to receive terminal input as virtual terminal sequences on Windows consoles
 	};
 
 	enum EStdInReaderOutputType
