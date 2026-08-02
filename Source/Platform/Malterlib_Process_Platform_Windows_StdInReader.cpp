@@ -38,6 +38,7 @@ namespace NMib::NProcess::NPlatform
 
 		CWindowsStdInReaderImplementation(bool _bForcePolling)
 			: mp_hStdInFile(nullptr)
+			, mp_hQuitEvent(CreateEventA(nullptr, true, false, nullptr))
 		{
 			if (_bForcePolling)
 				m_bDoPolling = true;
@@ -64,12 +65,29 @@ namespace NMib::NProcess::NPlatform
 			}
 			if (m_bIsChar)
 				SetConsoleMode(mp_hStdInFile, m_OldConsoleMode);
+
+			if (mp_hQuitEvent)
+			{
+				::CloseHandle(mp_hQuitEvent);
+				mp_hQuitEvent = nullptr;
+			}
+		}
+
+		umint f_Stop(bool _bBlock = true) override
+		{
+			umint Result = CThread::f_Stop(false);
+			SetEvent(mp_hQuitEvent);
+			if (_bBlock)
+				return CThread::f_Stop(true);
+
+			return Result;
 		}
 
 		bool m_bIsPipe = false;
 		bool m_bIsChar = false;
 		bool m_bDoPolling = false;
 		DWORD m_OldConsoleMode;
+		HANDLE mp_hQuitEvent;
 
 		// Reapplies the console mode from the union of all registered readers' flags; must be
 		// called with the subsystem lock held whenever the reader set changes
@@ -133,12 +151,12 @@ namespace NMib::NProcess::NPlatform
 		}
 
 	private:
-
-		NMib::NStr::CStr f_GetThreadName()
+		NMib::NStr::CStr f_GetThreadName() override
 		{
 			return "Stdin reader";
 		}
-		aint f_Main()
+
+		aint f_Main() override
 		{
 
 			fp64 TotalReadTime = 0.0;
@@ -163,12 +181,11 @@ namespace NMib::NProcess::NPlatform
 					}
 					else
 					{
-						HANDLE ToWaitFor[] = {m_EventWantQuit.m_pSemaphore, mp_hStdInFile};
+						HANDLE ToWaitFor[] = {mp_hQuitEvent, mp_hStdInFile};
 
 						{
 							Timer.f_Start();
 							WaitForMultipleObjectsEx(2, ToWaitFor, false, INFINITE, true);
-								//WaitForSingleObject(mp_hStdInFile, 2000);
 							Timer.f_Stop();
 						}
 

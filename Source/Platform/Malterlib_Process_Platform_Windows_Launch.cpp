@@ -353,7 +353,7 @@ namespace NMib::NProcess::NPlatform
 			DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 		private:
-			NThread::CEventAutoReset mp_Event;
+			HANDLE mp_hEvent; // Win32 auto-reset event; waited together with the process handle
 
 			NTime::CStopwatch m_TimeSinceStart;
 
@@ -452,7 +452,8 @@ namespace NMib::NProcess::NPlatform
 
 
 		CConsoleRedirector::CConsoleRedirector()
-			: mp_hStdinWrite(nullptr)
+			: mp_hEvent(CreateEventA(nullptr, false, false, nullptr))
+			, mp_hStdinWrite(nullptr)
 			, mp_bStarted(false)
 			, mp_NeedTermination(NMib::NProcess::EProcessLaunchCloseFlag_None)
 			, mp_bNeedWait(false)
@@ -494,6 +495,13 @@ namespace NMib::NProcess::NPlatform
 		CConsoleRedirector::~CConsoleRedirector()
 		{
 			fp_Close();
+
+			if (mp_hEvent)
+			{
+				::CloseHandle(mp_hEvent);
+				mp_hEvent = nullptr;
+			}
+
 			auto &SubSystem = *g_SubSystem_Process_Platform_Windows_Launch;
 			{
 				DMibLock(SubSystem.m_LaunchesLock);
@@ -2158,7 +2166,7 @@ namespace NMib::NProcess::NPlatform
 
 			HANDLE WaitForHandles[4];
 			WaitForHandles[0] = mp_hChildProcess;
-			WaitForHandles[1] = mp_Event.m_pSemaphore;
+			WaitForHandles[1] = mp_hEvent;
 
 			bool bExited = false;
 
@@ -2775,7 +2783,9 @@ namespace NMib::NProcess::NPlatform
 					if (_Flags & (NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone | NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit))
 						mp_bNeedWait = true;
 				}
-				mp_Event.f_Signal();
+
+				SetEvent(mp_hEvent);
+
 				f_Main();
 			}
 			return true;
@@ -2875,7 +2885,7 @@ namespace NMib::NProcess::NPlatform
 				DMibLock(mp_NeedTerminationLock);
 				mp_bNeedWait = false;
 			}
-			mp_Event.f_Signal();
+			SetEvent(mp_hEvent);
 		}
 
 		fp64 CConsoleRedirector::f_GetRunningTime()
@@ -2905,7 +2915,7 @@ namespace NMib::NProcess::NPlatform
 						mp_bNeedWait = true;
 					bNeedWait = mp_bNeedWait;
 				}
-				mp_Event.f_Signal();
+				SetEvent(mp_hEvent);
 			}
 			if (_Flags & NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit || !bNeedWait)
 				f_Stop(true);
