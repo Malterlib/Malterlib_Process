@@ -636,6 +636,31 @@ void NMib::NProcess::NPlatform::fg_Process_Stop(umint _ProcessID)
 
 constinit static NMib::NStorage::TCAggregate<NMib::NThread::CEvent> g_TerminationEvent = {DAggregateInit};
 
+namespace NMib::NPlatform
+{
+	void fg_ReportIsShuttingDown();
+}
+
+// A console process hears the session ending through its control handler rather than a window;
+// the shutdown and logoff events are reported and left to default handling
+static void fg_ReportConsoleSessionEnd(DWORD _CtrlType)
+{
+	if (_CtrlType == CTRL_SHUTDOWN_EVENT)
+	{
+		NMib::NPlatform::fg_ReportIsShuttingDown();
+		return;
+	}
+
+	// A logoff reaches the console processes of session 0 for any user's logoff without ending
+	// them, so only a process in an interactive session takes it as its own end
+	if (_CtrlType == CTRL_LOGOFF_EVENT)
+	{
+		DWORD SessionID = 0;
+		if (ProcessIdToSessionId(GetCurrentProcessId(), &SessionID) && SessionID != 0)
+			NMib::NPlatform::fg_ReportIsShuttingDown();
+	}
+}
+
 void NMib::NProcess::NPlatform::fg_Process_AbortWaitForTermination()
 {
 	g_TerminationEvent->f_SetSignaled();
@@ -645,6 +670,8 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 {
 	PHANDLER_ROUTINE fHandler = [](DWORD _CtrlType) -> BOOL
 		{
+			fg_ReportConsoleSessionEnd(_CtrlType);
+
 			if (_CtrlType == CTRL_C_EVENT || _CtrlType == CTRL_BREAK_EVENT)
 			{
 				g_TerminationEvent->f_SetSignaled();
@@ -684,6 +711,8 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 
 	static PHANDLER_ROUTINE fHandler = [](DWORD _CtrlType) -> BOOL
 		{
+			fg_ReportConsoleSessionEnd(_CtrlType);
+
 			if (_CtrlType == CTRL_C_EVENT || _CtrlType == CTRL_BREAK_EVENT)
 			{
 				(*gs_TerminationFunction)();
