@@ -2007,6 +2007,10 @@ namespace NMib::NProcess::NPlatform
 
 				if (!bFailedLaunch)
 				{
+					// The unload decision at the child's exit needs the session-end listener running by then
+					if (!CleanupUserProfiles.f_IsEmpty())
+						NMib::NPlatform::fg_EnsureEndSessionReporting();
+
 					mp_CleanupLoadedProfiles = fg_Move(CleanupUserProfiles);
 					mp_hChildProcess = pi.hProcess;
 					mp_ProcessID = pi.dwProcessId;
