@@ -11,19 +11,15 @@
 #include "../Malterlib_Process_Platform.h"
 
 #include <termios.h>
-#include <poll.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <errno.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 namespace NMib::NProcess::NPlatform
 {
 	struct CPOSIXStdInReader
 	{
-		NMib::NStorage::TCSharedPointer<NMib::NProcess::CStdInReaderParams> m_pParams;
-		DMibListLinkDS_Link(CPOSIXStdInReader, m_Link);
-
 		CPOSIXStdInReader(NMib::NProcess::CStdInReaderParams &&_Params)
 			: m_pParams(fg_Construct(fg_Move(_Params)))
 		{
@@ -32,56 +28,57 @@ namespace NMib::NProcess::NPlatform
 		{
 		}
 		~CPOSIXStdInReader();
+
+		NMib::NStorage::TCSharedPointer<NMib::NProcess::CStdInReaderParams> m_pParams;
+		DMibListLinkDS_Link(CPOSIXStdInReader, m_Link);
 	};
 
-	struct CPOSIXStdInReaderImplementation : NMib::NThread::CThread
+	// Bytes per read. A pipe never returns more than it holds, 64 KiB on Linux and macOS, and every
+	// chunk costs a system call and a delivery to the readers, which is an actor hop, so anything
+	// smaller than the pipe bounds a piped bulk input by that overhead rather than by memory copy
+	constexpr umint gc_StdInReadChunkBytes = 64 * 1024;
+
+	// Standard input as a descriptor on an io loop: the loop reports it readable, this reads until
+	// it would block and asks to be told again. No thread of its own; a caller that opens the first
+	// reader inside a CIoLoopCreateScope gets its input on that loop's thread, everyone else on the
+	// process wide poller, the same way the signal subsystem places its dispatch. The loop is
+	// chosen when the first reader opens; the registration itself is issued by the subsystem, at
+	// once or once a previous implementation's removal has been acknowledged, since standard
+	// input can be registered only once at a time.
+	//
+	// A regular file redirected onto standard input is always readable and epoll refuses to watch
+	// one, so it is not registered at all: a self pipe stands in for it, and every pass reads one
+	// chunk and rewrites the pipe to schedule the next, which paces the file through the loop
+	// instead of delivering it in one uninterruptible burst
+	struct CPOSIXStdInReaderImplementation
 	{
-		DMibListLinkDS_List(CPOSIXStdInReader, m_Link) m_Readers;
-
-
-		CPOSIXStdInReaderImplementation(bool _bForcePolling)
-			: mp_WakeupPipeRead(-1)
-			, mp_WakeupPipeWrite(-1)
-			, m_OldFlags(-1)
+		CPOSIXStdInReaderImplementation()
 		{
 		}
 		~CPOSIXStdInReaderImplementation()
 		{
-			f_Stop(false);
+			DMibFastCheck(!mp_pRegistration);
 
-			if (mp_WakeupPipeWrite != -1)
-			{
-				ch8 Temp = 0;
-				write(mp_WakeupPipeWrite, &Temp, sizeof(Temp));
-			}
+			fp_DestroyPipe(mp_PacePipe[0]);
+			fp_DestroyPipe(mp_PacePipe[1]);
 
-			f_Stop(true);
+			if (mp_OldFlags != -1)
+				fcntl(0, F_SETFL, mp_OldFlags);
 
-			fp_DestroyPipe(mp_WakeupPipeRead);
-			fp_DestroyPipe(mp_WakeupPipeWrite);
-
-			fcntl(0, F_SETFL, m_OldFlags);
-
-			if (m_bOldSettingsSet)
-				tcsetattr(0, TCSANOW, &m_OldSettings);
+			if (mp_bOldSettingsSet)
+				tcsetattr(0, TCSANOW, &mp_OldSettings);
 		}
 
 		void f_Init()
 		{
-			m_OldFlags = fcntl(0, F_GETFL);
+			mp_OldFlags = fcntl(0, F_GETFL);
 
-			if (m_OldFlags == -1)
-				return;
+			if (mp_OldFlags != -1 && fcntl(0, F_SETFL, mp_OldFlags | O_NONBLOCK) == -1)
+				mp_OldFlags = -1;
 
-			if (fcntl(0, F_SETFL, m_OldFlags | O_NONBLOCK) == -1)
+			if (tcgetattr(0, &mp_OldSettings) >= 0)
 			{
-				m_OldFlags = -1;
-				return;
-			}
-
-			if (tcgetattr (0, &m_OldSettings) >= 0)
-			{
-				auto NewSettings = m_OldSettings;
+				auto NewSettings = mp_OldSettings;
 				// Emulate the behaviour of cfmakeraw() but without breaking NL
 				NewSettings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
 //				NewSettings.c_oflag &= ~OPOST;
@@ -89,24 +86,61 @@ namespace NMib::NProcess::NPlatform
 				NewSettings.c_cflag &= ~(CSIZE | PARENB);
 				NewSettings.c_cflag |= CS8;
 				tcsetattr(0, TCSANOW, &NewSettings);
-				m_bOldSettingsSet = true;
+				mp_bOldSettingsSet = true;
 			}
 
-			fs_CreatePipe(mp_WakeupPipeRead, mp_WakeupPipeWrite);
-			fcntl(mp_WakeupPipeRead, F_SETFL, O_NONBLOCK);
+			mp_pLoop = NSys::fg_GetThreadIoLoop();
+			if (!mp_pLoop)
+				mp_pLoop = NSys::fg_GetSharedIoLoop();
+			if (!mp_pLoop)
+				DMibError("No io loop is available to read standard input on");
 
-			f_Start();
+			struct stat Stat;
+			if (fstat(0, &Stat) == 0 && S_ISREG(Stat.st_mode))
+			{
+				if (!fs_CreatePipe(mp_PacePipe[0], mp_PacePipe[1]))
+					DMibError("Failed to create the pacing pipe for reading standard input from a file");
+
+				mp_bPaced = true;
+				fp_SchedulePacedRead();
+			}
 		}
 
+		// Puts the descriptor on the loop; callable from any thread, so the subsystem can issue it
+		// from a previous removal's continuation
+		void f_Register()
+		{
+			DMibFastCheck(!mp_pRegistration);
+
+			mp_pRegistration = mp_pLoop->f_Register
+				(
+					mp_bPaced ? mp_PacePipe[0] : 0
+					, this
+					, NSys::EIoLoopEvent::mc_Read
+					, &fs_OnReadable
+					, false
+				)
+			;
+		}
+
+		// Hands the registration to whoever removes it, null when none was issued yet
+		NSys::CIoLoopRegistration *f_TakeRegistration()
+		{
+			auto *pRegistration = mp_pRegistration;
+			mp_pRegistration = nullptr;
+
+			return pRegistration;
+		}
+
+		NSys::ICIoLoop *f_GetLoop() const
+		{
+			return mp_pLoop;
+		}
+
+		DMibListLinkDS_List(CPOSIXStdInReader, m_Link) m_Readers;
+
 	private:
-
-		struct termios m_OldSettings;
-		bool m_bOldSettingsSet = false;
-		int m_OldFlags;
-		int mp_WakeupPipeRead;
-		int mp_WakeupPipeWrite;
-
-		void fp_DestroyPipe(int &_Handle)
+		static void fp_DestroyPipe(int &_Handle)
 		{
 			if (_Handle != -1)
 			{
@@ -114,6 +148,7 @@ namespace NMib::NProcess::NPlatform
 				_Handle = -1;
 			}
 		}
+
 		static bool fs_CreatePipe(int &_Read, int &_Write)
 		{
 			DMibFastCheck(_Read == -1);
@@ -122,12 +157,12 @@ namespace NMib::NProcess::NPlatform
 #ifdef DPlatformFamily_Linux
 			if (NLocal::g_f_pipe2)
 			{
-				if (NLocal::g_f_pipe2(Pipes, O_CLOEXEC))
+				if (NLocal::g_f_pipe2(Pipes, O_CLOEXEC | O_NONBLOCK))
 					return false;
 			}
 			else
 #elif defined(DPlatformFamily_Emscripten)
-			if (pipe2(Pipes, O_CLOEXEC))
+			if (pipe2(Pipes, O_CLOEXEC | O_NONBLOCK))
 				return false;
 			else
 #endif
@@ -139,6 +174,8 @@ namespace NMib::NProcess::NPlatform
 
 				fcntl(Pipes[0], F_SETFD, fcntl(Pipes[0], F_GETFD) | FD_CLOEXEC);
 				fcntl(Pipes[1], F_SETFD, fcntl(Pipes[1], F_GETFD) | FD_CLOEXEC);
+				fcntl(Pipes[0], F_SETFL, fcntl(Pipes[0], F_GETFL) | O_NONBLOCK);
+				fcntl(Pipes[1], F_SETFL, fcntl(Pipes[1], F_GETFL) | O_NONBLOCK);
 			}
 
 #ifdef F_SETNOSIGPIPE
@@ -151,100 +188,136 @@ namespace NMib::NProcess::NPlatform
 			return true;
 		}
 
-		NMib::NStr::CStr f_GetThreadName()
+		// A byte in the pace pipe is the next pass; one already queued guarantees it
+		void fp_SchedulePacedRead()
 		{
-			return "Stdin reader";
+			ch8 Byte = 'p';
+			(void)!write(mp_PacePipe[1], &Byte, 1);
 		}
-		aint f_Main()
+
+		static void fs_OnReadable(void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
 		{
-			while (f_GetState() != NMib::NThread::EThreadState_EventWantQuit)
+			static_cast<CPOSIXStdInReaderImplementation *>(_pToken)->fp_OnReadable(_Events, _Error);
+		}
+
+		void fp_OnReadable(NSys::EIoLoopEvent _Events, int _Error)
+		{
+			if (mp_bFinished)
+				return;
+
+			if (fg_IsSet(_Events, NSys::EIoLoopEvent::mc_Error))
 			{
-				if (!fp_Read())
-					break;
+				// A loop that could not watch the descriptor says so once; nothing follows
+				mp_bFinished = true;
+				fp_SendToReaders(EStdInReaderOutputType_GeneralError, NMib::NPlatform::fg_FormatErrno("io loop (stdin reader)", _Error ? _Error : EIO) + "\n");
+				return;
+			}
 
-				pollfd ToPoll[2] = {0};
-				int nPoll = 0;
-				ToPoll[nPoll].fd = mp_WakeupPipeRead;
-				ToPoll[nPoll].events = POLLRDNORM;
-				ToPoll[nPoll].revents = 0;
-				++nPoll;
+			if (mp_bPaced)
+			{
+				ch8 Bytes[64];
+				while (read(mp_PacePipe[0], Bytes, sizeof(Bytes)) > 0)
+					; // Drained in whole, which is the would-block observation the request rests on
 
-				ToPoll[nPoll].fd = 0; // Std-in
-				ToPoll[nPoll].events = POLLRDNORM | POLLIN;
-				ToPoll[nPoll].revents = 0;
-				++nPoll;
+				mp_pLoop->f_RequestReadiness(mp_pRegistration, NSys::EIoLoopEvent::mc_Read);
 
-				int PollReturn = poll(ToPoll, nPoll, -1);
+				// One chunk per pass, then the next pass is scheduled: the loop's other work gets
+				// its turn between the chunks of a large file. The byte lands after the request,
+				// so every backend sees it as the transition it was asked about
+				if (fp_Read(true))
+					fp_SchedulePacedRead();
+				else
+					mp_bFinished = true;
 
-				if (PollReturn == -1)
+				return;
+			}
+
+			if (fp_Read(false))
+				mp_pLoop->f_RequestReadiness(mp_pRegistration, NSys::EIoLoopEvent::mc_Read);
+			else
+				mp_bFinished = true;
+		}
+
+		// Reads what is available: one chunk when paced, otherwise until the descriptor would
+		// block, which is the observation the readiness request that follows rests on. False at
+		// end of file or on an error, both reported to the readers
+		bool fp_Read(bool _bSingleChunk)
+		{
+			if (mp_StdInReadBuffer.f_IsEmpty())
+				mp_StdInReadBuffer.f_SetLen(gc_StdInReadChunkBytes);
+
+			while (true)
+			{
+				auto ReadBytes = read(0, mp_StdInReadBuffer.f_GetArray(), gc_StdInReadChunkBytes);
+
+				if (ReadBytes > 0)
+				{
+					fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), ReadBytes));
+
+					if (_bSingleChunk)
+						return true;
+
+					continue;
+				}
+
+				if (ReadBytes < 0)
 				{
 					int ErrNo = errno;
-					if (ErrNo != EINTR)
-					{
-						fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_GeneralError, NMib::NPlatform::fg_FormatErrno("poll (stdin reader)", ErrNo) + "\n");
-						break;
-					}
+
+					if (ErrNo == EINTR)
+						continue;
+
+					if (ErrNo == EAGAIN || ErrNo == EWOULDBLOCK)
+						return true;
+
+					fp_SendToReaders(EStdInReaderOutputType_GeneralError, NMib::NPlatform::fg_FormatErrno("read (stdin reader)", ErrNo) + "\n");
+					return false;
 				}
+
+				fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
+				return false;
 			}
-
-			fp_Read();
-
-			return 0;
-		}
-
-		NContainer::CIOByteVector mp_StdInReadBuffer;
-
-
-		bool fp_Read()
-		{
-			bool bRet = true;
-
-			if (mp_StdInReadBuffer.f_IsEmpty())
-				mp_StdInReadBuffer.f_SetLen(4096);
-
-			auto ReadBytes = read(0, mp_StdInReadBuffer.f_GetArray(), 4096);
-
-			if (ReadBytes > 0)
-				fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), ReadBytes));
-			else if (ReadBytes < 0)
-			{
-				int ErrNo = errno;
-
-				if (ErrNo == EAGAIN || ErrNo == EWOULDBLOCK)
-				{
-					// Normal
-				}
-				else
-				{
-					fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_GeneralError, NMib::NPlatform::fg_FormatErrno("read (stdin reader)", ErrNo) + "\n");
-					bRet = false;
-				}
-			}
-			else
-			{
-				fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType_EndOfFile, "End of file");
-				bRet = false;
-			}
-
-			return bRet;
 		}
 
 		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Buffer);
 		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NStr::CStrIO const &_String);
+
+		struct termios mp_OldSettings;
+		NSys::ICIoLoop *mp_pLoop = nullptr;
+		NSys::CIoLoopRegistration *mp_pRegistration = nullptr;
+		NContainer::CIOByteVector mp_StdInReadBuffer;
+		int mp_PacePipe[2] = {-1, -1};
+		int mp_OldFlags = -1;
+		bool mp_bOldSettingsSet = false;
+		bool mp_bPaced = false;
+
+		// End of file or an error has been reported; nothing further is read or asked for
+		bool mp_bFinished = false;
 	};
 
 	struct CSubSystem_Process_Platform_POSIX_StdInReader : public CSubSystem
 	{
-		NThread::CMutual m_StdInReaderImpLock;
-		NMib::NStorage::TCUniquePointer<CPOSIXStdInReaderImplementation> m_pStdInReaderImp;
+		// Runs a removal's acknowledgement: the implementation is gone, and an implementation that
+		// opened meanwhile gets its registration if this was the last removal in the way
+		void f_OnClosed()
+		{
+			if (m_bWasDestroyed.f_Load())
+				return;
+
+			DMibLock(m_StdInReaderImpLock);
+			--m_nClosing;
+			if (m_nClosing || !m_bRegistrationPending)
+				return;
+
+			m_bRegistrationPending = false;
+			m_pStdInReaderImp->f_Register();
+		}
 
 		void f_DestroyThreadSpecific() override
 		{
-			{
-				DMibLock(m_StdInReaderImpLock);
-				DMibFastCheck(m_pStdInReaderImp.f_IsEmpty()); // Should have been deleted when the last std in reader was closed
-				m_pStdInReaderImp.f_Clear();
-			}
+			DMibLock(m_StdInReaderImpLock);
+			DMibFastCheck(m_pStdInReaderImp.f_IsEmpty()); // Should have been deleted when the last std in reader was closed
+			m_pStdInReaderImp.f_Clear();
 		}
 
 		~CSubSystem_Process_Platform_POSIX_StdInReader()
@@ -253,26 +326,71 @@ namespace NMib::NProcess::NPlatform
 				DMibLock(m_StdInReaderImpLock);
 				DMibFastCheck(m_pStdInReaderImp.f_IsEmpty());
 			}
+
+			m_bWasDestroyed.f_Store(true);
 		}
+
+		NThread::CMutual m_StdInReaderImpLock;
+		NMib::NStorage::TCUniquePointer<CPOSIXStdInReaderImplementation> m_pStdInReaderImp;
+
+		// Implementations taken off the loop and not yet acknowledged. Standard input can only be
+		// registered once, so while any is counted here the live implementation waits for its
+		// registration, which the last acknowledgement issues. Nothing ever waits for an
+		// acknowledgement: a reader is closed from actor threads, which may not block, and the
+		// acknowledgement of a removal started inside the loop's own callback could only come
+		// after that callback returns
+		umint m_nClosing = 0;
+
+		// Set by the destructor for a continuation that runs after it, when the shared loop drains
+		// on its way out; there is nothing left to register by then
+		NAtomic::TCAtomic<bool> m_bWasDestroyed;
+		bool m_bRegistrationPending = false;
 	};
 
 	constinit TCSubSystem<CSubSystem_Process_Platform_POSIX_StdInReader, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_StdInReader = {DAggregateInit};
 
 	CPOSIXStdInReader::~CPOSIXStdInReader()
 	{
-		if (m_Link.f_IsInList())
+		if (!m_Link.f_IsInList())
+			return;
+
+		auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
+		NMib::NStorage::TCUniquePointer<CPOSIXStdInReaderImplementation> pToClose;
 		{
-			auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_StdInReader;
-			NMib::NStorage::TCUniquePointer<CPOSIXStdInReaderImplementation> pToDelete;
+			DMibLock(SubSystem.m_StdInReaderImpLock);
+			NMib::NStorage::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
+			m_Link.f_Unlink();
+			if (pImp->m_Readers.f_IsEmpty())
 			{
-				DMibLock(SubSystem.m_StdInReaderImpLock);
-				NMib::NStorage::TCPointer<CPOSIXStdInReaderImplementation> pImp = SubSystem.m_pStdInReaderImp.f_Get();
-				m_Link.f_Unlink();
-				if (pImp->m_Readers.f_IsEmpty())
-					pToDelete = fg_Move(SubSystem.m_pStdInReaderImp);
+				pToClose = fg_Move(SubSystem.m_pStdInReaderImp);
+				++SubSystem.m_nClosing;
+
+				// Never registered: it was itself waiting for a removal, and stops waiting
+				SubSystem.m_bRegistrationPending = false;
 			}
 		}
+
+		if (!pToClose)
+			return;
+
+		// Outside the lock, since the loop's callback takes it to deliver. The removal never
+		// blocks: the implementation is destroyed, and the terminal restored, once the loop
+		// reports that no callback can be in flight, on the loop's own thread
+		auto *pLoop = pToClose->f_GetLoop();
+		auto *pRegistration = pToClose->f_TakeRegistration();
+		auto fOnClosed = [pToClose = fg_Move(pToClose)]() mutable
+			{
+				pToClose.f_Clear();
+				g_SubSystem_Process_Platform_POSIX_StdInReader->f_OnClosed();
+			}
+		;
+
+		if (pRegistration)
+			pLoop->f_DeregisterAsync(pRegistration, fg_Move(fOnClosed));
+		else
+			fOnClosed();
 	}
+
 	void CPOSIXStdInReaderImplementation::fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Buffer)
 	{
 		DMibRequire(_Type == EStdInReaderOutputType_StdIn);
@@ -398,7 +516,7 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 
 			if (!pImp)
 			{
-				pNew = fg_Construct<CPOSIXStdInReaderImplementation>((Params.m_Flags & EStdInReaderFlag_ForcePolling) != 0);
+				pNew = fg_Construct<CPOSIXStdInReaderImplementation>();
 				pImp = (CPOSIXStdInReaderImplementation *)pNew.f_Get();
 			}
 
@@ -408,6 +526,13 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 			{
 				pImp->f_Init();
 				SubSystem.m_pStdInReaderImp = fg_Move(pNew);
+
+				// A previous implementation still on its way off the loop registers this one when
+				// its removal is acknowledged; input is delayed by that round trip and nothing waits
+				if (SubSystem.m_nClosing)
+					SubSystem.m_bRegistrationPending = true;
+				else
+					pImp->f_Register();
 			}
 		}
 	}
