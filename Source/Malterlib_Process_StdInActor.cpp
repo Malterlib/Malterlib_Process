@@ -147,7 +147,16 @@ namespace NMib::NProcess
 		CInternal(CStdInActor *_pThis)
 			: m_pThis(_pThis)
 		{
-			m_StdOutActor = fg_Construct(fg_Construct(), "StdIn output actor");
+		}
+
+		// The output actor echoes prompts, so it only exists once a prompt is registered; a
+		// process that only reads its input never starts its thread
+		NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &f_GetStdOutActor()
+		{
+			if (!m_StdOutActor)
+				m_StdOutActor = fg_Construct(fg_Construct(), "StdIn output actor");
+
+			return m_StdOutActor;
 		}
 
 		void f_RegisterForRead();
@@ -573,6 +582,10 @@ namespace NMib::NProcess
 		if (m_pReadSubscription)
 			return;
 
+		// Registered on a pool thread's loop, so the input arrives on a thread that exists anyway
+		// instead of waking the shared poller, which would be started for this alone
+		NConcurrency::CIoLoopCreateScope IoLoopScope(NConcurrency::fg_ConcurrencyManager().f_PickIoLoopBinding(NConcurrency::EPriority_Normal));
+
 		m_pReadSubscription = fg_Construct
 			(
 				CStdInReaderParams::fs_Create
@@ -617,6 +630,8 @@ namespace NMib::NProcess
 	{
 		if (m_pReadSubscriptionBinary)
 			return;
+
+		NConcurrency::CIoLoopCreateScope IoLoopScope(NConcurrency::fg_ConcurrencyManager().f_PickIoLoopBinding(NConcurrency::EPriority_Normal));
 
 		m_pReadSubscriptionBinary = fg_Construct
 			(
@@ -797,7 +812,7 @@ namespace NMib::NProcess
 		auto &Entry = Internal.m_ReadEntries.f_Insert();
 		auto Future = Entry.m_Promise.f_Future();
 
-		Entry.m_EntryInfo = CInternal::CPrompt{_Params, Internal.m_StdOutActor};
+		Entry.m_EntryInfo = CInternal::CPrompt{_Params, Internal.f_GetStdOutActor()};
 
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();
