@@ -6,6 +6,7 @@
 #include <Mib/Concurrency/ThreadSafeQueue>
 #include <Mib/Cryptography/UUID>
 #include <Mib/Process/StdIn>
+#include <Mib/Process/StdInActor>
 #include <Mib/Process/ProcessLaunch>
 
 namespace
@@ -43,16 +44,9 @@ namespace
 			return Params;
 		}
 
-		template <bool t_bForcePolling>
 		void f_TestStdIn()
 		{
-			NMib::NStr::CStr CategoryName;
-			if (t_bForcePolling)
-				CategoryName = "General";
-			else
-				CategoryName = "Force polling";
-
-			DMibTestCategory(CategoryName)
+			DMibTestCategory("General")
 			{
 				using namespace NMib::NProcess;
 				DMibTestSuite("Lifetime")
@@ -70,13 +64,11 @@ namespace
 									}
 								)
 							;
-							Params.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
 							if (_bExclusive)
 								Params.m_Flags |= EStdInReaderFlag_Exclusive;
 							return NMib::fg_Move(Params);
 						}
 					;
-
 
 					CStdInReaderParams ExclusiveParams = fCreateParams();
 					ExclusiveParams.m_Flags |= EStdInReaderFlag_Exclusive;
@@ -110,6 +102,59 @@ namespace
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateNormal()));
 					}
 
+					DMibTestCategory("Actor")
+					{
+						using namespace NMib;
+						using namespace NMib::NConcurrency;
+
+						for (bool bBinary : {false, true})
+						{
+							DMibTestPath(bBinary ? "Binary" : "Text");
+							EExecutionPriority Priorities[EPriority_Max] = {EExecutionPriority_Normal, EExecutionPriority_Normal, EExecutionPriority_Normal};
+							CConcurrencyManager Manager(Priorities);
+							auto Actor = Manager.f_ConstructActor(fg_Construct<CStdInActor>());
+							DMibExpect(Actor->f_GetPriority(), ==, EPriority_NormalHighCPU);
+
+							CActorSubscription Subscription;
+							if (bBinary)
+							{
+								auto OnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType, NContainer::CIOByteVector, NStr::CStr) -> TCFuture<void>
+									{
+										co_return {};
+									}
+								;
+								Subscription = Actor(&CStdInActor::f_RegisterForInputBinary, fg_Move(OnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
+							}
+							else
+							{
+								auto OnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType, NStr::CStrIO) -> TCFuture<void>
+									{
+										co_return {};
+									}
+								;
+								Subscription = Actor(&CStdInActor::f_RegisterForInput, fg_Move(OnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
+							}
+
+							if (Manager.f_GetQueueIoLoop(EPriority_NormalHighCPU, 0))
+							{
+								TCPromise<bool> OwnLoopActive;
+								Manager.f_DispatchToQueue
+									(
+										EPriority_NormalHighCPU, 0
+										, [OwnLoopActive, pManager = &Manager](CConcurrencyThreadLocal &)
+										{
+											OwnLoopActive.f_SetResult(pManager->f_GetThreadIoLoop() == pManager->f_GetQueueIoLoop(EPriority_NormalHighCPU, 0));
+										}
+									)
+								;
+								DMibExpectTrue(OwnLoopActive.f_Future().f_CallSync());
+							}
+
+							Subscription->f_Destroy().f_CallSync();
+							fg_Move(Actor).f_Destroy().f_CallSync();
+							Manager.f_BlockOnDestroy();
+						}
+					};
 				};
 				DMibTestSuite("ReadInput")
 				{
@@ -126,7 +171,6 @@ namespace
 									}
 								)
 							;
-							Params.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
 							if (_bExclusive)
 								Params.m_Flags |= EStdInReaderFlag_Exclusive;
 							return NMib::fg_Move(Params);
@@ -190,8 +234,6 @@ namespace
 									}
 								)
 							;
-
-							Params0.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
 
 							CStdInReader Reader0(NMib::fg_Move(Params0));
 
@@ -295,12 +337,10 @@ namespace
 
 		void f_DoTests()
 		{
-			f_TestStdIn<false>();
-			f_TestStdIn<true>();
+			f_TestStdIn();
 		}
 	};
 
 	DMibTestRegister(CStdIn_Tests, Malterlib::Process);
 
 }
-

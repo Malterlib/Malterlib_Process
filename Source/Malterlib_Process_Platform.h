@@ -151,6 +151,13 @@ namespace NMib::NProcess
 		void *fg_Process_StdInReader_Open(NMib::NProcess::CStdInReaderParams &&_Params);
 		void fg_Process_StdInReader_Close(void *_pStdInReader);
 
+		auto fg_Process_StdInReader_RegisterScreenChange
+			(
+				NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange
+			)
+			-> NMib::COnScopeExitShared
+		;
+
 		void *fg_ProcessLaunch_Open(NMib::NProcess::CProcessLaunchParams const &_Params);
 		void fg_ProcessLaunch_Start(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _DestructFlags);
 		void fg_ProcessLaunch_Close(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _Flags);

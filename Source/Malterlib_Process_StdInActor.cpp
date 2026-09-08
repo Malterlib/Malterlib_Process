@@ -147,7 +147,15 @@ namespace NMib::NProcess
 		CInternal(CStdInActor *_pThis)
 			: m_pThis(_pThis)
 		{
-			m_StdOutActor = fg_Construct(fg_Construct(), "StdIn output actor");
+		}
+
+		// Create the output actor only when prompt echoing needs it.
+		NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &f_GetStdOutActor()
+		{
+			if (!m_StdOutActor)
+				m_StdOutActor = fg_Construct(fg_Construct(), "StdIn output actor");
+
+			return m_StdOutActor;
 		}
 
 		void f_RegisterForRead();
@@ -573,6 +581,9 @@ namespace NMib::NProcess
 		if (m_pReadSubscription)
 			return;
 
+		// Bind input to an existing pool loop to avoid starting the shared poller.
+		NConcurrency::CIoLoopCreateScope IoLoopScope(m_pThis->f_ConcurrencyManager().f_PickIoLoopBinding(CStdInActor::mc_Priority));
+
 		m_pReadSubscription = fg_Construct
 			(
 				CStdInReaderParams::fs_Create
@@ -617,6 +628,8 @@ namespace NMib::NProcess
 	{
 		if (m_pReadSubscriptionBinary)
 			return;
+
+		NConcurrency::CIoLoopCreateScope IoLoopScope(m_pThis->f_ConcurrencyManager().f_PickIoLoopBinding(CStdInActor::mc_Priority));
 
 		m_pReadSubscriptionBinary = fg_Construct
 			(
@@ -666,6 +679,8 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 		try
 		{
+			NConcurrency::CIoLoopCreateScope IoLoopScope(f_ConcurrencyManager().f_PickIoLoopBinding(mc_Priority));
+
 			NStorage::TCSharedPointer<CInternal::CSubscription, NStorage::CSupportWeakTag> pSubscription = fg_Construct
 				(
 					CStdInReaderParams::fs_Create
@@ -715,6 +730,8 @@ namespace NMib::NProcess
 		auto &Internal = *mp_pInternal;
 		try
 		{
+			NConcurrency::CIoLoopCreateScope IoLoopScope(f_ConcurrencyManager().f_PickIoLoopBinding(mc_Priority));
+
 			NStorage::TCSharedPointer<CInternal::CSubscription, NStorage::CSupportWeakTag> pSubscription = fg_Construct
 				(
 					CStdInReaderParams::fs_CreateBinary
@@ -797,7 +814,7 @@ namespace NMib::NProcess
 		auto &Entry = Internal.m_ReadEntries.f_Insert();
 		auto Future = Entry.m_Promise.f_Future();
 
-		Entry.m_EntryInfo = CInternal::CPrompt{_Params, Internal.m_StdOutActor};
+		Entry.m_EntryInfo = CInternal::CPrompt{_Params, Internal.f_GetStdOutActor()};
 
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();

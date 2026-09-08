@@ -202,42 +202,19 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 	}
 }
 
-constinit static NMib::NStorage::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};
-
+// Callbacks run outside native signal handlers on the signal subsystem's dispatch thread.
+// Both signal registrations retain the shared callback.
 NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTermination(NFunction::TCFunction<void ()> &&_fOnTerminate)
 {
-	if (gs_TerminationFunction.f_IsConstructed())
-		DMibError("You can only install one wait for termination handler");
+	auto pOnTerminate = NStorage::TCSharedPointer<NFunction::TCFunction<void ()>>(fg_Construct(fg_Move(_fOnTerminate)));
 
-	gs_TerminationFunction.f_Construct(fg_Move(_fOnTerminate));
+	auto pSigterm = NSys::fg_System_RegisterForSignal(SIGTERM, [pOnTerminate] { (*pOnTerminate)(); });
+	auto pSigint = NSys::fg_System_RegisterForSignal(SIGINT, [pOnTerminate] { (*pOnTerminate)(); });
 
-	static auto fSigTermHandler = [](int const _Signal)
+	return g_OnScopeExitShared / [pSigterm, pSigint]() mutable
 		{
-			sigset_t WaitSet;
-			sigset_t OldSet;
-			sigemptyset(&WaitSet);
-			sigaddset(&WaitSet, SIGTERM);
-			sigaddset(&WaitSet, SIGINT);
-			pthread_sigmask(SIG_BLOCK, &WaitSet, &OldSet);
-
-			auto Cleanup = g_OnScopeExit / [&]
-				{
-					pthread_sigmask(SIG_SETMASK, &OldSet, nullptr);
-				}
-			;
-
-			(*gs_TerminationFunction)();
-		}
-	;
-
-	auto fSigterm = signal(SIGTERM, (sig_t)fSigTermHandler);
-	auto fSigint = signal(SIGINT, (sig_t)fSigTermHandler);
-
-	return g_OnScopeExitShared / [fSigterm, fSigint]
-		{
-			signal(SIGTERM, fSigterm);
-			signal(SIGINT, fSigint);
-			gs_TerminationFunction.f_Clear();
+			pSigterm.f_Clear();
+			pSigint.f_Clear();
 		}
 	;
 }
