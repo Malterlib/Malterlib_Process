@@ -544,3 +544,14 @@ void NMib::NProcess::NPlatform::fg_Process_StdInReader_Close(void *_pStdInReader
 {
 	NStorage::TCUniquePointer<CPOSIXStdInReader> pReader = fg_Explicit((CPOSIXStdInReader *)_pStdInReader);
 }
+
+auto NMib::NProcess::NPlatform::fg_Process_StdInReader_RegisterScreenChange
+	(
+		NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange
+	)
+	-> NMib::COnScopeExitShared
+{
+	// The terminal signals a resize with SIGWINCH here, which NSys::fg_System_RegisterForSignal
+	// delivers; the input stream carries nothing about it
+	DMibError("Screen changes are not observed through standard input on this platform");
+}

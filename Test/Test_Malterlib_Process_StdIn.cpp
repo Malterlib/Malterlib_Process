@@ -43,16 +43,9 @@ namespace
 			return Params;
 		}
 
-		template <bool t_bForcePolling>
 		void f_TestStdIn()
 		{
-			NMib::NStr::CStr CategoryName;
-			if (t_bForcePolling)
-				CategoryName = "General";
-			else
-				CategoryName = "Force polling";
-
-			DMibTestCategory(CategoryName)
+			DMibTestCategory("General")
 			{
 				using namespace NMib::NProcess;
 				DMibTestSuite("Lifetime")
@@ -70,7 +63,6 @@ namespace
 									}
 								)
 							;
-							Params.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
 							if (_bExclusive)
 								Params.m_Flags |= EStdInReaderFlag_Exclusive;
 							return NMib::fg_Move(Params);
@@ -126,7 +118,6 @@ namespace
 									}
 								)
 							;
-							Params.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
 							if (_bExclusive)
 								Params.m_Flags |= EStdInReaderFlag_Exclusive;
 							return NMib::fg_Move(Params);
@@ -191,7 +182,6 @@ namespace
 								)
 							;
 
-							Params0.m_Flags |= t_bForcePolling ? EStdInReaderFlag_ForcePolling : EStdInReaderFlag_None;
 
 							CStdInReader Reader0(NMib::fg_Move(Params0));
 
@@ -295,8 +285,7 @@ namespace
 
 		void f_DoTests()
 		{
-			f_TestStdIn<false>();
-			f_TestStdIn<true>();
+			f_TestStdIn();
 		}
 	};
 

@@ -143,6 +143,11 @@ namespace NMib::NProcess
 		return true;
 	}
 
+	COnScopeExitShared fg_StdInReader_RegisterScreenChange(NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange)
+	{
+		return NPlatform::fg_Process_StdInReader_RegisterScreenChange(fg_Move(_fOnScreenChange));
+	}
+
 	CStdInReader::CStdInReader(CStdInReaderParams &&_Params)
 		: m_pStdInReader(nullptr)
 	{

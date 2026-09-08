@@ -11,8 +11,7 @@ namespace NMib::NProcess
 	{
 		EStdInReaderFlag_None = 0
 		, EStdInReaderFlag_Exclusive = DMibBit(0) // Set to gurantee exclusive input, otherwise several CStdInReader can be created and all will receive input
-		, EStdInReaderFlag_ForcePolling = DMibBit(1) // Set to force polling behaviour. Mainly for unit testing to make sure that XP polling mode works
-		, EStdInReaderFlag_VirtualTerminalInput = DMibBit(2) // Set to receive terminal input as virtual terminal sequences on Windows consoles
+		, EStdInReaderFlag_VirtualTerminalInput = DMibBit(1) // Set to receive terminal input as virtual terminal sequences on Windows consoles
 	};
 
 	enum EStdInReaderOutputType
@@ -76,6 +75,13 @@ namespace NMib::NProcess
 		~CStdInReader();
 		CStdInReader(CStdInReader &&_Other);
 	};
+
+	// Screen size changes, learned of through the console input the standard input reader owns.
+	// Windows only in practice: there a resize is a record in the same queue keystrokes arrive in,
+	// so the reader that consumes the queue is the only thing that can see it, and this fails
+	// unless a CStdInReader of a console standard input is open. POSIX has SIGWINCH for this and
+	// refuses the call; callers there register with NSys::fg_System_RegisterForSignal
+	COnScopeExitShared fg_StdInReader_RegisterScreenChange(NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange);
 
 	class CBlockingStdInReader
 	{
