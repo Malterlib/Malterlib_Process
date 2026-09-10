@@ -271,6 +271,7 @@ namespace NMib::NProcess::NPlatform
 			)
 		;
 
+		CAutoReleasePool ARPool;
 		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
 		Result = LSSetDefaultHandlerForURLScheme(CFScheme, (__bridge CFStringRef)BundleID);
 
@@ -285,6 +286,7 @@ namespace NMib::NProcess::NPlatform
 
 		CFStringRef SchemeRef = CFStringCreateWithBytes(NULL, (UInt8 const*)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
 
+		CAutoReleasePool ARPool;
 		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
 		OSStatus Result = LSSetDefaultHandlerForURLScheme(SchemeRef, (__bridge CFStringRef)BundleID);
 
