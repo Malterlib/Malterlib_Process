@@ -514,23 +514,124 @@ namespace NMib::NProcess::NPlatform
 			return "CConsoleRedirector";
 		}
 
-		NStr::CWStr fg_FindExecutableWindows(NStr::CStr const &_Path, bool _bAllowLocate)
+		NStr::CWStr fg_FindExecutableWindows(NStr::CStr const &_Path, bool _bAllowLocate, NStr::CStr const &_LocalPaths)
 		{
-			// First look in current dir
-			NStr::CWStr FullPathW = NFile::NPlatform::fg_ConvertToWindowsPath(_Path, true);
-			NStr::CStr FullPath = NFile::NPlatform::fg_ConvertFromWindowsPath(FullPathW);
-			if (NFile::CFile::fs_FileExists(FullPath, NFile::EFileAttrib_File))
-				return FullPathW;
+			auto fIsAbsolute = [](NStr::CStr const &_Candidate)
+				{
+					// A rooted Windows path without a drive still depends on the current drive.
+					return NFile::CFile::fs_IsPathAbsolute(_Candidate) && !NFile::CFile::fs_GetDrive(_Candidate).f_IsEmpty();
+				}
+			;
+
+			bool bExplicitPath = _Path.f_FindChars("/\\:") >= 0;
+			NStr::CWStr WindowsPath;
+			NStr::CStr FullPath;
+			if (bExplicitPath)
+			{
+				WindowsPath = NFile::NPlatform::fg_ConvertToWindowsPath(_Path, true);
+				FullPath = NFile::NPlatform::fg_ConvertFromWindowsPath(WindowsPath);
+				if (!fIsAbsolute(FullPath))
+					return {};
+				if (NFile::CFile::fs_FileExists(FullPath, NFile::EFileAttrib_File))
+					return WindowsPath;
+			}
 
 			if (!_bAllowLocate)
-				return NFile::NPlatform::fg_ConvertToWindowsPath(_Path, false);
-			NStr::CWStr WindowsPath = NFile::NPlatform::fg_ConvertToWindowsPath(_Path, false);
+				return WindowsPath;
+			if (!bExplicitPath)
+				WindowsPath = NFile::NPlatform::fg_ConvertToWindowsPath(_Path, false);
 
-			NStr::CWStr String;
-			if (FindExecutableW(WindowsPath, nullptr, String.f_GetStr(MAX_PATH+1)))
-				return String;
+			NStr::CWStr SearchDirectories;
+			NContainer::TCVector<NStr::CWStr> Directories;
+			auto fAddDirectory = [&](NStr::CStr const &_Directory)
+				{
+					if (!fIsAbsolute(_Directory))
+						return;
+
+					NStr::CWStr NativeDirectory = NFile::NPlatform::fg_ConvertToWindowsPath(_Directory, false, MAX_PATH, false);
+					if (!NativeDirectory.f_EndsWith("\\"))
+						NativeDirectory += "\\";
+					if (!SearchDirectories.f_IsEmpty())
+						SearchDirectories += ";";
+					SearchDirectories += NativeDirectory;
+					Directories.f_Insert(fg_Move(NativeDirectory));
+				}
+			;
+
+			if (bExplicitPath)
+				fAddDirectory(NFile::CFile::fs_GetPath(FullPath) + "/");
 			else
-				return NFile::NPlatform::fg_ConvertToWindowsPath(_Path, false);
+			{
+				for (umint i = 0; i < 2; ++i)
+				{
+					NStr::CStr Paths = i == 0 ? _LocalPaths : fg_GetSys()->f_GetEnvironmentVariable("PATH");
+					for (auto const &Directory : Paths.f_Split<true>(";"))
+						fAddDirectory(Directory);
+				}
+			}
+
+			if (SearchDirectories.f_IsEmpty())
+				return {};
+
+			auto fSearch = [&](wchar_t const *_pExtension) -> NStr::CWStr
+				{
+					NStr::CWStr Result;
+					DWORD nCapacity = MAX_PATH + 1;
+					for (;;)
+					{
+						DWORD nRequired = SearchPathW(SearchDirectories, WindowsPath, _pExtension, nCapacity, Result.f_GetStr(nCapacity), nullptr);
+						if (!nRequired)
+							return {};
+						if (nRequired < nCapacity)
+							return Result;
+
+						nCapacity = nRequired;
+					}
+				}
+			;
+
+			if (!NFile::CFile::fs_GetExtension(_Path).f_IsEmpty())
+				return fSearch(nullptr);
+
+			auto Com = fSearch(L".com");
+			auto Exe = fSearch(L".exe");
+			if (Com.f_IsEmpty())
+				return Exe;
+			if (Exe.f_IsEmpty() || bExplicitPath)
+				return Com;
+
+			auto fNormalizeDirectory = [](NStr::CWStr const &_Directory) -> NStr::CWStr
+				{
+					NStr::CWStr Result;
+					DWORD nCapacity = MAX_PATH + 1;
+					for (;;)
+					{
+						DWORD nRequired = GetFullPathNameW(_Directory, nCapacity, Result.f_GetStr(nCapacity), nullptr);
+						if (!nRequired)
+							return {};
+						if (nRequired < nCapacity)
+							return Result.f_TrimRight("\\");
+
+						nCapacity = nRequired;
+					}
+				}
+			;
+
+			auto ComDirectory = fNormalizeDirectory(NFile::CFile::fs_GetPath(Com).f_ReplaceChar('/', '\\') + "\\");
+			auto ExeDirectory = fNormalizeDirectory(NFile::CFile::fs_GetPath(Exe).f_ReplaceChar('/', '\\') + "\\");
+			if (ComDirectory.f_IsEmpty() || ExeDirectory.f_IsEmpty())
+				return {};
+
+			for (auto const &Directory : Directories)
+			{
+				auto NormalizedDirectory = fNormalizeDirectory(Directory);
+				if (NormalizedDirectory.f_CmpNoCase(ComDirectory) == 0)
+					return Com;
+				if (NormalizedDirectory.f_CmpNoCase(ExeDirectory) == 0)
+					return Exe;
+			}
+
+			return {};
 		}
 
 		bool fg_SetLimitsOnJob(NMib::NProcess::CProcessLaunchParams const &_LaunchParams, HANDLE _hJob, NStr::CStr &_Errors)
@@ -694,13 +795,17 @@ namespace NMib::NProcess::NPlatform
 			NContainer::TCVector<COnScopeExitShared> CleanupUserProfiles;
 
 			NStr::CStr Program = mp_LastLaunchOptions.m_Target;
+			NStr::CStr LocalPaths;
+			if (auto *pPath = mp_LastLaunchOptions.m_Environment.f_FindEqual("PATH"))
+				LocalPaths = *pPath;
+
 			NStr::CStr Extension = NFile::CFile::fs_GetExtension(Program);
 			if (
 						mp_LastLaunchOptions.m_LaunchType == EProcessLaunchType_Executable
 					&&	(Extension.f_CmpNoCase("com") == 0
 					||	Extension.f_IsEmpty()))
 			{
-				NStr::CStr Path = NFile::NPlatform::fg_ConvertFromWindowsPath(fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate));
+				NStr::CStr Path = NFile::NPlatform::fg_ConvertFromWindowsPath(fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, LocalPaths));
 		#if DMibPPtrBits == 64
 				NStr::CStr NewProgramPath = NFile::CFile::fs_AppendPath(NFile::CFile::fs_GetPath(Path), NFile::CFile::fs_GetFileNoExt(Path) + "_x64.exe");
 		#elif DMibPPtrBits == 32
@@ -1005,7 +1110,7 @@ namespace NMib::NProcess::NPlatform
 
 				SHELLEXECUTEINFOW ExecInfo;
 
-				NStr::CWStr File = fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate);;
+				NStr::CWStr File = fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, LocalPaths);
 				NStr::CWStr Params = NStr::NPlatform::fg_StrToWindows(mp_LastLaunchOptions.m_Parameters);
 				if (!PipeBaseName.f_IsEmpty())
 				{
@@ -1147,7 +1252,7 @@ namespace NMib::NProcess::NPlatform
 
 				auto Environment = mp_LastLaunchOptions.m_Environment;
 
-				NStr::CWStr ProgramPathFull = fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate);
+				NStr::CWStr ProgramPathFull = fg_FindExecutableWindows(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, LocalPaths);
 
 				if (ProgramPathFull.f_IsEmpty())
 				{
@@ -3018,7 +3123,7 @@ namespace NMib::NProcess::NPlatform
 
 	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate)
 	{
-		NStr::CStr Path = NFile::NPlatform::fg_ConvertFromWindowsPath(fg_FindExecutableWindows(_Path, _bAllowLocate));
+		NStr::CStr Path = NFile::NPlatform::fg_ConvertFromWindowsPath(fg_FindExecutableWindows(_Path, _bAllowLocate, {}));
 		if (NFile::CFile::fs_FileExists(Path, NFile::EFileAttrib_File))
 			return Path;
 

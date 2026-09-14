@@ -224,6 +224,8 @@ namespace NMib::NProcess::NPlatform
 	{
 		auto fExistsAndHasRightAttribs = [&](NStr::CStr const &_Path)
 			{
+				if (!NFile::CFile::fs_IsPathAbsolute(_Path))
+					return false;
 				if (!NMib::NFile::CFile::fs_FileExists(_Path, _Type))
 					return false;
 				auto Attribs = NMib::NFile::CFile::fs_GetAttributes(_Path);
@@ -231,10 +233,14 @@ namespace NMib::NProcess::NPlatform
 			}
 		;
 
-		// First look in current dir
-		NStr::CStr FullPath = NFile::NPlatform::fg_ConvertToPOSIXPath(_Path, true);
-		if (fExistsAndHasRightAttribs(FullPath))
-			return FullPath;
+		if (_Path.f_FindChars("/") >= 0)
+		{
+			NStr::CStr FullPath = NFile::NPlatform::fg_ConvertToPOSIXPath(_Path, true);
+			if (fExistsAndHasRightAttribs(FullPath))
+				return FullPath;
+
+			return _Path;
+		}
 
 		if (!_bAllowLocate)
 			return _Path;
@@ -246,20 +252,24 @@ namespace NMib::NProcess::NPlatform
 				Path = _LocalPaths;
 			else
 				Path = fg_GetSys()->f_GetEnvironmentVariable("PATH");
-			while (!Path.f_IsEmpty())
+			for (auto const &ThisPath : Path.f_Split<true>(":"))
 			{
-				NStr::CStr ThisPath = fg_GetStrSep(Path, ":");
+				if (!NFile::CFile::fs_IsPathAbsolute(ThisPath))
+					continue;
 
 				NStr::CStr ExecutablePath = NMib::NFile::CFile::fs_AppendPath(ThisPath, _Path);
 				if (fExistsAndHasRightAttribs(ExecutablePath))
-					return ExecutablePath;
+					return NFile::NPlatform::fg_ConvertToPOSIXPath(ExecutablePath, false);
 			}
 		}
 		for (auto &Path : _ExtraPaths)
 		{
+			if (!NFile::CFile::fs_IsPathAbsolute(Path))
+				continue;
+
 			NStr::CStr ExecutablePath = NMib::NFile::CFile::fs_AppendPath(Path, _Path);
 			if (fExistsAndHasRightAttribs(ExecutablePath))
-				return ExecutablePath;
+				return NFile::NPlatform::fg_ConvertToPOSIXPath(ExecutablePath, false);
 		}
 
 		return _Path;
@@ -515,7 +525,7 @@ namespace NMib::NProcess::NPlatform
 #ifdef DPlatformFamily_macOS
 				NStr::CStr OriginalProgram = Program;
 				Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_Directory, {}, LocalPaths);
-				if (NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
+				if (Program.f_FindChars("/") >= 0 && NMib::NFile::CFile::fs_FileExists(Program, NMib::NFile::EFileAttrib_Directory))
 				{
 					if (NMib::NFile::CFile::fs_GetExtension(Program).f_CmpNoCase("app") == 0)
 					{
@@ -534,6 +544,12 @@ namespace NMib::NProcess::NPlatform
 #else
 				Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 #endif
+				if (Program.f_FindChars("/") < 0)
+				{
+					_Errors += NStr::fg_Format("Failed to find an executable for '{}'\n", Program);
+
+					return false;
+				}
 			}
 			catch (NException::CException const &_Exception)
 			{
@@ -680,6 +696,13 @@ namespace NMib::NProcess::NPlatform
 						, LocalPaths
 					)
 				;
+
+				if (ChrootLaunchHelper.f_FindChars("/") < 0)
+				{
+					_Errors += NStr::fg_Format("Failed to find the sandbox launch helper '{}'\n", ChrootLaunchHelper);
+
+					return false;
+				}
 
 				if (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty())
 					WorkingDirectory = fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
