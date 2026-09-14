@@ -309,6 +309,81 @@ namespace NMib::NProcess
 		return NPlatform::fg_ProcessLaunch_GetOverallMemoryStatistics(m_pProcessLaunch);
 	}
 
+	// Parses fs_GetParamsUnix's direct-execution format, not shell syntax. Double quotes group text;
+	// backslashes escape the next byte only inside quotes. Unclosed quotes extend to the end of input.
+	NContainer::TCVector<NStr::CStr> CProcessLaunchParams::fs_ParseCommandLineUnix(NStr::CStr const &_CommandLine, NStr::CStr &o_Executable)
+	{
+		// A CStr copy shares storage without allocating; retain it only when the output aliases the input.
+		NStr::CStr InputOwner;
+		if (&_CommandLine == &o_Executable)
+			InputOwner = _CommandLine;
+		ch8 const *pParse = _CommandLine.f_GetStr();
+		o_Executable.f_Clear();
+
+		auto fIsWhitespace = [](ch8 _Char)
+			{
+				return _Char == ' ' || _Char == '\t' || _Char == '\r' || _Char == '\n';
+			}
+		;
+		auto fScanToken = [&](ch8 const *&o_pParse, ch8 *_pOutput) -> umint
+			{
+				bool bInQuotes = false;
+				umint Length = 0;
+				while (*o_pParse && (bInQuotes || !fIsWhitespace(*o_pParse)))
+				{
+					ch8 Character = *o_pParse++;
+					if (Character == '"')
+					{
+						bInQuotes = !bInQuotes;
+
+						continue;
+					}
+					if (bInQuotes && Character == '\\')
+					{
+						if (!*o_pParse)
+							break;
+						Character = *o_pParse++;
+					}
+					if (_pOutput)
+						_pOutput[Length] = Character;
+					++Length;
+				}
+
+				return Length;
+			}
+		;
+		auto fReadToken = [&](NStr::CStr &o_Token)
+			{
+				auto *pStart = pParse;
+				umint Length = fScanToken(pParse, nullptr);
+				if (Length)
+				{
+					auto *pOutput = o_Token.f_GetStr(Length);
+					fScanToken(pStart, pOutput);
+					pOutput[Length] = 0;
+				}
+			}
+		;
+
+		while (fIsWhitespace(*pParse))
+			++pParse;
+		if (*pParse)
+			fReadToken(o_Executable);
+
+		NContainer::TCVector<NStr::CStr> Params;
+		for (;;)
+		{
+			while (fIsWhitespace(*pParse))
+				++pParse;
+			if (!*pParse)
+				break;
+
+			fReadToken(Params.f_Insert());
+		}
+
+		return Params;
+	}
+
 	NContainer::TCVector<NStr::CStr> CProcessLaunchParams::fs_ParseCommandLineWindows(NStr::CStr const &_CommandLine, NStr::CStr &o_Executable)
 	{
 		ch8 const *pParse = _CommandLine.f_GetStr();
@@ -479,7 +554,7 @@ namespace NMib::NProcess
 	{
 		NStr::CStr Params;
 		for (auto iParam = _Params.f_GetIterator(); iParam; ++iParam)
-			NStr::fg_AddStrSepEscaped(Params, *iParam, ' ');
+			NStr::fg_AddStrSepEscaped(Params, *iParam, ' ', "\"\\\t\r\n");
 
 		return Params;
 	}

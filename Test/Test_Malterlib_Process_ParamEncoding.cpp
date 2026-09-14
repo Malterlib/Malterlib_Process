@@ -164,6 +164,76 @@ namespace
 
 		void f_DoTests()
 		{
+			DMibTestSuite("ParseUnix")
+			{
+				using namespace NMib;
+				using namespace NMib::NStr;
+
+				auto fCheck = [&](CStr const &_Case, CStr const &_Input, std::initializer_list<CStr> _ExpectedTokens)
+					{
+						DMibTestPath(_Case);
+						CStr Executable = "stale";
+						auto Params = NProcess::CProcessLaunchParams::fs_ParseCommandLineUnix(_Input, Executable);
+						NContainer::TCVector<CStr> Expected(_ExpectedTokens);
+
+						DMibExpect(Executable, ==, Expected[0]);
+						DMibAssert(Params.f_GetLen(), ==, Expected.f_GetLen() - 1);
+						for (umint i = 0; i < Params.f_GetLen(); ++i)
+						{
+							DMibTestPath("Argument {}"_f << i);
+							DMibExpect(Params[i], ==, Expected[i + 1]);
+						}
+					}
+				;
+
+				fCheck("Empty", "", {""});
+				fCheck("Whitespace", " \t\r\n ", {""});
+				fCheck("Separators", " \t/opt/tool\talpha\r\nbeta  ", {"/opt/tool", "alpha", "beta"});
+				fCheck("QuotedExecutable", R"("/opt/Tool Name/bin/tool" "hello world" plain)", {"/opt/Tool Name/bin/tool", "hello world", "plain"});
+				fCheck("MixedSegments", R"(/opt/"Tool Name"/tool pre"mid dle"post "" tail)", {"/opt/Tool Name/tool", "premid dlepost", "", "tail"});
+				fCheck("QuotedEscapes", R"(tool "a\"b" "c\\d" "\q")", {"tool", "a\"b", R"(c\d)", "q"});
+				fCheck("LiteralCharacters", R"(tool C:\Tools\bin O'Reilly $HOME *.cpp &&)", {"tool", R"(C:\Tools\bin)", "O'Reilly", "$HOME", "*.cpp", "&&"});
+				fCheck("QuotedWhitespace", "tool \" \t\r\n \" \"\"", {"tool", " \t\r\n ", ""});
+				fCheck("UnclosedQuote", R"(tool "one two)", {"tool", "one two"});
+				fCheck("TrailingEscape", "tool \"one\\", {"tool", "one"});
+				fCheck("EmptyExecutable", R"("" argument)", {"", "argument"});
+
+				{
+					DMibTestPath("AliasedExecutable");
+					CStr CommandLine = R"("/opt/Tool Name/bin/tool" "one two" trailing)";
+					CStr Original = CommandLine;
+					auto Params = NProcess::CProcessLaunchParams::fs_ParseCommandLineUnix(CommandLine, CommandLine);
+
+					DMibExpect(CommandLine, ==, "/opt/Tool Name/bin/tool");
+					DMibAssert(Params.f_GetLen(), ==, 2u);
+					DMibExpect(Params[0], ==, "one two");
+					DMibExpect(Params[1], ==, "trailing");
+					DMibExpect(Original, ==, R"("/opt/Tool Name/bin/tool" "one two" trailing)");
+				}
+
+				{
+					DMibTestPath("EncoderRoundTrip");
+					CStr LongArgument;
+					for (umint i = 0; i < 2048; ++i)
+						LongArgument += "text \"quoted\" \\ ";
+					NContainer::TCVector<CStr> Tokens{"/opt/Tool Name/bin/tool", "", "O'Reilly", "\tleading", "trailing\n", "\r", "世界", LongArgument};
+					for (umint i = 0; i < 64; ++i)
+						Tokens.f_Insert("argument {}"_f << i);
+
+					CStr CommandLine = NProcess::CProcessLaunchParams::fs_GetParamsUnix(Tokens);
+					CStr Executable;
+					auto Params = NProcess::CProcessLaunchParams::fs_ParseCommandLineUnix(CommandLine, Executable);
+
+					DMibExpect(Executable, ==, Tokens[0]);
+					DMibAssert(Params.f_GetLen(), ==, Tokens.f_GetLen() - 1);
+					for (umint i = 0; i < Params.f_GetLen(); ++i)
+					{
+						DMibTestPath("Argument {}"_f << i);
+						DMibExpect(Params[i], ==, Tokens[i + 1]);
+					}
+				}
+			};
+
 			DMibTestSuite("Parse")
 			{
 				// Path with no spaces, no quotes — single executable token.
