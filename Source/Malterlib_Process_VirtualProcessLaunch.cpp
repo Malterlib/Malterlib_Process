@@ -23,7 +23,7 @@ namespace NMib::NProcess
 
 	CProcessLaunchHandler::CLaunchInfo::CLaunchInfo(CProcessLaunchParams const &_Params, FVirtualProcessLaunchFactory const &_Factory)
 		: m_LaunchParams(_Params)
-		, m_Done(0)
+		, m_Done(ECompletion_Running)
 		, m_Factory(_Factory)
 	{
 	}
@@ -49,7 +49,7 @@ namespace NMib::NProcess
 		{
 			if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
 			{
-				Iter->m_Done.f_Exchange(1);
+				Iter->m_Done.f_Exchange(CLaunchInfo::ECompletion_Reported);
 				Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_None);
 			}
 		}
@@ -94,12 +94,12 @@ namespace NMib::NProcess
 
 					if (_StateChange.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
 					{
-						pInfo->m_Done.f_Exchange(1);
+						pInfo->m_Done.f_Exchange(CLaunchInfo::ECompletion_Reported);
 						pInfo->fp_Clear();
 					}
 					else if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited)
 					{
-						pInfo->m_Done.f_Exchange(1);
+						pInfo->m_Done.f_Exchange(CLaunchInfo::ECompletion_Reported);
 						pInfo->fp_Clear();
 					}
 				}
@@ -107,6 +107,8 @@ namespace NMib::NProcess
 					fOnStateChange(_StateChange, _TimeSinceLaunch);
 
 				m_LaunchChanged.f_Signal();
+				if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited || _StateChange.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
+					pInfo->m_Done.f_Exchange(CLaunchInfo::ECompletion_CallbackFinished);
 			}
 		;
 
@@ -166,6 +168,22 @@ namespace NMib::NProcess
 			catch (NException::CException const &)
 			{
 			}
+		}
+	}
+
+	// Reap outside launch callbacks, after their dispatch has completed.
+	void CProcessLaunchHandler::f_ReapCompleted()
+	{
+		for (auto Iter = m_Launches.f_GetIterator(); Iter;)
+		{
+			auto *pInfo = &*Iter;
+			++Iter;
+			if (pInfo->m_Done.f_Load() != CLaunchInfo::ECompletion_CallbackFinished)
+				continue;
+
+			if (pInfo->m_pProcessLaunch && pInfo->m_pProcessLaunch->f_IsOpen())
+				pInfo->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_BlockOnExit);
+			m_Launches.f_Remove(*pInfo);
 		}
 	}
 
