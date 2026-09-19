@@ -23,7 +23,7 @@ namespace NMib::NProcess
 
 	CProcessLaunchHandler::CLaunchInfo::CLaunchInfo(CProcessLaunchParams const &_Params, FVirtualProcessLaunchFactory const &_Factory)
 		: m_LaunchParams(_Params)
-		, m_Done(0)
+		, m_Completion(ECompletion::mc_Running)
 		, m_Factory(_Factory)
 	{
 	}
@@ -49,7 +49,7 @@ namespace NMib::NProcess
 		{
 			if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
 			{
-				Iter->m_Done.f_Exchange(1);
+				Iter->m_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
 				Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_None);
 			}
 		}
@@ -94,17 +94,20 @@ namespace NMib::NProcess
 
 					if (_StateChange.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
 					{
-						pInfo->m_Done.f_Exchange(1);
+						pInfo->m_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
 						pInfo->fp_Clear();
 					}
 					else if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited)
 					{
-						pInfo->m_Done.f_Exchange(1);
+						pInfo->m_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
 						pInfo->fp_Clear();
 					}
 				}
 				if (fOnStateChange)
 					fOnStateChange(_StateChange, _TimeSinceLaunch);
+
+				if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited || _StateChange.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
+					pInfo->m_Completion.f_Store(CLaunchInfo::ECompletion::mc_CallbackFinished);
 
 				m_LaunchChanged.f_Signal();
 			}
@@ -169,6 +172,26 @@ namespace NMib::NProcess
 		}
 	}
 
+	// Serialize with other handler operations. With a dispatcher, call on its thread outside callbacks, after dispatch has completed.
+	// Without a dispatcher, call outside launch callbacks; open launches are joined before removal. Any already closed launch must have been joined.
+	// Removing a launch invalidates its CLaunchInfo and CVirtualProcessLaunch pointers.
+	void CProcessLaunchHandler::f_ReapCompleted()
+	{
+		for (auto Iter = m_Launches.f_GetIterator(); Iter;)
+		{
+			auto *pInfo = &*Iter;
+			++Iter;
+
+			if (pInfo->m_Completion.f_Load() != CLaunchInfo::ECompletion::mc_CallbackFinished)
+				continue;
+
+			if (pInfo->m_pProcessLaunch && pInfo->m_pProcessLaunch->f_IsOpen())
+				pInfo->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_BlockOnExit);
+
+			m_Launches.f_Remove(*pInfo);
+		}
+	}
+
 	bool CProcessLaunchHandler::f_WaitForChange(fp32 _Timeout)
 	{
 		if (_Timeout == 0.0)
@@ -189,7 +212,7 @@ namespace NMib::NProcess
 			umint nRunning = 0;
 			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 			{
-				if (!Iter->m_Done.f_Load() && Iter->fp_Lingering())
+				if (Iter->m_Completion.f_Load() == CLaunchInfo::ECompletion::mc_Running && Iter->fp_Lingering())
 				{
 					++nRunning;
 					if (nRunning > _nMaxRunning)
@@ -200,7 +223,7 @@ namespace NMib::NProcess
 			{
 				for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 				{
-					if (Iter->m_Done.f_Load() || !Iter->fp_Lingering())
+					if (Iter->m_Completion.f_Load() != CLaunchInfo::ECompletion::mc_Running || !Iter->fp_Lingering())
 					{
 						if (Iter->m_pProcessLaunch->f_IsOpen())
 						{
@@ -224,7 +247,7 @@ namespace NMib::NProcess
 	{
 		for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 		{
-			if (!Iter->m_Done.f_Load() && Iter->fp_Lingering())
+			if (Iter->m_Completion.f_Load() == CLaunchInfo::ECompletion::mc_Running && Iter->fp_Lingering())
 				return Iter;
 		}
 		return nullptr;

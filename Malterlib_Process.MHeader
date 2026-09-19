@@ -187,6 +187,7 @@ Property
 	{
 		%File "Test/Test_Malterlib_Process_ProcessLaunch.cpp"
 		%File "Test/Test_Malterlib_Process_ProcessLaunchFeatures.cpp"
+		%File "Test/Test_Malterlib_Process_ReapLaunches.cpp"
 		%File "Test/Test_Malterlib_Process_ExecutableLookup.cpp"
 		%File "Test/Test_Malterlib_Process_StdIn.cpp"
 		%File "Test/Test_Malterlib_Process_StdInReopen.cpp"
