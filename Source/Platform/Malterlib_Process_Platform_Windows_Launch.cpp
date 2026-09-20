@@ -2880,7 +2880,7 @@ namespace NMib::NProcess::NPlatform
 					)
 				;
 
-				__super::f_Start(EExecutionPriority_Highest, 0, 0, true);
+				__super::f_Start(EExecutionPriority_Highest, 0, 0, EThreadCreateFlag_AutoDestroy);
 
 				CleanupRef.f_Clear();
 			}
