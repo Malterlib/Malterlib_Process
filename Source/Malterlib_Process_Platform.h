@@ -172,6 +172,7 @@ namespace NMib::NProcess
 		void fg_ProcessLaunch_StopGroup(void *_pLaunch);
 
 		umint fg_Process_GetMaxFilesPerProc();
+		void fg_Process_AllowParentToDebug();
 
 		void fg_Process_WaitForTermination();
 		void fg_Process_AbortWaitForTermination();

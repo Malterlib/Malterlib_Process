@@ -308,6 +308,11 @@ namespace NMib::NProcess
 		return m_Launch.f_GetRunningTime();
 	}
 
+	umint CVirtualProcessLaunch_Default::f_GetProcessID() const
+	{
+		return m_Launch.f_GetProcessID();
+	}
+
 	CProcessStatistics CVirtualProcessLaunch_Default::f_GetExecutionStatistics() const
 	{
 		return m_Launch.f_GetExecutionStatistics();

@@ -500,3 +500,7 @@ umint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
 
 	return fg_Min(MaxFilesPerProc, MaxFiles);
 }
+
+void NMib::NProcess::NPlatform::fg_Process_AllowParentToDebug()
+{
+}

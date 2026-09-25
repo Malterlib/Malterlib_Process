@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <linux/limits.h>
+#include <sys/prctl.h>
 #include <unistd.h>
 
 bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
@@ -451,4 +452,12 @@ umint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
 	NMib::NStr::CStrPtr Data;
 	Data.f_SetConstPtr(FileData.f_GetArray(), FileData.f_GetLen());
 	return Data.f_ToInt(umint(0));
+}
+
+// Lets the parent process and its descendants attach a debugger, which Yama's ptrace scope 1 otherwise
+// limits to ancestors. A debugger the parent launches is a sibling of this process, not an ancestor.
+// Without Yama the call fails harmlessly.
+void NMib::NProcess::NPlatform::fg_Process_AllowParentToDebug()
+{
+	prctl(PR_SET_PTRACER, getppid(), 0, 0, 0);
 }

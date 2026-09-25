@@ -747,3 +747,7 @@ umint NMib::NProcess::NPlatform::fg_Process_GetMaxFilesPerProc()
 {
 	return 0;
 }
+
+void NMib::NProcess::NPlatform::fg_Process_AllowParentToDebug()
+{
+}

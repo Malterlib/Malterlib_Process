@@ -63,6 +63,8 @@ namespace NMib::NProcess
 		CProcessStatistics f_GetMemoryStatistics() const override;
 		CProcessStatistics f_GetOverallExecutionStatistics() const override;
 		CProcessStatistics f_GetOverallMemoryStatistics() const override;
+
+		umint f_GetProcessID() const;
 	};
 
 	using FVirtualProcessLaunchFactory
