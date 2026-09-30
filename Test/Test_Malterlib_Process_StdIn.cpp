@@ -20,10 +20,10 @@ namespace
 		, EExitResult_Exited
 		, EExitResult_NotLaunched
 	};
+
 	class CStdIn_Tests : public CTest
 	{
 	public:
-
 		CStdIn_Tests()
 		{
 		}
@@ -77,14 +77,12 @@ namespace
 						CStdInReader Reader0(fCreateParams());
 						CStdInReader Reader1(fCreateParams());
 					}
-					auto fl_CreateNormal
-						= [&]
+					auto fl_CreateNormal = [&]
 						{
 							CStdInReader Reader1(fCreateParams());
 						}
 					;
-					auto fl_CreateExclusive
-						= [&]
+					auto fl_CreateExclusive = [&]
 						{
 							CStdInReader Reader1(fCreateParams(true));
 						}
@@ -140,7 +138,8 @@ namespace
 								TCPromise<bool> OwnLoopActive;
 								Manager.f_DispatchToQueue
 									(
-										EPriority_NormalHighCPU, 0
+										EPriority_NormalHighCPU
+										, 0
 										, [OwnLoopActive, pManager = &Manager](CConcurrencyThreadLocal &)
 										{
 											OwnLoopActive.f_SetResult(pManager->f_GetThreadIoLoop() == pManager->f_GetQueueIoLoop(EPriority_NormalHighCPU, 0));
@@ -181,14 +180,12 @@ namespace
 						CStdInReader Reader0(fCreateParams());
 						CStdInReader Reader1(fCreateParams());
 					}
-					auto fl_CreateNormal
-						= [&]
+					auto fl_CreateNormal = [&]
 						{
 							CStdInReader Reader1(fCreateParams());
 						}
 					;
-					auto fl_CreateExclusive
-						= [&]
+					auto fl_CreateExclusive = [&]
 						{
 							CStdInReader Reader1(fCreateParams(true));
 						}
@@ -205,7 +202,6 @@ namespace
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
 						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateNormal()));
 					}
-
 				};
 
 				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
@@ -214,12 +210,10 @@ namespace
 					{
 						DMibTestSuite("Level2")
 						{
-
 							NMib::NThread::CEvent Event;
 							NMib::NThread::CMutual InputLock;
 							NMib::NStr::CStr Input0;
-							CStdInReaderParams Params0
-								= CStdInReaderParams::fs_Create
+							CStdInReaderParams Params0 = CStdInReaderParams::fs_Create
 								(
 									[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
 									{
@@ -261,8 +255,7 @@ namespace
 
 						NMib::NStorage::TCUniquePointer<NMib::NThread::CThreadObject> pThreadObject;
 
-						Params.m_fOnStateChange
-							= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+						Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 							{
 								switch (_State.f_GetTypeID())
 								{
@@ -280,8 +273,7 @@ namespace
 									break;
 								case NMib::NProcess::EProcessLaunchState_Launched:
 									{
-										pThreadObject
-											= NMib::NThread::CThreadObject::fs_StartThread
+										pThreadObject = NMib::NThread::CThreadObject::fs_StartThread
 											(
 												[&](NMib::NThread::CThreadObject *_pThread) -> aint
 												{
@@ -303,17 +295,12 @@ namespace
 							}
 						;
 
-						Params.m_fOnOutput
-							= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+						Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 							{
 								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-								{
 									StdOut += _Output;
-								}
 								else
-								{
 									DMibConErrOut("Unexpected output: {}\r\n", _Output);
-								}
 							}
 						;
 
@@ -342,5 +329,4 @@ namespace
 	};
 
 	DMibTestRegister(CStdIn_Tests, Malterlib::Process);
-
 }

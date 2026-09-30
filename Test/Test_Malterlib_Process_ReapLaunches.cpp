@@ -87,7 +87,8 @@ namespace
 
 					Handler.f_AddLaunch
 						(
-							Params, false
+							Params
+							, false
 							, [&](CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _Flags) -> NStorage::TCUniquePointer<CVirtualProcessLaunch>
 							{
 								return fg_Construct<CTrackedLaunch>(_Params, _Flags, &Lifetime);

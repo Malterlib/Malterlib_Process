@@ -9,10 +9,9 @@
 #include <gelf.h>
 #include <stddef.h>
 
-
 namespace
 {
-	NMib::NStr::CFStr256 fg_FormatElfErrno(const ch8 *_pDesc, int _Err)
+	NMib::NStr::CFStr256 fg_FormatElfErrno(ch8 const *_pDesc, int _Err)
 	{
 		return NMib::NStr::CFStr256::CFormat("{}: {} Desc: {}") << _pDesc << _Err << elf_errmsg(_Err);
 	}
@@ -38,19 +37,18 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 
 	File.f_Open(Path, NMib::NFile::EFileOpen_Read | NMib::NFile::EFileOpen_ShareAll);
 
-	Elf * pElf = elf_begin((umint)File.f_GetOSFile(), ELF_C_READ, nullptr);
+	Elf *pElf = elf_begin((umint)File.f_GetOSFile(), ELF_C_READ, nullptr);
 
 	if (!pElf)
 		DMibError(fg_FormatElfErrno("elf_begin failed", elf_errno()));
 
-	auto Cleanup
-		= fg_OnScopeExit
+	auto Cleanup = fg_OnScopeExit
 		(
 			[&]
 			{
 				elf_end(pElf);
 			}
-		 )
+		)
 	;
 
 	if (elf_kind(pElf) != ELF_K_ELF)
@@ -62,16 +60,16 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		DMibError(fg_FormatElfErrno("elf_getshdrstrndx failed", elf_errno()));
 
 	GElf_Shdr SectionHeader;
-	Elf_Scn * pElfScan = nullptr;
-	char * pSectionName = nullptr;
-	Elf_Data * pElfData = nullptr;
+	Elf_Scn *pElfScan = nullptr;
+	char *pSectionName = nullptr;
+	Elf_Data *pElfData = nullptr;
 
 	while ((pElfScan = elf_nextscn(pElf, pElfScan)) != nullptr)
 	{
 		if (gelf_getshdr(pElfScan, &SectionHeader) != &SectionHeader)
 			DMibError(fg_FormatElfErrno("gelf_getshdr failed", elf_errno()));
 
-		pSectionName = elf_strptr(pElf, Shstrndx , SectionHeader.sh_name);
+		pSectionName = elf_strptr(pElf, Shstrndx, SectionHeader.sh_name);
 
 		if (pSectionName == nullptr)
 			DMibError(fg_FormatElfErrno("elf_strptr failed", elf_errno()));

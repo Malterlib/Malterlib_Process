@@ -429,13 +429,13 @@ namespace NMib::NProcess
 								iUTFChar = iEscape;
 							}
 						}
-						else if (NewChar == '\x3')		// End of text (ctrl break)
+						else if (NewChar == '\x3') // End of text (ctrl break)
 						{
 							++iUTFChar;
 							bAborted = true;
 							continue;
 						}
-						else if (NewChar == '\r' || NewChar == '\n' || NewChar == '\x4')	// Newline, return or end of transmission
+						else if (NewChar == '\r' || NewChar == '\n' || NewChar == '\x4') // Newline, return or end of transmission
 						{
 							++iUTFChar;
 							bCompleted = true;
@@ -443,7 +443,7 @@ namespace NMib::NProcess
 								++iUTFChar;
 							break;
 						}
-						else if (NewChar == '\x8' || NewChar == '\x7F')	// Backspace (or del)
+						else if (NewChar == '\x8' || NewChar == '\x7F') // Backspace (or del)
 						{
 							++iUTFChar;
 							if (Prompt.m_iInsertPos > 0)
@@ -532,8 +532,7 @@ namespace NMib::NProcess
 					}
 					break;
 				}
-			default:
-				DMibNeverGetHere;
+			default: DMibNeverGetHere;
 			}
 
 			break;
@@ -616,7 +615,6 @@ namespace NMib::NProcess
 							}
 							> NConcurrency::g_DiscardResult
 						;
-
 					}
 					, EStdInReaderFlag_None
 				)
@@ -666,7 +664,6 @@ namespace NMib::NProcess
 							}
 							> NConcurrency::g_DiscardResult
 						;
-
 					}
 					, EStdInReaderFlag_None
 				)

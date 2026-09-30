@@ -9,8 +9,7 @@ namespace NMib::NProcess
 {
 	CBlockingStdInReader::CBlockingStdInReader()
 	{
-		CStdInReaderParams Params
-			= CStdInReaderParams::fs_Create
+		CStdInReaderParams Params = CStdInReaderParams::fs_Create
 			(
 				[this](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
 				{
@@ -92,28 +91,28 @@ namespace NMib::NProcess
 						auto NewChar = *iUTFChar;
 						++iUTFChar;
 
-						if (NewChar == '\x1B' || NewChar == '\x3')		// Escape or end of text (ctrl break)
+						if (NewChar == '\x1B' || NewChar == '\x3') // Escape or end of text (ctrl break)
 						{
 							bAborted = true;
 							break;
 						}
-						else if (NewChar == '\r' || NewChar == '\n' || NewChar == '\x4')	// Newline, return or end of transmission
+						else if (NewChar == '\r' || NewChar == '\n' || NewChar == '\x4') // Newline, return or end of transmission
 						{
 							bCompleted = true;
 							if (NewChar == '\r' && iUTFChar && *iUTFChar == '\n')
 								++iUTFChar;
 							break;
 						}
-						else if (NewChar == '\x8' || NewChar == '\x7F')	// Backspace (or del)
+						else if (NewChar == '\x8' || NewChar == '\x7F') // Backspace (or del)
 						{
 							if (Result.f_GetLen())
 							{
 								Result = Result.f_Delete(Result.f_GetLen() - 1, 1);
 								if (!_Params.m_Prompt.f_IsEmpty())
-									DMibConOutRaw("\x8 \x8");			// Go back one character, overwrite it, go back again
+									DMibConOutRaw("\x8 \x8"); // Go back one character, overwrite it, go back again
 							}
 						}
-						else if (NewChar >= 32)		// Ignore all other control characters
+						else if (NewChar >= 32) // Ignore all other control characters
 						{
 							Result.f_AddChar(NewChar);
 							NStr::CUStr Char;
@@ -197,5 +196,5 @@ namespace NMib::NProcess
 
 	CStdInReaderParams::CStdInReaderParams() = default;
 	CStdInReaderParams::CStdInReaderParams(CStdInReaderParams &&_From) = default;
-	CStdInReaderParams &CStdInReaderParams::operator =(CStdInReaderParams &&_From) = default;
+	CStdInReaderParams &CStdInReaderParams::operator = (CStdInReaderParams &&_From) = default;
 }

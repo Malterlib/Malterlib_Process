@@ -11,7 +11,7 @@
 #include <Mib/Concurrency/AsyncDestroy>
 
 #ifndef DPlatformFamily_Windows
-	#include <sys/resource.h>
+#	include <sys/resource.h>
 #endif
 
 namespace
@@ -29,7 +29,6 @@ namespace
 	class CProcessLaunchFeatures_Tests : public CTest
 	{
 	public:
-
 		CProcessLaunchFeatures_Tests()
 		{
 		}
@@ -111,14 +110,7 @@ namespace
 				return;
 			}
 
-			CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutable
-				(
-					CFile::fs_GetProgramPath()
-					, _RecursiveLaunchParams
-					, CFile::fs_GetCurrentDirectory()
-					, nullptr
-				)
-			;
+			CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutable(CFile::fs_GetProgramPath(), _RecursiveLaunchParams, CFile::fs_GetCurrentDirectory(), nullptr);
 			LaunchParams.m_bThreaded = true;
 			LaunchParams.m_Environment["MibTestTreeRole"] = "Grandchild";
 			LaunchParams.m_Environment["MibTestTreeIDFile"] = IDFile;
@@ -218,11 +210,7 @@ namespace
 
 				NConcurrency::TCActor<CProcessLaunchActor> LaunchActor = fg_Construct();
 
-				CProcessLaunchActor::CLaunch Launch
-					(
-						CProcessLaunchParams::fs_LaunchExecutable(CFile::fs_GetProgramPath(), RecursiveLaunchParams, CFile::fs_GetCurrentDirectory(), nullptr)
-					)
-				;
+				CProcessLaunchActor::CLaunch Launch(CProcessLaunchParams::fs_LaunchExecutable(CFile::fs_GetProgramPath(), RecursiveLaunchParams, CFile::fs_GetCurrentDirectory(), nullptr));
 				Launch.m_Params.m_bCreateNewProcessGroup = true;
 				Launch.m_Params.m_Environment["MibTestTreeIDFile"] = IDFile;
 				Launch.m_DestructFlags |= EProcessLaunchCloseFlag_TerminateProcessTree;
@@ -270,11 +258,7 @@ namespace
 				NConcurrency::TCActor<CProcessLaunchActor> LaunchActor = fg_Construct();
 				auto DestroyLaunchActor = co_await NConcurrency::fg_AsyncDestroy(LaunchActor);
 
-				CProcessLaunchActor::CLaunch Launch
-					(
-						CProcessLaunchParams::fs_LaunchExecutable(CFile::fs_GetProgramPath(), {"--std-out-exit", "5"}, CFile::fs_GetCurrentDirectory(), nullptr)
-					)
-				;
+				CProcessLaunchActor::CLaunch Launch(CProcessLaunchParams::fs_LaunchExecutable(CFile::fs_GetProgramPath(), {"--std-out-exit", "5"}, CFile::fs_GetCurrentDirectory(), nullptr));
 
 				NConcurrency::TCPromiseFuturePair<uint32> ExitedPromise;
 				Launch.m_Params.m_fOnStateChange = [ExitedPromise = fg_Move(ExitedPromise.m_Promise)](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
@@ -382,9 +366,9 @@ namespace
 						CStr HomeDir = CFile::fs_GetProgramDirectory() / "homes" / TestUser;
 
 						CFile::fs_CreateDirectory(HomeDir);
-	#ifdef DPlatformFamily_macOS
+#ifdef DPlatformFamily_macOS
 						// Workaround flaky API
-						for (umint iRetry = 0; ; ++iRetry)
+						for (umint iRetry = 0;; ++iRetry)
 						{
 							if (iRetry == 10)
 							{
@@ -405,22 +389,12 @@ namespace
 
 							NSys::fg_Thread_Sleep(10_ms);
 						}
-	#else
+#else
 						CFile::fs_SetGroup(HomeDir, TestGroup);
-	#endif
+#endif
 
 						CStr CreatedUID;
-						fg_UserManagement_CreateUser
-							(
-								TestGroup
-								, TestUser
-								, TestPassword
-								, "Test FullName"
-								, HomeDir
-								, CreatedUID
-								, NMib::NSys::EUserManagementCreateUserFlag_None
-							)
-						;
+						fg_UserManagement_CreateUser(TestGroup, TestUser, TestPassword, "Test FullName", HomeDir, CreatedUID, NMib::NSys::EUserManagementCreateUserFlag_None);
 
 						CFile::fs_SetOwner(HomeDir, TestUser);
 
@@ -467,7 +441,6 @@ namespace
 				{
 					TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
 					RecursiveLaunchParams.f_Insert(fs_GetTestGroups());
-
 
 					{
 						DMibTestPath("Without Priority");

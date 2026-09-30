@@ -12,9 +12,9 @@
 #include "Malterlib_Process_ProcessLaunchActor.h"
 
 #ifndef DPlatformFamily_Windows
-#include <Mib/Core/PlatformSpecific/PosixErrNo>
-#include <errno.h>
-#include <signal.h>
+#	include <Mib/Core/PlatformSpecific/PosixErrNo>
+#	include <errno.h>
+#	include <signal.h>
 #endif
 
 namespace NMib::NProcess
@@ -78,15 +78,9 @@ namespace NMib::NProcess
 	{
 		switch (_Stop)
 		{
-		case EStop::mc_Process:
-			m_pProcessLaunch->f_StopProcess();
-			break;
-		case EStop::mc_ProcessGroup:
-			m_pProcessLaunch->f_StopProcessGroup();
-			break;
-		case EStop::mc_TerminateProcessTree:
-			m_pProcessLaunch->f_TerminateProcessTree();
-			break;
+		case EStop::mc_Process: m_pProcessLaunch->f_StopProcess(); break;
+		case EStop::mc_ProcessGroup: m_pProcessLaunch->f_StopProcessGroup(); break;
+		case EStop::mc_TerminateProcessTree: m_pProcessLaunch->f_TerminateProcessTree(); break;
 		}
 	}
 
@@ -168,13 +162,7 @@ namespace NMib::NProcess
 		m_SimpleFlags = _Flags;
 	}
 
-	CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch
-		(
-			NStr::CStr const &_Executable
-			, NContainer::TCVector<NStr::CStr> const &_Params
-			, NStr::CStr const &_WorkingDir
-			, ESimpleLaunchFlag _Flags
-		)
+	CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params, NStr::CStr const &_WorkingDir, ESimpleLaunchFlag _Flags)
 		: CSimpleLaunch{CProcessLaunchParams::fs_LaunchExecutable(_Executable, _Params, _WorkingDir, {}), _Flags}
 	{
 		m_Params.m_bAllowExecutableLocate = true;
@@ -342,11 +330,7 @@ namespace NMib::NProcess
 		co_return co_await pState->m_Promise.f_Future();
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CProcessLaunchActor::f_Launch
-		(
-			CLaunch _Launch
-			, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor
-		)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CProcessLaunchActor::f_Launch(CLaunch _Launch, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor)
 	{
 		DMibRequire(!mp_pInternal->m_bConstructed);
 

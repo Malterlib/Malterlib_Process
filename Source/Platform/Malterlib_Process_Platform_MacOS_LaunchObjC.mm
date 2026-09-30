@@ -15,7 +15,7 @@ DMibDeprecatedSuppressStart;
 
 namespace NMib::NProcess::NPlatform
 {
-	bool fg_MacOS_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const& _Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
+	bool fg_MacOS_LaunchUIExecutable(NMib::NProcess::CProcessLaunchParams const &_Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
 	{
 		CAutoReleasePool ARPool;
 
@@ -29,7 +29,7 @@ namespace NMib::NProcess::NPlatform
 
 		FSRef ApplicationRef;
 		Boolean bIsDirectory;
-		OSStatus Result = FSPathMakeRef((const UInt8 *)UTF8Target.f_GetStr(), &ApplicationRef, &bIsDirectory);
+		OSStatus Result = FSPathMakeRef((UInt8 const *)UTF8Target.f_GetStr(), &ApplicationRef, &bIsDirectory);
 		if (Result < 0)
 		{
 			o_Errors += NMib::NPlatform::fg_FormatOSStatus("FSPathMakeRef (launch UI executable)", Result);
@@ -40,7 +40,7 @@ namespace NMib::NProcess::NPlatform
 		Params.version = 0;
 		Params.flags = kLSLaunchNewInstance | kLSLaunchDontAddToRecents;
 		Params.application = &ApplicationRef;
-		Params.asyncLaunchRefCon = nullptr;      /* The client refCon which will appear in subsequent launch notifications */
+		Params.asyncLaunchRefCon = nullptr; // The client refCon which will appear in subsequent launch notifications
 		Params.environment = nullptr;
 		NSMutableDictionary *pEnv = nullptr;
 
@@ -49,12 +49,7 @@ namespace NMib::NProcess::NPlatform
 			pEnv = [[NSMutableDictionary alloc] init];
 
 			for (auto &EnvironmentVar : _Params.m_Environment)
-			{
-				[
-					pEnv setObject: NMib::NPlatform::fg_MacOS_GetString(EnvironmentVar)
-					forKey: NMib::NPlatform::fg_MacOS_GetString(_Params.m_Environment.fs_GetKey(EnvironmentVar))
-				];
-			}
+				[pEnv setObject: NMib::NPlatform::fg_MacOS_GetString(EnvironmentVar) forKey: NMib::NPlatform::fg_MacOS_GetString(_Params.m_Environment.fs_GetKey(EnvironmentVar))];
 
 			Params.environment = (__bridge CFDictionaryRef)pEnv;
 		}
@@ -66,14 +61,14 @@ namespace NMib::NProcess::NPlatform
 			{
 				NStr::CStr ParamStr = _Params.m_Parameters;
 				NStr::CStr CurParam;
-				while(!ParamStr.f_IsEmpty())
+				while (!ParamStr.f_IsEmpty())
 				{
 					CurParam = NStr::fg_GetStrSepEscaped<'\"'>(ParamStr, " ");
 					Arguments.f_Insert(CurParam);
 				}
 			}
 
-			pArgs = [NSMutableArray arrayWithCapacity:Arguments.f_GetLen()];
+			pArgs = [NSMutableArray arrayWithCapacity: Arguments.f_GetLen()];
 
 			for (auto &Argument : Arguments)
 				[pArgs addObject: NMib::NPlatform::fg_MacOS_GetString(Argument)];
@@ -108,38 +103,38 @@ namespace NMib::NProcess::NPlatform
 		return bReturn;
 	}
 
-	bool fg_MacOS_LaunchFinder(NMib::NProcess::CProcessLaunchParams const& _Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
+	bool fg_MacOS_LaunchFinder(NMib::NProcess::CProcessLaunchParams const &_Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
 	{
 		CAutoReleasePool ARPool;
 
 		NStr::CStr Target = _Params.m_Target.f_Replace("select,", "");
 		Target = Target.f_Replace("\"", "");
 
-		NSString* pNSTarget = NMib::NPlatform::fg_MacOS_GetString(Target);
+		NSString *pNSTarget = NMib::NPlatform::fg_MacOS_GetString(Target);
 
 		if (CSystem::ms_PlatformVersion >= 10'06'00)
 		{
-			NSURL* pURL = [[NSURL alloc] initFileURLWithPath:pNSTarget];
+			NSURL *pURL = [[NSURL alloc] initFileURLWithPath: pNSTarget];
 			if (!pURL)
 				return false;
 
-			NSArray* pURLArray = [NSArray arrayWithObject:pURL];
+			NSArray *pURLArray = [NSArray arrayWithObject: pURL];
 			if (!pURLArray)
 				return false;
 
 			o_PID.f_Store(0);
-			[[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:pURLArray];
+			[[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs: pURLArray];
 		}
 		else
 		{
 			NSString *pNSPath = NMib::NPlatform::fg_MacOS_GetString(NMib::NFile::CFile::fs_GetPath(Target));
-			[[NSWorkspace sharedWorkspace] selectFile:pNSTarget inFileViewerRootedAtPath:pNSPath];
+			[[NSWorkspace sharedWorkspace] selectFile: pNSTarget inFileViewerRootedAtPath: pNSPath];
 		}
 
 		return true;
 	}
 
-	bool fg_MacOS_LaunchDocument(NMib::NProcess::CProcessLaunchParams const& _Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
+	bool fg_MacOS_LaunchDocument(NMib::NProcess::CProcessLaunchParams const &_Params, NAtomic::TCAtomic<pid_t> &o_PID, NMib::NStr::CStr &o_Errors)
 	{
 		NMib::CAutoReleasePool ARPool;
 
@@ -160,7 +155,7 @@ namespace NMib::NProcess::NPlatform
 			if (Pos > -1)
 			{
 				NMib::NStr::CStr Scheme = Document.f_Extract(0, Pos);
-				const ch8 * pParse = Scheme;
+				ch8 const *pParse = Scheme;
 				bSchemeExist = true;
 				while (*pParse)
 				{
@@ -172,7 +167,6 @@ namespace NMib::NProcess::NPlatform
 						bSchemeExist = false;
 						break;
 					}
-
 				}
 			}
 
@@ -180,8 +174,8 @@ namespace NMib::NProcess::NPlatform
 				Document = (NMib::NStr::CStr::CFormat("http://{}") << Document).f_GetStr();
 		}
 
-		NSString* pNSTarget = NMib::NPlatform::fg_MacOS_GetString(Document);
-		NSURL* pURL = nullptr;
+		NSString *pNSTarget = NMib::NPlatform::fg_MacOS_GetString(Document);
+		NSURL *pURL = nullptr;
 
 		if (_Params.m_LaunchType == NMib::NProcess::EProcessLaunchType_Document)
 			pURL = [[NSURL alloc] initFileURLWithPath: pNSTarget];
@@ -195,7 +189,7 @@ namespace NMib::NProcess::NPlatform
 
 		bool bReturn = true;
 
-		NSArray *pURLArray = [NSArray arrayWithObject:pURL];
+		NSArray *pURLArray = [NSArray arrayWithObject: pURL];
 
 		ProcessSerialNumber PSN;
 		OSStatus Result;
@@ -204,13 +198,13 @@ namespace NMib::NProcess::NPlatform
 			Result = LSOpenURLsWithRole((__bridge CFArrayRef)pURLArray, kLSRolesAll, NULL, NULL, &PSN, 1);
 		else
 		{
-			NSString* pPath = NMib::NPlatform::fg_MacOS_GetString(Program);
+			NSString *pPath = NMib::NPlatform::fg_MacOS_GetString(Program);
 
 			FSRef AppRef;
-			if (FSPathMakeRef((const UInt8*)[pPath fileSystemRepresentation], &AppRef, NULL) != noErr)
+			if (FSPathMakeRef((UInt8 const *)[pPath fileSystemRepresentation], &AppRef, NULL) != noErr)
 				return false;
 
-			LSApplicationParameters AppParams = { 0, kLSLaunchDefaults, &AppRef, NULL };
+			LSApplicationParameters AppParams = {0, kLSLaunchDefaults, &AppRef, NULL};
 			Result = LSOpenURLsWithRole((__bridge CFArrayRef)pURLArray, kLSRolesAll, NULL, &AppParams, &PSN, 1);
 		}
 
@@ -234,21 +228,14 @@ namespace NMib::NProcess::NPlatform
 		return bReturn;
 	}
 
-	bool fg_MacOS_RegisterURLHandler(NStr::CStr const &_Protocol, NStr::CStr const& _ExePath, NStr::CStr const &_Params)
+	bool fg_MacOS_RegisterURLHandler(NStr::CStr const &_Protocol, NStr::CStr const &_ExePath, NStr::CStr const &_Params)
 	{
 		if (_ExePath != NMib::NFile::CFile::fs_GetProgramPath())
 			return false;
 
 		NStr::CStr const &Exe = _ExePath;
 
-		CFURLRef AppURL = CFURLCreateFromFileSystemRepresentation
-			(
-				NULL
-				, (UInt8 const*)Exe.f_GetStr()
-				, Exe.f_GetLen()
-				, FALSE
-			)
-		;
+		CFURLRef AppURL = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8 const *)Exe.f_GetStr(), Exe.f_GetLen(), FALSE);
 
 		OSStatus Result;
 
@@ -261,15 +248,7 @@ namespace NMib::NProcess::NPlatform
 
 		NStr::CStr const &Scheme = _Protocol;
 
-		CFStringRef CFScheme = CFStringCreateWithBytes
-			(
-				NULL
-				, (UInt8 const*)Scheme.f_GetStr()
-				, Scheme.f_GetLen()
-				, kCFStringEncodingUTF8
-				, FALSE
-			)
-		;
+		CFStringRef CFScheme = CFStringCreateWithBytes(NULL, (UInt8 const *)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
 
 		CAutoReleasePool ARPool;
 		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
@@ -284,7 +263,7 @@ namespace NMib::NProcess::NPlatform
 	{
 		NStr::CStr const &Scheme = _Protocol;
 
-		CFStringRef SchemeRef = CFStringCreateWithBytes(NULL, (UInt8 const*)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
+		CFStringRef SchemeRef = CFStringCreateWithBytes(NULL, (UInt8 const *)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
 
 		CAutoReleasePool ARPool;
 		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
@@ -295,8 +274,7 @@ namespace NMib::NProcess::NPlatform
 		return Result >= 0;
 	}
 
-
-	bool fg_MacOS_Process_RegisterAtStartup(NStr::CStr const& _ExePath, NStr::CStr const &_Params, NStr::CStr const& _Name)
+	bool fg_MacOS_Process_RegisterAtStartup(NStr::CStr const &_ExePath, NStr::CStr const &_Params, NStr::CStr const &_Name)
 	{
 		if (!_Params.f_IsEmpty())
 			DMibError("Registering for startup with parameters is not supported on macOS.");
@@ -319,12 +297,12 @@ namespace NMib::NProcess::NPlatform
 
 		NSString *BundlePath = NMib::NPlatform::fg_MacOS_GetString(ExePath);
 
-		for (id Item in (__bridge NSArray*)LoginItemsArray)
+		for (id Item in(__bridge NSArray *)LoginItemsArray)
 		{
 			LSSharedFileListItemRef ItemRef = (__bridge LSSharedFileListItemRef)Item;
-			if (LSSharedFileListItemResolve(ItemRef, 0, (CFURLRef*) &ThePath, NULL) == noErr)
+			if (LSSharedFileListItemResolve(ItemRef, 0, (CFURLRef *)&ThePath, NULL) == noErr)
 			{
-				if ([[(__bridge NSURL *)ThePath path] hasPrefix:BundlePath])
+				if ([[(__bridge NSURL *)ThePath path] hasPrefix: BundlePath])
 				{
 					if (ThePath != NULL)
 						CFRelease(ThePath);
@@ -340,7 +318,7 @@ namespace NMib::NProcess::NPlatform
 		if (LoginItemsArray != NULL)
 			CFRelease(LoginItemsArray);
 
-		auto URL = [NSURL fileURLWithPath:BundlePath];
+		auto URL = [NSURL fileURLWithPath: BundlePath];
 
 		LSSharedFileListItemRef Item = LSSharedFileListInsertItemURL(LoginItems, kLSSharedFileListItemLast, NULL, NULL, (__bridge CFURLRef)URL, NULL, NULL);
 		if (Item)
@@ -354,9 +332,7 @@ namespace NMib::NProcess::NPlatform
 	bool fg_MacOS_Process_DeRegisterAtStartup(NStr::CStr const &_ExePath, NStr::CStr const &_Params, NStr::CStr const &_Name)
 	{
 		if (!_Params.f_IsEmpty())
-		{
 			DMibError("Deregistering for startup with parameters is not supported on macOS.");
-		}
 
 		NStr::CStr ExePath = _ExePath;
 		int iAppBundle = _ExePath.f_FindReverse(".app");
@@ -374,14 +350,14 @@ namespace NMib::NProcess::NPlatform
 
 		CFArrayRef LoginItemsArray = LSSharedFileListCopySnapshot(LoginItems, &SeedValue);
 
-		NSString* BundlePath = NMib::NPlatform::fg_MacOS_GetString(ExePath);
+		NSString *BundlePath = NMib::NPlatform::fg_MacOS_GetString(ExePath);
 
-		for (id Item in (__bridge NSArray *)LoginItemsArray)
+		for (id Item in(__bridge NSArray *)LoginItemsArray)
 		{
 			LSSharedFileListItemRef ItemRef = (__bridge LSSharedFileListItemRef)Item;
 			if (LSSharedFileListItemResolve(ItemRef, 0, (CFURLRef *)&ThePath, NULL) == noErr)
 			{
-				if ([[(__bridge NSURL *)ThePath path] hasPrefix:BundlePath])
+				if ([[(__bridge NSURL *)ThePath path] hasPrefix: BundlePath])
 					LSSharedFileListItemRemove(LoginItems, ItemRef);
 
 				if (ThePath != NULL)

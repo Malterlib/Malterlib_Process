@@ -43,12 +43,8 @@ namespace NMib::NProcess::NPlatform
 		auto &SubSystem = *g_SubSystem_Process_Platform;
 		DMibLock(SubSystem.m_LaunchLimitersLock);
 		if (m_pLimiter->f_RemovePid(m_ProcessID))
-		{
 			SubSystem.m_LaunchLimiters.f_Remove(m_pLimiter);
-		}
 	}
-
-
 
 	CProcessLaunchLimiter::CProcessEntry::CProcessEntry()
 	{
@@ -82,19 +78,15 @@ namespace NMib::NProcess::NPlatform
 	void CProcessLaunchLimiter::CProcessEntry::f_Touch()
 	{
 		for (auto iProcess = m_AllProcesses.f_GetIterator(); iProcess; ++iProcess)
-		{
 			iProcess->m_bTouched = true;
-		}
 	}
 
 	void CProcessLaunchLimiter::CProcessEntry::f_RemoveTouched()
 	{
-		for (auto iProcess = m_AllProcesses.f_GetIterator(); iProcess; )
+		for (auto iProcess = m_AllProcesses.f_GetIterator(); iProcess;)
 		{
 			if (iProcess->m_bTouched)
-			{
 				iProcess.f_Remove();
-			}
 			else
 				++iProcess;
 		}
@@ -102,12 +94,10 @@ namespace NMib::NProcess::NPlatform
 
 	void CProcessLaunchLimiter::CProcessEntry::fr_PruneByTime(uint64 _Time)
 	{
-		for (auto iChild = m_Children.f_GetIterator(); iChild; )
+		for (auto iChild = m_Children.f_GetIterator(); iChild;)
 		{
 			if (iChild->m_StartTime < _Time)
-			{
 				iChild.f_Remove();
-			}
 			else
 			{
 				iChild->fr_PruneByTime(_Time);
@@ -217,7 +207,7 @@ namespace NMib::NProcess::NPlatform
 		if (m_bDidPause)
 		{
 			m_RootEntry.f_UnPauseTree(Children);
-			NextUpdate = -(m_CPULimit / (fp64(fp64(1.0)/Interval) * m_CPULimit - fp64(fp64(1.0)/Interval)));
+			NextUpdate = -(m_CPULimit / (fp64(fp64(1.0) / Interval) * m_CPULimit - fp64(fp64(1.0) / Interval)));
 			//DMibTrace("Unpausing for: {} {}\n", NextUpdate, LastUpdateTime);
 		}
 		else
@@ -225,7 +215,7 @@ namespace NMib::NProcess::NPlatform
 			m_RootEntry.f_PauseTree(Children);
 			//fp64 ReverseLimit = (1.0 - m_CPULimit.f_Get());
 			//NextUpdate = -(ReverseLimit / (fp64(10.0) * ReverseLimit - fp64(10.0)));
-			fp64 WantedTime = NextUpdate = -(m_CPULimit / (fp64(fp64(1.0)/Interval) * m_CPULimit - fp64(fp64(1.0)/Interval)));
+			fp64 WantedTime = NextUpdate = -(m_CPULimit / (fp64(fp64(1.0) / Interval) * m_CPULimit - fp64(fp64(1.0) / Interval)));
 			NextUpdate = Interval * (LastUpdateTime / WantedTime);
 			//DMibTrace("Pausing for: {} {}\n", NextUpdate, LastUpdateTime);
 		}
@@ -254,8 +244,7 @@ namespace NMib::NProcess::NPlatform
 		: m_CPULimit(_CPULimit)
 	{
 		//fg_AcquireTaskportRight();
-		m_pUpdateThread
-			= NThread::CThreadObject::fs_StartThread
+		m_pUpdateThread = NThread::CThreadObject::fs_StartThread
 			(
 				[this](NThread::CThreadObject *_pThread) -> aint
 				{

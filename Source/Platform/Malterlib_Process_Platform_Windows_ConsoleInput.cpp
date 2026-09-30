@@ -47,13 +47,13 @@ namespace NMib::NProcess::NPlatform
 		{
 			switch (_VirtualKey)
 			{
-				case VK_UP: return 'A';
-				case VK_DOWN: return 'B';
-				case VK_RIGHT: return 'C';
-				case VK_LEFT: return 'D';
-				case VK_HOME: return 'H';
-				case VK_END: return 'F';
-				default: return 0;
+			case VK_UP: return 'A';
+			case VK_DOWN: return 'B';
+			case VK_RIGHT: return 'C';
+			case VK_LEFT: return 'D';
+			case VK_HOME: return 'H';
+			case VK_END: return 'F';
+			default: return 0;
 			}
 		}
 
@@ -62,27 +62,27 @@ namespace NMib::NProcess::NPlatform
 		{
 			switch (_VirtualKey)
 			{
-				case VK_INSERT: return 2;
-				case VK_DELETE: return 3;
-				case VK_PRIOR: return 5;
-				case VK_NEXT: return 6;
-				case VK_F5: return 15;
-				case VK_F6: return 17;
-				case VK_F7: return 18;
-				case VK_F8: return 19;
-				case VK_F9: return 20;
-				case VK_F10: return 21;
-				case VK_F11: return 23;
-				case VK_F12: return 24;
-				case VK_F13: return 25;
-				case VK_F14: return 26;
-				case VK_F15: return 28;
-				case VK_F16: return 29;
-				case VK_F17: return 31;
-				case VK_F18: return 32;
-				case VK_F19: return 33;
-				case VK_F20: return 34;
-				default: return 0;
+			case VK_INSERT: return 2;
+			case VK_DELETE: return 3;
+			case VK_PRIOR: return 5;
+			case VK_NEXT: return 6;
+			case VK_F5: return 15;
+			case VK_F6: return 17;
+			case VK_F7: return 18;
+			case VK_F8: return 19;
+			case VK_F9: return 20;
+			case VK_F10: return 21;
+			case VK_F11: return 23;
+			case VK_F12: return 24;
+			case VK_F13: return 25;
+			case VK_F14: return 26;
+			case VK_F15: return 28;
+			case VK_F16: return 29;
+			case VK_F17: return 31;
+			case VK_F18: return 32;
+			case VK_F19: return 33;
+			case VK_F20: return 34;
+			default: return 0;
 			}
 		}
 
@@ -91,11 +91,11 @@ namespace NMib::NProcess::NPlatform
 		{
 			switch (_VirtualKey)
 			{
-				case VK_F1: return 'P';
-				case VK_F2: return 'Q';
-				case VK_F3: return 'R';
-				case VK_F4: return 'S';
-				default: return 0;
+			case VK_F1: return 'P';
+			case VK_F2: return 'Q';
+			case VK_F3: return 'R';
+			case VK_F4: return 'S';
+			default: return 0;
 			}
 		}
 
@@ -103,24 +103,23 @@ namespace NMib::NProcess::NPlatform
 		{
 			switch (_VirtualKey)
 			{
-				case VK_SHIFT:
-				case VK_LSHIFT:
-				case VK_RSHIFT:
-				case VK_CONTROL:
-				case VK_LCONTROL:
-				case VK_RCONTROL:
-				case VK_MENU:
-				case VK_LMENU:
-				case VK_RMENU:
-				case VK_LWIN:
-				case VK_RWIN:
-				case VK_CAPITAL:
-				case VK_NUMLOCK:
-				case VK_SCROLL:
-					return true;
+			case VK_SHIFT:
+			case VK_LSHIFT:
+			case VK_RSHIFT:
+			case VK_CONTROL:
+			case VK_LCONTROL:
+			case VK_RCONTROL:
+			case VK_MENU:
+			case VK_LMENU:
+			case VK_RMENU:
+			case VK_LWIN:
+			case VK_RWIN:
+			case VK_CAPITAL:
+			case VK_NUMLOCK:
+			case VK_SCROLL:
+				return true;
 
-				default:
-					return false;
+			default: return false;
 			}
 		}
 
@@ -137,7 +136,6 @@ namespace NMib::NProcess::NPlatform
 			return -1;
 		}
 	}
-
 
 	void CWindowsConsoleInputTranslator::fsp_Append(CWStr &o_Text, CStr const &_Sequence)
 	{
@@ -197,38 +195,37 @@ namespace NMib::NProcess::NPlatform
 
 			switch (_Key.wVirtualKeyCode)
 			{
-				case VK_BACK:
-					// DEL for backspace and BS with control, as the console sends them
-					if (fg_IsAltPressed(State))
-						o_Text.f_AddChar(0x1B);
-					o_Text.f_AddChar(fg_IsCtrlPressed(State) ? 0x08 : 0x7F);
-					continue;
-
-				case VK_TAB:
-					if (State & SHIFT_PRESSED)
-						fsp_Append(o_Text, "\x1B[Z");
-					else
-						o_Text.f_AddChar('\t');
-					continue;
-
-				case VK_RETURN:
-					if (fg_IsAltPressed(State))
-						o_Text.f_AddChar(0x1B);
-					o_Text.f_AddChar('\r');
-					continue;
-
-				case VK_ESCAPE:
+			case VK_BACK:
+				// DEL for backspace and BS with control, as the console sends them
+				if (fg_IsAltPressed(State))
 					o_Text.f_AddChar(0x1B);
-					continue;
+				o_Text.f_AddChar(fg_IsCtrlPressed(State) ? 0x08 : 0x7F);
+				continue;
 
-				case VK_SPACE:
-					if (fg_IsAltPressed(State))
-						o_Text.f_AddChar(0x1B);
-					o_Text.f_AddChar(fg_IsCtrlPressed(State) ? 0 : ' ');
-					continue;
+			case VK_TAB:
+				if (State & SHIFT_PRESSED)
+					fsp_Append(o_Text, "\x1B[Z");
+				else
+					o_Text.f_AddChar('\t');
+				continue;
 
-				default:
-					break;
+			case VK_RETURN:
+				if (fg_IsAltPressed(State))
+					o_Text.f_AddChar(0x1B);
+				o_Text.f_AddChar('\r');
+				continue;
+
+			case VK_ESCAPE:
+				o_Text.f_AddChar(0x1B);
+				continue;
+
+			case VK_SPACE:
+				if (fg_IsAltPressed(State))
+					o_Text.f_AddChar(0x1B);
+				o_Text.f_AddChar(fg_IsCtrlPressed(State) ? 0 : ' ');
+				continue;
+
+			default: break;
 			}
 
 			// The console already supplies control characters; textless key records produce no output.
@@ -301,5 +298,4 @@ namespace NMib::NProcess::NPlatform
 			fReport(uint32(fg_MouseButtonNumber(Bit)), (Buttons & Bit) == 0);
 		}
 	}
-
 }

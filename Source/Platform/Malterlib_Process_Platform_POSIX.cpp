@@ -10,13 +10,13 @@ using namespace NMib;
 #include <errno.h>
 #include <sys/resource.h>
 #ifdef DPlatformFamily_Linux
-#include <sys/time.h>
+#	include <sys/time.h>
 #endif
 #ifdef DPlatformFamily_macOS
-#include <mach/mach_init.h>
-#include <mach/thread_policy.h>
-#include <mach/task_policy.h>
-#include <mach/task.h>
+#	include <mach/mach_init.h>
+#	include <mach/thread_policy.h>
+#	include <mach/task_policy.h>
+#	include <mach/task.h>
 #endif
 
 #include <sys/types.h>
@@ -63,6 +63,7 @@ void *NMib::NProcess::NPlatform::fg_Process_Pause(umint _ProcessID)
 
 	return (void *)1;
 }
+
 void NMib::NProcess::NPlatform::fg_Process_Resume(umint _ProcessID, void *_pPauseToken)
 {
 	if (!_pPauseToken)
@@ -178,13 +179,13 @@ void NMib::NProcess::NPlatform::fg_Process_AbortWaitForTermination()
 
 void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 {
-    sigset_t WaitSet;
+	sigset_t WaitSet;
 
-    sigemptyset(&WaitSet);
-    sigaddset(&WaitSet, SIGTERM);
-    sigaddset(&WaitSet, SIGINT);
+	sigemptyset(&WaitSet);
+	sigaddset(&WaitSet, SIGTERM);
+	sigaddset(&WaitSet, SIGINT);
 
-    pthread_sigmask(SIG_BLOCK, &WaitSet, nullptr);
+	pthread_sigmask(SIG_BLOCK, &WaitSet, nullptr);
 
 	for (;;)
 	{
@@ -208,8 +209,24 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 {
 	auto pOnTerminate = NStorage::TCSharedPointer<NFunction::TCFunction<void ()>>(fg_Construct(fg_Move(_fOnTerminate)));
 
-	auto pSigterm = NSys::fg_System_RegisterForSignal(SIGTERM, [pOnTerminate] { (*pOnTerminate)(); });
-	auto pSigint = NSys::fg_System_RegisterForSignal(SIGINT, [pOnTerminate] { (*pOnTerminate)(); });
+	auto pSigterm = NSys::fg_System_RegisterForSignal
+		(
+			SIGTERM
+			, [pOnTerminate]
+			{
+				(*pOnTerminate)();
+			}
+		)
+	;
+	auto pSigint = NSys::fg_System_RegisterForSignal
+		(
+			SIGINT
+			, [pOnTerminate]
+			{
+				(*pOnTerminate)();
+			}
+		)
+	;
 
 	return g_OnScopeExitShared / [pSigterm, pSigint]() mutable
 		{
