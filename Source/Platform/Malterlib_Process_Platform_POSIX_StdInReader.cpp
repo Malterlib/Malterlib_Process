@@ -24,9 +24,11 @@ namespace NMib::NProcess::NPlatform
 			: m_pParams(fg_Construct(fg_Move(_Params)))
 		{
 		}
+
 		CPOSIXStdInReader()
 		{
 		}
+
 		~CPOSIXStdInReader();
 
 		NMib::NStorage::TCSharedPointer<NMib::NProcess::CStdInReaderParams> m_pParams;
@@ -42,6 +44,7 @@ namespace NMib::NProcess::NPlatform
 		CPOSIXStdInReaderImplementation()
 		{
 		}
+
 		~CPOSIXStdInReaderImplementation()
 		{
 			DMibFastCheck(!mp_pRegistration);
@@ -93,15 +96,7 @@ namespace NMib::NProcess::NPlatform
 				f_UpdateTerminalMode();
 			}
 
-			mp_pRegistration = mp_pLoop->f_Register
-				(
-					mp_bPaced ? mp_PacePipe[0] : 0
-					, this
-					, NSys::EIoLoopEvent::mc_Read
-					, &fs_OnReadable
-					, false
-				)
-			;
+			mp_pRegistration = mp_pLoop->f_Register(mp_bPaced ? mp_PacePipe[0] : 0, this, NSys::EIoLoopEvent::mc_Read, &fs_OnReadable, false);
 		}
 
 		// Reapplies the terminal mode from the flags of all registered readers; must be called with the subsystem lock held
@@ -123,7 +118,7 @@ namespace NMib::NProcess::NPlatform
 			{
 				// Emulate the behaviour of cfmakeraw() but without breaking NL
 				NewSettings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
-//				NewSettings.c_oflag &= ~OPOST;
+				// NewSettings.c_oflag &= ~OPOST;
 				NewSettings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
 				NewSettings.c_cflag &= ~(CSIZE | PARENB);
 				NewSettings.c_cflag |= CS8;
@@ -430,7 +425,6 @@ namespace NMib::NProcess::NPlatform
 						)
 					;
 				}
-
 			}
 			else
 			{
@@ -561,10 +555,7 @@ void NMib::NProcess::NPlatform::fg_Process_StdInReader_Close(void *_pStdInReader
 }
 
 // Unsupported: POSIX terminal resizes arrive through SIGWINCH, not the input stream.
-auto NMib::NProcess::NPlatform::fg_Process_StdInReader_RegisterScreenChange
-	(
-		NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange
-	)
+auto NMib::NProcess::NPlatform::fg_Process_StdInReader_RegisterScreenChange(NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange)
 	-> NMib::COnScopeExitShared
 {
 	DMibError("Screen changes are not observed through standard input on this platform");

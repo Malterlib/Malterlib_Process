@@ -209,13 +209,7 @@ namespace
 					CStr StdOut;
 					CStr StdErr;
 					uint32 ExitCode = 1;
-					bool bLaunched = NProcess::CProcessLaunch::fs_LaunchBlock
-						(
-							"choice"
-							, {"--test", TestPath, "--process-recursive"}
-							, StdOut, StdErr, ExitCode, Params
-						)
-					;
+					bool bLaunched = NProcess::CProcessLaunch::fs_LaunchBlock("choice", {"--test", TestPath, "--process-recursive"}, StdOut, StdErr, ExitCode, Params);
 
 					if (ExitCode)
 						DMibConOut("{}{}", StdOut, StdErr);

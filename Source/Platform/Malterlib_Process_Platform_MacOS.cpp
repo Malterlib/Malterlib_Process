@@ -51,16 +51,7 @@ namespace
 		while (true)
 		{
 			size_t Length = 0;
-			int Error = sysctl
-				(
-					SysCtlData
-					, (sizeof(SysCtlData) / sizeof(*SysCtlData)) - 1
-					, NULL
-					, &Length
-					, NULL
-					, 0
-				)
-			;
+			int Error = sysctl(SysCtlData, (sizeof(SysCtlData) / sizeof(*SysCtlData)) - 1, NULL, &Length, NULL, 0);
 			if (Error == -1)
 				Error = errno;
 
@@ -70,16 +61,7 @@ namespace
 				DMibError(NMib::NPlatform::fg_FormatErrno("sysctl (get all processes)", Error));
 
 			Length = Return.f_GetLen() * sizeof(kinfo_proc);
-			Error = sysctl
-				(
-					SysCtlData
-					, (sizeof(SysCtlData) / sizeof(*SysCtlData)) - 1
-					, Return.f_GetArray()
-					, &Length
-					, NULL
-					, 0
-				)
-			;
+			Error = sysctl(SysCtlData, (sizeof(SysCtlData) / sizeof(*SysCtlData)) - 1, Return.f_GetArray(), &Length, NULL, 0);
 
 			if (Error == -1)
 				Error = errno;
@@ -94,6 +76,7 @@ namespace
 
 		return Return;
 	}
+
 	struct CProcessEntry
 	{
 		DMibListLinkDS_Link(CProcessEntry, m_Link);
@@ -115,7 +98,6 @@ namespace
 		bool f_PauseTree();
 		~CProcessEntry();
 	};
-
 
 	CProcessEntry::~CProcessEntry()
 	{
@@ -159,7 +141,7 @@ namespace
 
 	void CProcessEntry::f_KillTree(NMib::NStr::CStr &_Log, aint _Depth)
 	{
-	//			DMibConOut("{sj*}Killing: {}\n", "", _Depth*3, f_GetID());
+		// DMibConOut("{sj*}Killing: {}\n", "", _Depth*3, f_GetID());
 		if (kill(f_GetID(), SIGKILL))
 		{
 			int ErrNo = errno;
@@ -196,10 +178,10 @@ bool NMib::NProcess::NPlatform::fg_MacOS_Process_TerminateTree(pid_t _ProcessID,
 		for (auto iProcess = RunningProcesses.f_GetIterator(); iProcess; ++iProcess)
 		{
 			if
-				(
-					iProcess->kp_proc.p_starttime.tv_sec > ThisStartTime.tv_sec
-					|| (iProcess->kp_proc.p_starttime.tv_sec == ThisStartTime.tv_sec && iProcess->kp_proc.p_starttime.tv_usec >= ThisStartTime.tv_usec)
-				)
+			(
+				iProcess->kp_proc.p_starttime.tv_sec > ThisStartTime.tv_sec
+				|| (iProcess->kp_proc.p_starttime.tv_sec == ThisStartTime.tv_sec && iProcess->kp_proc.p_starttime.tv_usec >= ThisStartTime.tv_usec)
+			)
 			{
 				// Only consider processes that has started after our current process to not catch orphaned processes
 				Root.f_MapProcessParent(iProcess->kp_proc.p_pid, iProcess->kp_eproc.e_ppid);
@@ -237,7 +219,7 @@ NMib::NContainer::TCVector<NMib::NProcess::NPlatform::CPOSIXProcessInfo> NMib::N
 	return Ret;
 }
 
-NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(EProcessInfoFlag _ToGet, NContainer::TCVector<CProcessInfo> * _pOldEnum)
+NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(EProcessInfoFlag _ToGet, NContainer::TCVector<CProcessInfo> *_pOldEnum)
 {
 	int mib[3] = {CTL_KERN, KERN_ARGMAX, 0};
 	size_t ArgMaxSize = sizeof(size_t);
@@ -245,15 +227,12 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	if (sysctl(mib, 2, &KernMax, &ArgMaxSize, nullptr, 0))
 		DMibError(NMib::NPlatform::fg_FormatErrno("sysctl (KERN_ARGMAX)", errno));
 
-
 	NContainer::TCMap<umint, NProcess::CProcessInfo *> OldInfo;
 
 	if (_pOldEnum)
 	{
 		for (auto iOld = _pOldEnum->f_GetIterator(); iOld; ++iOld)
-		{
 			OldInfo[iOld->m_ProcessID] = &*iOld;
-		}
 	}
 
 	NContainer::CByteVector Data;
@@ -377,7 +356,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 						}
 					}
 				}
-				catch (NException::CException const&)
+				catch (NException::CException const &)
 				{
 					// Protect against broken data
 				}
@@ -388,7 +367,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 				mib[2] = (int)Process.kp_proc.p_pid;
 				Size = KernMax;
 				if (!sysctl(mib, 3, Data.f_GetArray(), &Size, NULL, 0))
-					New.m_FullPath = NStr::CStr((ch8 const*)Data.f_GetArray());
+					New.m_FullPath = NStr::CStr((ch8 const *)Data.f_GetArray());
 			}
 		}
 	}

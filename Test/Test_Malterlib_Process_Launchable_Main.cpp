@@ -11,31 +11,30 @@ using namespace NMib;
 using FOnOpenURL = void (NStr::CStr const &_URL);
 
 #ifdef DPlatformFamily_macOS
-void fg_CreateMacOSEventHandler(FOnOpenURL* _pfOnOpenURL);
+void fg_CreateMacOSEventHandler(FOnOpenURL *_pfOnOpenURL);
 void fg_DestroyMacOSEventHandler();
 void fg_RunApplicationMain(int argc, char *argv[]);
 #endif
 
-
-void OnOpenURL(NStr::CStr const& _URL)
+void OnOpenURL(NStr::CStr const &_URL)
 {
 	try
 	{
-		//NStr::CStr Path = NFile::CFile::fs_GetProgramDirectory() + "/../../../URLOpened.txt";
-//		NStr::CStr Path = "/Deploy/Malterlib/URLOpened.txt";
+		// NStr::CStr Path = NFile::CFile::fs_GetProgramDirectory() + "/../../../URLOpened.txt";
+		// NStr::CStr Path = "/Deploy/Malterlib/URLOpened.txt";
 
 		// "hsXXXXXX://"
 		NStr::CStr Path = _URL.f_Extract(11);
 
 		NFile::CFile::fs_WriteStringToFile(NStr::CStr(Path), "URL Opened!\n");
 	}
-	catch(NFile::CExceptionFile& _Ex)
+	catch (NFile::CExceptionFile &_Ex)
 	{
 		DMibConOut("ExceptionFile: {}\n", _Ex.f_GetErrorStr());
 	}
 }
 
-int calling_convention_c main(int _ArgC, char ** _pArgV)
+int calling_convention_c main(int _ArgC, char **_pArgV)
 {
 	DMibConOutRaw("Launchable!\n");
 
@@ -43,11 +42,9 @@ int calling_convention_c main(int _ArgC, char ** _pArgV)
 	NSys::fg_Process_GetCommandLineArgs(CommandLineArgs);
 
 	if (CommandLineArgs.f_GetLen() < 2)
-	{
 		return 0;
-	}
 
-	for (auto & Arg : CommandLineArgs)
+	for (auto &Arg : CommandLineArgs)
 	{
 		DMibTrace("Arg: {}\n", Arg);
 		if (Arg.f_CmpNoCase("-crash") == 0)

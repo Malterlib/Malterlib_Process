@@ -16,8 +16,7 @@ extern "C"
 		Params.m_Target = NMib::NStr::CStr(_pProgram);
 		Params.m_Parameters = NMib::NStr::CStr(_pParams);
 
-		Params.m_fOnStateChange
-			= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+		Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 			{
 				switch (_State.f_GetTypeID())
 				{
@@ -33,8 +32,7 @@ extern "C"
 			}
 		;
 
-		Params.m_fOnOutput
-			= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+		Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 			{
 			}
 		;

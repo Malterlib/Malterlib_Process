@@ -12,6 +12,7 @@ namespace NMib::NProcess
 		if (!m_pProcessLaunch)
 			DMibError("Process launch not open");
 	}
+
 	CProcessLaunch::CProcessLaunch(CProcessLaunch &&_Other)
 		: m_pProcessLaunch(_Other.m_pProcessLaunch)
 		, m_DestructFlags(_Other.m_DestructFlags)
@@ -25,7 +26,7 @@ namespace NMib::NProcess
 	{
 		m_pProcessLaunch = NPlatform::fg_ProcessLaunch_Open(_Params);
 		if (_Params.m_bThreaded)
-			 NPlatform::fg_ProcessLaunch_Start(m_pProcessLaunch, _DestructFlags);
+			NPlatform::fg_ProcessLaunch_Start(m_pProcessLaunch, _DestructFlags);
 	}
 
 	CProcessLaunch::~CProcessLaunch()
@@ -54,7 +55,7 @@ namespace NMib::NProcess
 		return "bash";
 	}
 
-	void CProcessLaunch::fs_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params)
+	void CProcessLaunch::fs_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params)
 	{
 		return NPlatform::fg_Process_RegisterURLHandler(_Protocol, _ExePath, _Params);
 	}
@@ -64,12 +65,12 @@ namespace NMib::NProcess
 		return NPlatform::fg_Process_DeRegisterURLHandler(_Protocol);
 	}
 
-	void CProcessLaunch::fs_RegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name)
+	void CProcessLaunch::fs_RegisterAtStartup(NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const &_Name)
 	{
 		return NPlatform::fg_Process_RegisterAtStartup(_ExePath, _Params, _Name);
 	}
 
-	void CProcessLaunch::fs_DeRegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name)
+	void CProcessLaunch::fs_DeRegisterAtStartup(NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const &_Name)
 	{
 		return NPlatform::fg_Process_DeRegisterAtStartup(_ExePath, _Params, _Name);
 	}
@@ -133,7 +134,6 @@ namespace NMib::NProcess
 		return fs_LaunchBlock(_Executable, CProcessLaunchParams::fs_GetParams(_Params), _fOnStdOut, _fOnStrErr, _ExitCode, _LaunchParams);
 	}
 
-
 	bool CProcessLaunch::fs_LaunchBlock
 		(
 			NStr::CStr const &_Executable
@@ -153,22 +153,21 @@ namespace NMib::NProcess
 		bool bRet = false;
 
 		//Params.
-		Params.m_fOnStateChange
-			= [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+		Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 			{
 				switch (_State.f_GetTypeID())
 				{
-					case NMib::NProcess::EProcessLaunchState_Exited:
+				case NMib::NProcess::EProcessLaunchState_Exited:
 					{
 						_ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
 					}
 					break;
-					case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+				case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 					{
 						_fOnStrErr(_State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 					}
 					break;
-					case NMib::NProcess::EProcessLaunchState_Launched:
+				case NMib::NProcess::EProcessLaunchState_Launched:
 					{
 						bRet = true;
 					}
@@ -177,8 +176,7 @@ namespace NMib::NProcess
 			}
 		;
 
-		Params.m_fOnOutput
-			= [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+		Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 			{
 				if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 					_fOnStdOut(_Output);
@@ -194,12 +192,7 @@ namespace NMib::NProcess
 		return bRet;
 	}
 
-	NStr::CStr CProcessLaunch::fs_LaunchTool
-		(
-			NStr::CStr const &_Executable
-			, NContainer::TCVector<NStr::CStr> const &_Params
-			, CProcessLaunchParams const &_LaunchParams
-		)
+	NStr::CStr CProcessLaunch::fs_LaunchTool(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params, CProcessLaunchParams const &_LaunchParams)
 	{
 		NStr::CStr StdOut;
 		NStr::CStr StdErr;
@@ -330,7 +323,7 @@ namespace NMib::NProcess
 				return _Char == ' ' || _Char == '\t' || _Char == '\r' || _Char == '\n';
 			}
 		;
-		auto fScanToken = [&](ch8 const *&o_pParse, ch8 *_pOutput) -> umint
+		auto fScanToken = [&](ch8 const * &o_pParse, ch8 *_pOutput) -> umint
 			{
 				bool bInQuotes = false;
 				umint Length = 0;
@@ -638,7 +631,6 @@ namespace NMib::NProcess
 		return fs_LaunchExecutableRawParams(_Executable, fs_GetParams(_Parameters), _WorkingDirectory, _fOnStateChange, _Dispatcher);
 	}
 
-
 	CProcessLaunchParams::CProcessLaunchParams(NStr::CStr const &_WorkingDirectory)
 		: CProcessLaunchParams()
 	{
@@ -650,6 +642,6 @@ namespace NMib::NProcess
 	CProcessLaunchParams::CProcessLaunchParams(CProcessLaunchParams const &_From) = default;
 	CProcessLaunchParams::CProcessLaunchParams(CProcessLaunchParams &&_From) = default;
 
-	CProcessLaunchParams &CProcessLaunchParams::operator =(CProcessLaunchParams const &_From) = default;
-	CProcessLaunchParams &CProcessLaunchParams::operator =(CProcessLaunchParams &&_From) = default;
+	CProcessLaunchParams &CProcessLaunchParams::operator = (CProcessLaunchParams const &_From) = default;
+	CProcessLaunchParams &CProcessLaunchParams::operator = (CProcessLaunchParams &&_From) = default;
 }
