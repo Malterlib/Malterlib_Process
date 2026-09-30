@@ -20,17 +20,15 @@ namespace NMib::NProcess
 		fp64 Value = m_Value;
 		switch (m_Unit)
 		{
-		case NMib::NProcess::EProcessStatUnit_GeneralNumber:
-			o_Unit = m_CustomUnit;
-			break;
+		case NMib::NProcess::EProcessStatUnit_GeneralNumber: o_Unit = m_CustomUnit; break;
 		case NMib::NProcess::EProcessStatUnit_Bytes:
 			{
-				if (m_IdealScale == fp64(1024*1024*1024))
+				if (m_IdealScale == fp64(1024 * 1024 * 1024))
 				{
 					Value /= m_IdealScale;
 					o_Unit = NStr::gc_Str<"GiB">;
 				}
-				else if (m_IdealScale == fp64(1024*1024))
+				else if (m_IdealScale == fp64(1024 * 1024))
 				{
 					Value /= m_IdealScale;
 					o_Unit = NStr::gc_Str<"MiB">;
@@ -76,9 +74,7 @@ namespace NMib::NProcess
 				o_Unit = NStr::gc_Str<"%">;
 			}
 			break;
-		default:
-			DMibNeverGetHere(m_Unit);
-			break;
+		default: DMibNeverGetHere(m_Unit); break;
 		}
 		return Value;
 	}

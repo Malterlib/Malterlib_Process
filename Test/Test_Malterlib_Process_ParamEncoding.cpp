@@ -10,11 +10,9 @@
 
 namespace
 {
-
 	class CProcessParamEncoding_Tests : public CTest
 	{
 	public:
-
 		CProcessParamEncoding_Tests()
 		{
 		}
@@ -361,7 +359,7 @@ namespace
 				// parse time instead of closing the quoted region.
 				{
 					DMibTestPath("TrailingBackslash 1");
-					fs_TestEncoded({"foo bar\\"}, "\"foo bar\\\\\"");       // 1 in -> 2 emitted
+					fs_TestEncoded({"foo bar\\"}, "\"foo bar\\\\\""); // 1 in -> 2 emitted
 				}
 				{
 					DMibTestPath("TrailingBackslash 2");
@@ -511,5 +509,4 @@ namespace
 	};
 
 	DMibTestRegister(CProcessParamEncoding_Tests, Malterlib::Process);
-
 }

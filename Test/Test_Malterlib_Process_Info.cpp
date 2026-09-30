@@ -6,21 +6,17 @@
 
 namespace
 {
-
 	class CProcessInfo_Tests : public CTest
 	{
 	public:
-
 		CProcessInfo_Tests()
 		{
 		}
-
 
 		void f_DoTests()
 		{
 			DMibTestSuite("VersionInfo")
 			{
-
 				NMib::NProcess::CVersionInfo VersionInfo;
 				NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NFile::CFile::fs_GetProgramPath(), VersionInfo);
 
@@ -30,12 +26,10 @@ namespace
 				DMibTest(DMibExpr(VersionInfo.m_MinorRevision) == DMibExpr(0));
 				DMibTest(DMibExpr(VersionInfo.m_Branch) == DMibExpr(DMalterlibBranch));
 //				DMibTrace("BuildTime: {}\r\n", fg_GetFullTimeStr(VersionInfo.m_BuildTime));
-
 			};
 		}
 	};
 
 	DMibTestRegister(CProcessInfo_Tests, Malterlib::Process);
-
 }
 

@@ -114,14 +114,10 @@ namespace NMib::NProcess
 						return false;
 
 					if
-						(
-							NStr::fg_StrMatchWildcard
-							(
-								NFile::CFile::fs_GetFile(_ProcessInfo.m_FullPath).f_GetStr()
-								, _NamePattern.f_GetStr()
-							)
-							!= NStr::EMatchWildcardResult_WholeStringMatchedAndPatternExhausted
-						)
+					(
+						NStr::fg_StrMatchWildcard(NFile::CFile::fs_GetFile(_ProcessInfo.m_FullPath).f_GetStr(), _NamePattern.f_GetStr())
+						!= NStr::EMatchWildcardResult_WholeStringMatchedAndPatternExhausted
+					)
 					{
 						return false;
 					}

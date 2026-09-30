@@ -7,13 +7,12 @@
 
 @implementation CMacOSEventHandler
 
-- (void)getUrl:(NSAppleEventDescriptor *)event
-	withReplyEvent:(NSAppleEventDescriptor *)replyEvent
+- (void)getUrl: (NSAppleEventDescriptor *)event withReplyEvent: (NSAppleEventDescriptor *)replyEvent
 {
 	// Get the URL
 	if (m_pfOnOpenURL)
 	{
-		NSString *URLString = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
+		NSString *URLString = [[event paramDescriptorForKeyword: keyDirectObject] stringValue];
 
 		NMib::NStr::CStr URL(URLString.UTF8String);
 
@@ -23,13 +22,13 @@
 	}
 }
 
--(void)setOnOpenURL:(FOnOpenURL *)_pfHandler
+- (void)setOnOpenURL: (FOnOpenURL *)_pfHandler
 {
 	m_pfOnOpenURL = _pfHandler;
 }
 @end
 
-CMacOSEventHandler* g_pMacOSEventHandler = nullptr;
+CMacOSEventHandler *g_pMacOSEventHandler = nullptr;
 
 void fg_CreateMacOSEventHandler(FOnOpenURL *_pfOnOpenURL)
 {
@@ -38,19 +37,9 @@ void fg_CreateMacOSEventHandler(FOnOpenURL *_pfOnOpenURL)
 	[g_pMacOSEventHandler setOnOpenURL: _pfOnOpenURL];
 
 	NSAppleEventManager *pEventManager = [NSAppleEventManager sharedAppleEventManager];
-	[pEventManager
-		setEventHandler:g_pMacOSEventHandler
-		andSelector:@selector(getUrl:withReplyEvent:)
-		forEventClass:kInternetEventClass
-		andEventID:kAEGetURL
-	];
+	[pEventManager setEventHandler: g_pMacOSEventHandler andSelector: @selector(getUrl:withReplyEvent:) forEventClass: kInternetEventClass andEventID: kAEGetURL];
 
-	[pEventManager
-		setEventHandler:g_pMacOSEventHandler
-		andSelector:@selector(getUrl:withReplyEvent:)
-		forEventClass:'WWW!'
-		andEventID:'OURL'
-	];
+	[pEventManager setEventHandler: g_pMacOSEventHandler andSelector: @selector(getUrl:withReplyEvent:) forEventClass: 'WWW!' andEventID: 'OURL'];
 }
 
 void fg_DestroyMacOSEventHandler()
@@ -60,7 +49,6 @@ void fg_DestroyMacOSEventHandler()
 
 void fg_RunApplicationMain(int argc, char *argv[])
 {
-
 	[NSApplication sharedApplication];
 
 	[NSApp run];
@@ -70,5 +58,4 @@ void fg_RunApplicationMain(int argc, char *argv[])
 	NMib::NSys::fg_TerminateProcess(0);
 
 //	NSApplicationMain(0, nullptr);
-
 }
