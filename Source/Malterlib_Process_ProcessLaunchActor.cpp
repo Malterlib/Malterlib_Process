@@ -168,13 +168,7 @@ namespace NMib::NProcess
 		m_SimpleFlags = _Flags;
 	}
 
-	CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch
-		(
-			NStr::CStr const &_Executable
-			, NContainer::TCVector<NStr::CStr> const &_Params
-			, NStr::CStr const &_WorkingDir
-			, ESimpleLaunchFlag _Flags
-		)
+	CProcessLaunchActor::CSimpleLaunch::CSimpleLaunch(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params, NStr::CStr const &_WorkingDir, ESimpleLaunchFlag _Flags)
 		: CSimpleLaunch{CProcessLaunchParams::fs_LaunchExecutable(_Executable, _Params, _WorkingDir, {}), _Flags}
 	{
 		m_Params.m_bAllowExecutableLocate = true;
@@ -342,11 +336,7 @@ namespace NMib::NProcess
 		co_return co_await pState->m_Promise.f_Future();
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CProcessLaunchActor::f_Launch
-		(
-			CLaunch _Launch
-			, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor
-		)
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CProcessLaunchActor::f_Launch(CLaunch _Launch, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor)
 	{
 		DMibRequire(!mp_pInternal->m_bConstructed);
 

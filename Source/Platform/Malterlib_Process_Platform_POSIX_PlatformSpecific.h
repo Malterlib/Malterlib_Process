@@ -24,7 +24,18 @@ namespace NMib::NProcess::NPlatform
 
 #ifdef DPlatformFamily_Linux
 	bool fg_Linux_LaunchDocumentOrURL(CProcessLaunchParams &_Params, NStr::CStr &_Program, NStr::CStr &_oErrors);
-	bool fg_Linux_LaunchExecutableWithRoot(CPOSIXLaunchContext *_pLaunchContext, CProcessLaunchParams &_Params, NStr::CStr &_Program, int &_StdErrRead, int &_StdErrWrite, int &_StdInRead, int &_StdInWrite, NStr::CStr &_Errors);
+	bool fg_Linux_LaunchExecutableWithRoot
+		(
+			CPOSIXLaunchContext *_pLaunchContext
+			, CProcessLaunchParams &_Params
+			, NStr::CStr &_Program
+			, int &_StdErrRead
+			, int &_StdErrWrite
+			, int &_StdInRead
+			, int &_StdInWrite
+			, NStr::CStr &_Errors
+		)
+	;
 	bool fg_Linux_Process_RegisterAtStartup(NStr::CStr const &_ExePath, NStr::CStr const &_Params, NStr::CStr const &_Name);
 	bool fg_Linux_Process_DeRegisterAtStartup(NStr::CStr const &_ExePath, NStr::CStr const &_Params, NStr::CStr const &_Name);
 	bool fg_Linux_Process_TerminateTree(pid_t _ProcessID, NStr::CStr &_Errors);

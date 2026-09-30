@@ -29,38 +29,38 @@ namespace NMib::NProcess
 
 	enum EProcessLaunchState
 	{
-		EProcessLaunchState_Launched			// Variant will be a void * representing the launched process
-		, EProcessLaunchState_LaunchFailed		// Variant will be a CStr container the error message
-		, EProcessLaunchState_Exited			// Variant will be the exit code of the process
+		EProcessLaunchState_Launched // Variant will be a void * representing the launched process
+		, EProcessLaunchState_LaunchFailed // Variant will be a CStr container the error message
+		, EProcessLaunchState_Exited // Variant will be the exit code of the process
 	};
 
 	enum EProcessLaunchType
 	{
-		EProcessLaunchType_Executable			// Launch a program.
-		, EProcessLaunchType_Document			// Launch a document (File on a disk or network share etc...)
-		, EProcessLaunchType_URL				// Launch an URL with the OS default application.
+		EProcessLaunchType_Executable // Launch a program.
+		, EProcessLaunchType_Document // Launch a document (File on a disk or network share etc...)
+		, EProcessLaunchType_URL // Launch an URL with the OS default application.
 	};
 
 	enum EProcessLimit
 	{
 		// Posix limits
-		EProcessLimit_CoreDumpSize				// RLIMIT_CPU			The largest size (in bytes) core file that may be created.
-		, EProcessLimit_CpuTime					// RLIMIT_CPU			The maximum amount of cpu time (in seconds) to be used by each process.
-		, EProcessLimit_DataSegment				// RLIMIT_DATA			The maximum size (in bytes) of the data segment for a process; this defines how far a program may extend its break with the sbrk(2) system call.
-		, EProcessLimit_FileSize				// RLIMIT_FSIZE			The largest size (in bytes) file that may be created.
-		, EProcessLimit_LockedMemory			// RLIMIT_MEMLOCK		The maximum size (in bytes) which a process may lock into memory using the mlock(2) function.
-		, EProcessLimit_OpenedFiles				// RLIMIT_NOFILE		The maximum number of open files for this process.
-		, EProcessLimit_Threads					// RLIMIT_NPROC			The maximum number of simultaneous processes for this user id.
-		, EProcessLimit_ResidentMemory			// RLIMIT_RSS			The maximum size (in bytes) to which a process's resident set size may grow.
-		, EProcessLimit_StackSize				// RLIMIT_STACK			The maximum size (in bytes) of the stack segment for a process
+		EProcessLimit_CoreDumpSize // RLIMIT_CPU		The largest size (in bytes) core file that may be created.
+		, EProcessLimit_CpuTime // RLIMIT_CPU			The maximum amount of cpu time (in seconds) to be used by each process.
+		, EProcessLimit_DataSegment // RLIMIT_DATA		The maximum size (in bytes) of the data segment for a process, which limits how far sbrk(2) may extend its break.
+		, EProcessLimit_FileSize // RLIMIT_FSIZE		The largest size (in bytes) file that may be created.
+		, EProcessLimit_LockedMemory // RLIMIT_MEMLOCK	The maximum size (in bytes) which a process may lock into memory using the mlock(2) function.
+		, EProcessLimit_OpenedFiles // RLIMIT_NOFILE	The maximum number of open files for this process.
+		, EProcessLimit_Threads // RLIMIT_NPROC			The maximum number of simultaneous processes for this user id.
+		, EProcessLimit_ResidentMemory // RLIMIT_RSS	The maximum size (in bytes) to which a process's resident set size may grow.
+		, EProcessLimit_StackSize // RLIMIT_STACK		The maximum size (in bytes) of the stack segment for a process
 
 		// Linux specific limits
-		, EProcessLimit_VirtualAddressSpace		// RLIMIT_AS			The maximum size of the process's virtual memory (address space) in bytes.
-		, EProcessLimit_MessageQueueSize		// RLIMIT_MSGQUEUE		Specifies the limit on the number of bytes that can be allocated for POSIX message queues for the real user ID of the calling process.
-		, EProcessLimit_NiceValue				// RLIMIT_NICE			Specifies a ceiling to which the process's nice value can be raised using setpriority(2) or nice(2).
-		, EProcessLimit_RealtimePriority		// RLIMIT_RTPRIO		Specifies a ceiling on the real-time priority that may be set for this process using sched_setscheduler(2) and sched_setparam(2).
-		, EProcessLimit_RealtimeTime			// RLIMIT_RTTIME		Specifies a limit (in microseconds) on the amount of CPU time that a process scheduled under a real-time scheduling policy may consume without making a blocking system call.
-		, EProcessLimit_SignalsPending			// RLIMIT_SIGPENDING	Specifies the limit on the number of signals that may be queued for the real user ID of the calling process.
+		, EProcessLimit_VirtualAddressSpace // RLIMIT_AS		The maximum size of the process's virtual memory (address space) in bytes.
+		, EProcessLimit_MessageQueueSize // RLIMIT_MSGQUEUE		The number of bytes that can be allocated for POSIX message queues for the real user ID of the calling process.
+		, EProcessLimit_NiceValue // RLIMIT_NICE				Specifies a ceiling to which the process's nice value can be raised using setpriority(2) or nice(2).
+		, EProcessLimit_RealtimePriority // RLIMIT_RTPRIO		A ceiling on the real-time priority this process may set using sched_setscheduler(2) and sched_setparam(2).
+		, EProcessLimit_RealtimeTime // RLIMIT_RTTIME			CPU time (in microseconds) a process under a real-time scheduling policy may use without a blocking system call.
+		, EProcessLimit_SignalsPending // RLIMIT_SIGPENDING		Specifies the limit on the number of signals that may be queued for the real user ID of the calling process.
 	};
 
 	struct CProcessLimit
@@ -72,14 +72,17 @@ namespace NMib::NProcess
 		{
 			m_MaxValue = ~uint64(0);
 		}
+
 		bool f_IsMaxUnlimited() const
 		{
 			return m_MaxValue == ~uint64(0);
 		}
+
 		void f_SetMaxUnchaned()
 		{
 			m_MaxValue = (~uint64(0)) - 1;
 		}
+
 		bool f_IsMaxUnchaned() const
 		{
 			return m_MaxValue == (~uint64(0)) - 1;
@@ -89,14 +92,17 @@ namespace NMib::NProcess
 		{
 			m_Value = ~uint64(0);
 		}
+
 		bool f_IsUnlimited() const
 		{
 			return m_Value == ~uint64(0);
 		}
+
 		void f_SetUnchaned()
 		{
 			m_Value = (~uint64(0)) - 1;
 		}
+
 		bool f_IsUnchaned() const
 		{
 			return m_Value == (~uint64(0)) - 1;
@@ -129,23 +135,22 @@ namespace NMib::NProcess
 	struct CProcessLaunchParams
 	{
 	public:
-
 	public:
 		CProcessLaunchParams();
 		CProcessLaunchParams(NStr::CStr const &_WorkingDirectory);
 		CProcessLaunchParams(CProcessLaunchParams const &_From);
 		CProcessLaunchParams(CProcessLaunchParams &&_From);
 
-		CProcessLaunchParams &operator =(CProcessLaunchParams const &_From);
-		CProcessLaunchParams &operator =(CProcessLaunchParams &&_From);
+		CProcessLaunchParams &operator = (CProcessLaunchParams const &_From);
+		CProcessLaunchParams &operator = (CProcessLaunchParams &&_From);
 
-		NMib::NStr::CStr m_Operation;			// The operation to do when opering a document
-		NMib::NStr::CStr m_Target;				// Can be executable or document depending on m_bLaunchDocument
+		NMib::NStr::CStr m_Operation; // The operation to do when opering a document
+		NMib::NStr::CStr m_Target; // Can be executable or document depending on m_bLaunchDocument
 		NMib::NStr::CStr m_Parameters;
 		NMib::NStr::CStr m_WorkingDirectory;
-		NMib::NStr::CStr m_ProcessGroup;		// Only if the group is not already created
-		NMib::NStr::CStr m_IconPath;			// Path to icon file used by prompt on macOS elevation
-		NMib::NStr::CStr m_Prompt;				// Prompt text to use on macOS elevation
+		NMib::NStr::CStr m_ProcessGroup; // Only if the group is not already created
+		NMib::NStr::CStr m_IconPath; // Path to icon file used by prompt on macOS elevation
+		NMib::NStr::CStr m_Prompt; // Prompt text to use on macOS elevation
 
 		NContainer::TCMap<NMib::NStr::CStr, NMib::NStr::CStr> m_SandboxRoots; // On unix use empty key for setting chroot, on windows use one remapping per drive
 
@@ -172,14 +177,15 @@ namespace NMib::NProcess
 		uint32 m_bMakeEffectiveGroupReal:1 = false;
 		uint32 m_bCreateNewProcessGroup:1 = false;
 		uint32 m_bForceFork:1 = false;
-		uint32 m_bLaunchInUserSession:1 = true; // Together with m_RunAsUser on macOS this will launch through "launchctl asuser" to provide the correct bootstrap namespace for things like XPC
+		// Together with m_RunAsUser on macOS this will launch through "launchctl asuser" to provide the correct bootstrap namespace for things like XPC
+		uint32 m_bLaunchInUserSession:1 = true;
 
-		fp32 m_CPUUsage = 0.0f;		// Percentage of available processing power to use.
+		fp32 m_CPUUsage = 0.0f; // Percentage of available processing power to use.
 
 		EProcessLaunchElevation m_Elevation = EProcessLaunchElevation_None;
-		NStr::CStr m_RunAsUser;		// Only supported on unix and when running as root
+		NStr::CStr m_RunAsUser; // Only supported on unix and when running as root
 		NStr::CStrSecure m_RunAsUserPassword; // Only used for launches on Windows
-		NStr::CStr m_RunAsGroup;	// Only supported on unix and when running as root
+		NStr::CStr m_RunAsGroup; // Only supported on unix and when running as root
 
 		NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
 
@@ -384,8 +390,6 @@ namespace NMib::NProcess
 				_Stream >> m_RunAsGroup;
 			}
 		}
-
-
 	};
 
 	class CProcessLaunch
@@ -396,6 +400,7 @@ namespace NMib::NProcess
 		void *m_pProcessLaunch;
 		EProcessLaunchCloseFlag m_DestructFlags;
 		void fp_CheckOpen() const;
+
 	public:
 		CProcessLaunch(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags);
 		~CProcessLaunch();
@@ -426,13 +431,13 @@ namespace NMib::NProcess
 
 		static NStr::CStr fs_GetBashPath();
 
-		static void fs_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params);
+		static void fs_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params);
 		static void fs_DeRegisterURLHandler(NMib::NStr::CStr const &_Protocol);
 
 		// If a platform requires a user identifiable name for a startup entry _Name will be used.
 		// If _Name is empty the registered name of the application is used.
-		static void fs_RegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name = NMib::NStr::CStr());
-		static void fs_DeRegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name = NMib::NStr::CStr());
+		static void fs_RegisterAtStartup(NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const &_Name = NMib::NStr::CStr());
+		static void fs_DeRegisterAtStartup(NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const &_Name = NMib::NStr::CStr());
 
 		static void fs_CancelAllLaunches();
 
@@ -477,13 +482,7 @@ namespace NMib::NProcess
 				, CProcessLaunchParams const &_LaunchParams = CProcessLaunchParams()
 			)
 		;
-		static NStr::CStr fs_LaunchTool
-			(
-				NStr::CStr const &_Executable
-				, NContainer::TCVector<NStr::CStr> const &_Params
-				, CProcessLaunchParams const &_LaunchParams = CProcessLaunchParams()
-			)
-		;
+		static NStr::CStr fs_LaunchTool(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params, CProcessLaunchParams const &_LaunchParams = CProcessLaunchParams());
 
 		static umint fs_KillProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags, fp64 _Timeout = 30.0);
 		static umint fs_KillProcessesInDirectory(NStr::CStr const &_NamePattern, NStr::CStr const &_ArgsPattern = {}, NStr::CStr const &_Directory = {}, fp64 _Timeout = 30.0);

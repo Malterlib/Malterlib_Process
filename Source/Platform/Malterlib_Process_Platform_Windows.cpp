@@ -113,15 +113,13 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		UINT QuerySize = 0;
 		VS_FIXEDFILEINFO *pFixedFileInfo;
 
-		if (!VerQueryValue(pBlock, str_utf16("\\"), (LPVOID*)&pFixedFileInfo, &QuerySize))
+		if (!VerQueryValue(pBlock, str_utf16("\\"), (LPVOID *)&pFixedFileInfo, &QuerySize))
 			break;
-
 
 		_VersionInfo.m_Major = pFixedFileInfo->dwFileVersionMS >> 16;
 		_VersionInfo.m_Minor = (pFixedFileInfo->dwFileVersionMS & 0xFFFF);
 		_VersionInfo.m_Revision = pFixedFileInfo->dwFileVersionLS >> 16;
 		_VersionInfo.m_MinorRevision = (pFixedFileInfo->dwFileVersionLS & 0xFFFF);
-
 
 		struct LANGANDCODEPAGE
 		{
@@ -129,18 +127,17 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 			WORD wCodePage;
 		} *pTranslate;
 
-		if (VerQueryValue(pBlock, str_utf16("\\VarFileInfo\\Translation"), (LPVOID*)&pTranslate, &QuerySize))
+		if (VerQueryValue(pBlock, str_utf16("\\VarFileInfo\\Translation"), (LPVOID *)&pTranslate, &QuerySize))
 		{
 			for (umint i = 0; i < (QuerySize/sizeof(struct LANGANDCODEPAGE)); ++i)
 			{
-				NStr::CWStr SubBlock = NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild"))
-					<< pTranslate[i].wLanguage
-					<< pTranslate[i].wCodePage
+				NStr::CWStr SubBlock
+					= NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild")) << pTranslate[i].wLanguage << pTranslate[i].wCodePage
 				;
 
 				ch16 const *pBuffer = nullptr;
 				UINT BufferBytes = 0;
-				if (VerQueryValue(pBlock, SubBlock.f_GetStr(), (LPVOID*)&pBuffer, &BufferBytes))
+				if (VerQueryValue(pBlock, SubBlock.f_GetStr(), (LPVOID *)&pBuffer, &BufferBytes))
 				{
 					NStr::CStr BuildData = NStr::CWStr(pBuffer);
 					if (BuildData.f_StartsWith("{"))
@@ -206,7 +203,8 @@ NMib::EExecutionPriority NMib::NProcess::NPlatform::fg_Process_GetPriority()
 	}
 }
 
-NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum)
+auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> *_pOldEnum)
+	-> NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo>
 {
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
 
@@ -218,13 +216,13 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hProcessSnap != INVALID_HANDLE_VALUE)
 	{
-		ProcessEntry.dwSize = sizeof( PROCESSENTRY32 );
+		ProcessEntry.dwSize = sizeof(PROCESSENTRY32);
 
 		if (Process32First(hProcessSnap, &ProcessEntry))
 		{
 			do
 			{
-				auto & NewProcess = Ret.f_Insert();
+				auto &NewProcess = Ret.f_Insert();
 
 				NewProcess.m_ProcessID = ProcessEntry.th32ProcessID;
 				if (_ToGet & EProcessInfoFlag_ParentProcessID)
@@ -275,8 +273,22 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 						NMib::NStr::CWStr UserName;
 						uint32 UserNameSize = 8192;
 
-						if (!LookupAccountSid(nullptr, TokenUserInfo.User.Sid, UserName.f_GetStr(8192 + 1), &UserNameSize, ReferencedDomainName.f_GetStr(8192+1), &ReferencedDomainNameSize, &AccountType))
+						if
+						(
+							!LookupAccountSid
+							(
+								nullptr
+								, TokenUserInfo.User.Sid
+								, UserName.f_GetStr(8192 + 1)
+								, &UserNameSize
+								, ReferencedDomainName.f_GetStr(8192 + 1)
+								, &ReferencedDomainNameSize
+								, &AccountType
+							)
+						)
+						{
 							break;
+						}
 
 						using namespace ::NMib::NStr;
 						if (ReferencedDomainName.f_IsEmpty())
@@ -295,7 +307,12 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 					UndocumentedPEB Peb;
 					PROCESS_BASIC_INFORMATION BasicInfo;
 					ULONG RetLen = 0;
-					if (NLocal::g_OptionalFunctions.m_fNtQueryInformationProcess && !NLocal::g_OptionalFunctions.m_fNtQueryInformationProcess(pThisProcess, ProcessBasicInformation, &BasicInfo, sizeof(BasicInfo), &RetLen) && RetLen == sizeof(BasicInfo))
+					if
+					(
+						NLocal::g_OptionalFunctions.m_fNtQueryInformationProcess
+						&& !NLocal::g_OptionalFunctions.m_fNtQueryInformationProcess(pThisProcess, ProcessBasicInformation, &BasicInfo, sizeof(BasicInfo), &RetLen)
+						&& RetLen == sizeof(BasicInfo)
+					)
 					{
 						SIZE_T ReadBytes = 0;
 						if (ReadProcessMemory(pThisProcess, BasicInfo.PebBaseAddress, &Peb, sizeof(Peb), &ReadBytes) && ReadBytes == sizeof(Peb))
@@ -307,8 +324,14 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 								{
 									umint BufferStrLen = ProcessParams.ImagePathName.Length/sizeof(ch16);
 									auto pBuffer = ImageFileName.f_GetStr(BufferStrLen + 1);
-									if (ReadProcessMemory(pThisProcess, ProcessParams.ImagePathName.Buffer, pBuffer, ProcessParams.ImagePathName.Length, &ReadBytes) && ReadBytes == ProcessParams.ImagePathName.Length)
+									if
+									(
+										ReadProcessMemory(pThisProcess, ProcessParams.ImagePathName.Buffer, pBuffer, ProcessParams.ImagePathName.Length, &ReadBytes)
+										&& ReadBytes == ProcessParams.ImagePathName.Length
+									)
+									{
 										pBuffer[BufferStrLen] = 0;
+									}
 									else
 										ImageFileName.f_Clear();
 								}
@@ -317,8 +340,14 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 								{
 									umint BufferStrLen = ProcessParams.CommandLine.Length/sizeof(ch16);
 									auto pBuffer = CommandLine.f_GetStr(BufferStrLen + 1);
-									if (ReadProcessMemory(pThisProcess, ProcessParams.CommandLine.Buffer, pBuffer, ProcessParams.CommandLine.Length, &ReadBytes) && ReadBytes == ProcessParams.CommandLine.Length)
+									if
+									(
+										ReadProcessMemory(pThisProcess, ProcessParams.CommandLine.Buffer, pBuffer, ProcessParams.CommandLine.Length, &ReadBytes)
+										&& ReadBytes == ProcessParams.CommandLine.Length
+									)
+									{
 										pBuffer[BufferStrLen] = 0;
+									}
 									else
 										CommandLine.f_Clear();
 								}
@@ -521,7 +550,6 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionOverallStatistics(void *_
 	}
 }
 
-
 uint64 NMib::NProcess::NPlatform::fg_Process_GetPhysicalMemory()
 {
 	MEMORYSTATUSEX MemoryStatus;
@@ -593,19 +621,16 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 				return "Windows Home Server";
 			else if (GetSystemMetrics(SM_SERVERR2) == 0)
 				return "Windows Server 2003";
-			else if ((VersionInfo.wProductType == VER_NT_WORKSTATION) && (SystemInfo.wProcessorArchitecture==PROCESSOR_ARCHITECTURE_AMD64))
+			else if ((VersionInfo.wProductType == VER_NT_WORKSTATION) && (SystemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64))
 				return "Windows XP Professional x64 Edition";
 			else
 				return  "Windows Unknown";
 		}
 		else
 			return  "Windows Unknown";
-
 	}
 	else
-	{
 		return "Windows";
-	}
 
 	DMibSafeCheck(false, "This is not implemented on Windows yet");
 	return "Windows";
@@ -693,21 +718,11 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 		}
 	;
 
-	SetConsoleCtrlHandler
-		(
-			fHandler
-			, true
-		)
-	;
+	SetConsoleCtrlHandler(fHandler, true);
 
 	g_TerminationEvent->f_Wait();
 
-	SetConsoleCtrlHandler
-		(
-			fHandler
-			, false
-		)
-	;
+	SetConsoleCtrlHandler(fHandler, false);
 
 	g_TerminationEvent.f_Destruct();
 }
@@ -735,22 +750,11 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 		}
 	;
 
-	SetConsoleCtrlHandler
-		(
-			fHandler
-			, true
-		)
-	;
-
+	SetConsoleCtrlHandler(fHandler, true);
 
 	return g_OnScopeExitShared / []
 		{
-			SetConsoleCtrlHandler
-				(
-					fHandler
-					, false
-				)
-			;
+			SetConsoleCtrlHandler(fHandler, false);
 			gs_TerminationFunction.f_Destruct();
 		}
 	;

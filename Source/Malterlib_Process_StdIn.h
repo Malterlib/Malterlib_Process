@@ -25,14 +25,13 @@ namespace NMib::NProcess
 	struct CStdInReaderParams
 	{
 	public:
-
 	public:
 		CStdInReaderParams();
 		CStdInReaderParams(CStdInReaderParams const &_From) = delete;
 		CStdInReaderParams(CStdInReaderParams &&_From);
 
-		CStdInReaderParams &operator =(CStdInReaderParams const &_From) = delete;
-		CStdInReaderParams &operator =(CStdInReaderParams &&_From);
+		CStdInReaderParams &operator = (CStdInReaderParams const &_From) = delete;
+		CStdInReaderParams &operator = (CStdInReaderParams &&_From);
 
 		EStdInReaderFlag m_Flags;
 		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> m_fOnReceiveInput;
@@ -54,6 +53,7 @@ namespace NMib::NProcess
 			)
 		;
 	};
+
 	struct CStdInReaderPromptParams
 	{
 	public:
@@ -71,6 +71,7 @@ namespace NMib::NProcess
 
 		void *m_pStdInReader;
 		void fp_CheckOpen() const;
+
 	public:
 		CStdInReader(CStdInReaderParams &&_Params);
 		~CStdInReader();
@@ -92,7 +93,6 @@ namespace NMib::NProcess
 		NStorage::TCUniquePointer<CStdInReader> m_pStdInReader;
 
 	public:
-
 		CBlockingStdInReader();
 		~CBlockingStdInReader();
 		NStr::CStr f_ReadLine();

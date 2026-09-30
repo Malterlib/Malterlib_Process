@@ -24,11 +24,20 @@ namespace NMib::NProcess::NPlatform
 		DMibListLinkDS_Link(CProcessLaunchLink, m_Link);
 	};
 
-	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths = {}, NStr::CStr const &_LocalPaths = {});
+	NStr::CStr fg_FindExecutable
+		(
+			NStr::CStr const &_Path
+			, bool _bAllowLocate
+			, NMib::NFile::EFileAttrib _Type
+			, NContainer::TCVector<NStr::CStr> const &_ExtraPaths = {}
+			, NStr::CStr const &_LocalPaths = {}
+		)
+	;
 
 	class CPOSIXLaunchContext : public NThread::CThread, public CProcessLaunchLink
 	{
 		using NThread::CThread::f_Start;
+
 	public:
 		CPOSIXLaunchContext();
 		~CPOSIXLaunchContext();
@@ -70,17 +79,7 @@ namespace NMib::NProcess::NPlatform
 		void fp_OnOutputBinary(NMib::NProcess::EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector &&_Output);
 		void fp_OnExit(uint32 _ExitCode);
 		bool fp_DoStart(NStr::CStr &_Errors);
-		bool fp_LaunchChild
-			(
-				int &_hStdOutRead
-				, int &_hStdOutWrite
-				, int &_hStdInRead
-				, int &_hStdInWrite
-				, int &_hStdErrRead
-				, int &_hStdErrWrite
-				, NStr::CStr &_Errors
-			)
-		;
+		bool fp_LaunchChild(int &_hStdOutRead, int &_hStdOutWrite, int &_hStdInRead, int &_hStdInWrite, int &_hStdErrRead, int &_hStdErrWrite, NStr::CStr &_Errors);
 
 		void fp_Close();
 		virtual bool f_DestroyThread() override;
@@ -119,9 +118,9 @@ namespace NMib::NProcess::NPlatform
 #endif
 		NThread::CMutual mp_PipeLock;
 
-		int mp_hStdinWrite;	// write end of child's stdin pipe
-		int mp_hStdoutRead;	// read end of child's stdout pipe
-		int mp_hStderrRead;	// read end of child's stderr pipe
+		int mp_hStdinWrite; // write end of child's stdin pipe
+		int mp_hStdoutRead; // read end of child's stdout pipe
+		int mp_hStderrRead; // read end of child's stderr pipe
 
 		int mp_WakeupPipeRead;
 		int mp_WakeupPipeWrite;

@@ -24,28 +24,29 @@ namespace
 		void f_WaitAndDispatch() override
 		{
 		}
+
 		void f_WaitAndDispatchTimeout(pfp64) override
 		{
 		}
+
 		bool f_PollAndDispatch() override
 		{
 			return false;
 		}
+
 		void f_Wake() override
 		{
 		}
+
 		void f_SetOwnerThreadToCurrent() override
 		{
 		}
+
 		void f_Deregister(NSys::CIoLoopRegistration *) override
 		{
 		}
 
-		auto f_Register
-			(
-				NSys::CIoLoopHandle, void *, NSys::EIoLoopEvent, NSys::FIoLoopReadinessCallback, bool, NSys::CIoLoopRegisterOptions const &
-			)
-			-> NSys::CIoLoopRegistration * override
+		auto f_Register(NSys::CIoLoopHandle, void *, NSys::EIoLoopEvent, NSys::FIoLoopReadinessCallback, bool, NSys::CIoLoopRegisterOptions const &) -> NSys::CIoLoopRegistration * override
 		{
 			++m_nRegistrations;
 			return reinterpret_cast<NSys::CIoLoopRegistration *>(this);
@@ -86,7 +87,9 @@ namespace
 						(
 							NFile::CFile::fs_GetProgramPath()
 							, {"--test", NTest::fg_TestGetCurrentPath(), "--process-recursive"}
-							, Output, Error, ExitCode
+							, Output
+							, Error
+							, ExitCode
 						)
 					;
 					DMibExpectTrue(bLaunched);
@@ -130,11 +133,22 @@ namespace
 						}
 					;
 					{
-						auto Params = bBinary
+						auto Params
+							= bBinary
 							? NProcess::CStdInReaderParams::fs_CreateBinary
-								([&](NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &, NStr::CStr const &) { fOnInput(_Type); })
+							(
+								[&](NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &, NStr::CStr const &)
+								{
+									fOnInput(_Type);
+								}
+							)
 							: NProcess::CStdInReaderParams::fs_Create
-								([&](NProcess::EStdInReaderOutputType _Type, NStr::CStrIO const &) { fOnInput(_Type); })
+							(
+								[&](NProcess::EStdInReaderOutputType _Type, NStr::CStrIO const &)
+								{
+									fOnInput(_Type);
+								}
+							)
 						;
 						NProcess::CStdInReader Reader(fg_Move(Params));
 						DMibExpectFalse(Completed.f_WaitTimeout(5.0));
@@ -158,7 +172,9 @@ namespace
 						(
 							NFile::CFile::fs_GetProgramPath()
 							, {"--test", NTest::fg_TestGetCurrentPath(), "--process-recursive"}
-							, Output, Error, ExitCode
+							, Output
+							, Error
+							, ExitCode
 						)
 					;
 					DMibExpectTrue(bLaunched);
@@ -244,7 +260,13 @@ namespace
 				NSys::fg_SetThreadIoLoop(&Loop);
 				auto fParams = []
 					{
-						auto Params = NProcess::CStdInReaderParams::fs_Create([](NProcess::EStdInReaderOutputType, NStr::CStr const &) {});
+						auto Params = NProcess::CStdInReaderParams::fs_Create
+							(
+								[](NProcess::EStdInReaderOutputType, NStr::CStr const &)
+								{
+								}
+							)
+						;
 						Params.m_Flags |= NProcess::EStdInReaderFlag_VirtualTerminalInput;
 						return Params;
 					}

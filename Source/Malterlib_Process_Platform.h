@@ -24,11 +24,10 @@ namespace NMib::NProcess
 	enum EProcessElevation
 	{
 		EProcessElevation_None = 0
-		, EProcessElevation_IsNotElevated	// Implies that you can elevate
-		, EProcessElevation_IsElevated		// Implies that you can de-elavate
+		, EProcessElevation_IsNotElevated // Implies that you can elevate
+		, EProcessElevation_IsElevated // Implies that you can de-elavate
 		, EProcessElevation_IsRoot
 	};
-
 
 	enum EProcessStatUnit
 	{
@@ -104,16 +103,16 @@ namespace NMib::NProcess
 
 	struct CProcessInfo
 	{
-		umint m_ProcessID;								// Always returned
-		umint m_ParentProcessID;							// Returned for EProcessInfoFlag_ParentProcessID
-		uint64 m_StartTime;								// Returned for EProcessInfoFlag_StartTime
-		NMib::NStr::CStr m_FileName;					// Returned for EProcessInfoFlag_FileName
-		NMib::NStr::CStr m_FullPath;					// Returned for EProcessInfoFlag_FullPath
-		NContainer::TCVector<NMib::NStr::CStr> m_Args;	// Returned for EProcessInfoFlag_Args
-		NMib::NStr::CStr m_RealUID;						// Returned for EProcessInfoFlag_User
-		NMib::NStr::CStr m_EffectiveUID;				// Returned for EProcessInfoFlag_User
-		NMib::NStr::CStr m_RealGID;						// Returned for EProcessInfoFlag_User
-		NMib::NStr::CStr m_EffectiveGID;				// Returned for EProcessInfoFlag_User
+		umint m_ProcessID; // Always returned
+		umint m_ParentProcessID; // Returned for EProcessInfoFlag_ParentProcessID
+		uint64 m_StartTime; // Returned for EProcessInfoFlag_StartTime
+		NMib::NStr::CStr m_FileName; // Returned for EProcessInfoFlag_FileName
+		NMib::NStr::CStr m_FullPath; // Returned for EProcessInfoFlag_FullPath
+		NContainer::TCVector<NMib::NStr::CStr> m_Args; // Returned for EProcessInfoFlag_Args
+		NMib::NStr::CStr m_RealUID; // Returned for EProcessInfoFlag_User
+		NMib::NStr::CStr m_EffectiveUID; // Returned for EProcessInfoFlag_User
+		NMib::NStr::CStr m_RealGID; // Returned for EProcessInfoFlag_User
+		NMib::NStr::CStr m_EffectiveGID; // Returned for EProcessInfoFlag_User
 	};
 
 	namespace NPlatform
@@ -141,7 +140,9 @@ namespace NMib::NProcess
 		EExecutionPriority fg_Process_GetPriority();
 		void fg_Process_SetPriority(EExecutionPriority _Priority);
 
-		NContainer::TCVector<NProcess::CProcessInfo> fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet = NProcess::EProcessInfoFlag_None, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum = nullptr);
+		auto fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet = NProcess::EProcessInfoFlag_None, NContainer::TCVector<NProcess::CProcessInfo> *_pOldEnum = nullptr)
+			-> NContainer::TCVector<NProcess::CProcessInfo>
+		;
 
 		void fg_Process_GetMemoryCurrentStatistics(void *_pProcess, NProcess::CProcessStatistics &_Stats);
 		void fg_Process_GetMemoryOverallStatistics(void *_pProcess, NProcess::CProcessStatistics &_Stats);
@@ -152,12 +153,7 @@ namespace NMib::NProcess
 		void *fg_Process_StdInReader_Open(NMib::NProcess::CStdInReaderParams &&_Params);
 		void fg_Process_StdInReader_Close(void *_pStdInReader);
 
-		auto fg_Process_StdInReader_RegisterScreenChange
-			(
-				NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange
-			)
-			-> NMib::COnScopeExitShared
-		;
+		auto fg_Process_StdInReader_RegisterScreenChange(NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange) -> NMib::COnScopeExitShared;
 
 		void *fg_ProcessLaunch_Open(NMib::NProcess::CProcessLaunchParams const &_Params);
 		void fg_ProcessLaunch_Start(void *_pLaunch, NMib::NProcess::EProcessLaunchCloseFlag _DestructFlags);
@@ -190,13 +186,13 @@ namespace NMib::NProcess
 
 		NMib::NProcess::EProcessElevation fg_Process_GetElevation();
 
-		void fg_Process_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params);
+		void fg_Process_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params);
 		void fg_Process_DeRegisterURLHandler(NMib::NStr::CStr const &_Protocol);
 
 		// If a platform requires a user identifiable name for a startup entry _Name will be used.
 		// If _Name is empty the registered name of the application is used.
-		void fg_Process_RegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name = NMib::NStr::CStr());
-		void fg_Process_DeRegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name = NMib::NStr::CStr());
+		void fg_Process_RegisterAtStartup(NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const &_Name = NMib::NStr::CStr());
+		void fg_Process_DeRegisterAtStartup(NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const &_Name = NMib::NStr::CStr());
 
 		void fg_Process_GetVersionInfo(NMib::NStr::CStr const &_File, NProcess::CVersionInfo &_VersionInfo);
 

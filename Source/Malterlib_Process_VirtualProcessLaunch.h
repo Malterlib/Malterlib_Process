@@ -28,6 +28,7 @@ namespace NMib::NProcess
 		{
 			return CProcessStatistics();
 		}
+
 		virtual CProcessStatistics f_GetMemoryStatistics() const
 		{
 			return CProcessStatistics();
@@ -37,16 +38,17 @@ namespace NMib::NProcess
 		{
 			return CProcessStatistics();
 		}
+
 		virtual CProcessStatistics f_GetOverallMemoryStatistics() const
 		{
 			return CProcessStatistics();
 		}
-
 	};
 
 	class CVirtualProcessLaunch_Default : public CVirtualProcessLaunch
 	{
 		CProcessLaunch m_Launch;
+
 		bool m_bCreatedProcessGroup;
 	public:
 		CVirtualProcessLaunch_Default(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags);
@@ -70,8 +72,10 @@ namespace NMib::NProcess
 		umint f_GetProcessID() const;
 	};
 
-	using FVirtualProcessLaunchFactory
-		= NFunction::TCFunction<NStorage::TCUniquePointer<CVirtualProcessLaunch> (CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags)>
+	using FVirtualProcessLaunchFactory = NFunction::TCFunction
+		<
+			NStorage::TCUniquePointer<CVirtualProcessLaunch> (CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags)
+		>
 	;
 
 	class CProcessLaunchHandler
@@ -81,9 +85,9 @@ namespace NMib::NProcess
 		{
 			enum class ECompletion : smint
 			{
-				mc_Running,
-				mc_Reported,
-				mc_CallbackFinished,
+				mc_Running
+				, mc_Reported
+				, mc_CallbackFinished
 			};
 
 			CProcessLaunchParams m_LaunchParams;
@@ -102,6 +106,7 @@ namespace NMib::NProcess
 				EProcessLaunchOutputType m_Type;
 				bool m_bBinary = false;
 			};
+
 			NContainer::TCLinkedList<CDelayedOutput> m_DelayedOutput;
 			void fp_Clear();
 
@@ -150,7 +155,6 @@ namespace NMib::NProcess
 		bool f_BlockOnExit(fp32 _Timeout = 0.0f, umint _nMaxRunning = 0, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
 		bool f_WaitForChange(fp32 _Timeout = 0.0f);
 		CLaunchInfo *f_GetFirstNotDone();
-
 	};
 }
 

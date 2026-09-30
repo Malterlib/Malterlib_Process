@@ -36,12 +36,7 @@ bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
 		NMib::NStr::CStr comm;
 		NMib::NStr::CStr state;
 
-		(
-			NMib::NStr::CStrPtr::CParse("{} ({}) {} ")
-			>> pid
-			>> comm
-			>> state
-		).f_Parse(Data, nParsed);
+		(NMib::NStr::CStrPtr::CParse("{} ({}) {} ") >> pid >> comm >> state).f_Parse(Data, nParsed);
 
 		if (nParsed != 3)
 			return false;
@@ -56,7 +51,6 @@ bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
 
 	return false;
 }
-
 
 NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemTag(int32 _MajorMax, int32 _MinorMax)
 {
@@ -84,12 +78,11 @@ NMib::NStr::CStr NMib::NProcess::NPlatform::fg_Process_GetOperatingSystemDescrip
 
 uint64 NMib::NProcess::NPlatform::fg_Process_GetPhysicalMemory()
 {
-    return uint64(sysconf(_SC_PHYS_PAGES)) * uint64(sysconf(_SC_PAGE_SIZE));
+	return uint64(sysconf(_SC_PHYS_PAGES)) * uint64(sysconf(_SC_PAGE_SIZE));
 }
 
 namespace
 {
-
 	struct CProcInfo
 	{
 		int32 m_ProcessID;
@@ -97,6 +90,7 @@ namespace
 		uint64 m_StartTime;
 		NMib::NStr::CStr m_Name;
 	};
+
 	NMib::NContainer::TCVector<CProcInfo> fg_Linux_Process_GetAllRunning()
 	{
 		NMib::NContainer::TCVector<CProcInfo> Return;
@@ -163,7 +157,8 @@ namespace
 						>> num_threads
 						>> itrealvalue
 						>> starttime
-					).f_Parse(Data, nParsed);
+					)
+					.f_Parse(Data, nParsed);
 
 					if (nParsed == 22)
 					{
@@ -173,7 +168,6 @@ namespace
 						New.m_StartTime = starttime;
 						New.m_Name = NMib::fg_Move(comm);
 					}
-
 				}
 				catch (NMib::NException::CException const &)
 				{
@@ -205,7 +199,6 @@ namespace
 		bool f_PauseTree();
 		~CProcessEntry();
 	};
-
 
 	CProcessEntry::~CProcessEntry()
 	{
@@ -344,7 +337,8 @@ namespace
 	}
 }
 
-NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> * _pOldEnum)
+auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGet, NContainer::TCVector<NProcess::CProcessInfo> *_pOldEnum)
+	-> NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo>
 {
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
 
@@ -353,9 +347,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 	if (_pOldEnum)
 	{
 		for (auto iOld = _pOldEnum->f_GetIterator(); iOld; ++iOld)
-		{
 			OldInfo[iOld->m_ProcessID] = &*iOld;
-		}
 	}
 
 	NException::CDisableExceptionTraceScope DisableTrace;

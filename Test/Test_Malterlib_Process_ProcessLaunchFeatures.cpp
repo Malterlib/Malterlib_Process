@@ -29,7 +29,6 @@ namespace
 	class CProcessLaunchFeatures_Tests : public CTest
 	{
 	public:
-
 		CProcessLaunchFeatures_Tests()
 		{
 		}
@@ -384,7 +383,7 @@ namespace
 						CFile::fs_CreateDirectory(HomeDir);
 	#ifdef DPlatformFamily_macOS
 						// Workaround flaky API
-						for (umint iRetry = 0; ; ++iRetry)
+						for (umint iRetry = 0;; ++iRetry)
 						{
 							if (iRetry == 10)
 							{
@@ -410,17 +409,7 @@ namespace
 	#endif
 
 						CStr CreatedUID;
-						fg_UserManagement_CreateUser
-							(
-								TestGroup
-								, TestUser
-								, TestPassword
-								, "Test FullName"
-								, HomeDir
-								, CreatedUID
-								, NMib::NSys::EUserManagementCreateUserFlag_None
-							)
-						;
+						fg_UserManagement_CreateUser(TestGroup, TestUser, TestPassword, "Test FullName", HomeDir, CreatedUID, NMib::NSys::EUserManagementCreateUserFlag_None);
 
 						CFile::fs_SetOwner(HomeDir, TestUser);
 
@@ -467,7 +456,6 @@ namespace
 				{
 					TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
 					RecursiveLaunchParams.f_Insert(fs_GetTestGroups());
-
 
 					{
 						DMibTestPath("Without Priority");

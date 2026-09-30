@@ -52,14 +52,7 @@ namespace NMib::NProcess
 
 		struct CSimpleLaunch : public CLaunch
 		{
-			CSimpleLaunch
-				(
-					NStr::CStr const &_Executable
-					, NContainer::TCVector<NStr::CStr> const &_Params
-					, NStr::CStr const &_WorkingDir
-					, ESimpleLaunchFlag _Flags
-				)
-			;
+			CSimpleLaunch(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params, NStr::CStr const &_WorkingDir, ESimpleLaunchFlag _Flags);
 			CSimpleLaunch(CProcessLaunchParams const &_Params, ESimpleLaunchFlag _Flags);
 
 			ESimpleLaunchFlag m_SimpleFlags = ESimpleLaunchFlag_None;
@@ -79,12 +72,7 @@ namespace NMib::NProcess
 		CProcessLaunchActor();
 		~CProcessLaunchActor();
 
-		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Launch
-			(
-				CLaunch _Launch
-				, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor
-			)
-		;
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Launch(CLaunch _Launch, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor);
 
 		NConcurrency::TCFuture<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch _SimpleLaunch);
 

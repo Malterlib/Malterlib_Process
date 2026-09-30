@@ -50,8 +50,8 @@ extern "C"
 
 extern "C"
 {
-	int posix_spawnattr_set_uid_np(const posix_spawnattr_t * __restrict, uid_t) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
-	int posix_spawnattr_set_gid_np(const posix_spawnattr_t * __restrict, gid_t) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
+	int posix_spawnattr_set_uid_np(posix_spawnattr_t const *__restrict, uid_t) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
+	int posix_spawnattr_set_gid_np(posix_spawnattr_t const *__restrict, gid_t) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
 }
 #endif
 
@@ -62,7 +62,7 @@ extern "C"
 #ifdef DPlatformFamily_Linux
 namespace NLocal
 {
-	extern int (* g_f_posix_spawn_file_actions_addchdir_np)(posix_spawn_file_actions_t *__restrict __actions, const char *__restrict __path) __THROW __nonnull ((1, 2));
+	extern int (*g_f_posix_spawn_file_actions_addchdir_np)(posix_spawn_file_actions_t * __restrict __actions, char const * __restrict __path) __THROW __nonnull((1, 2));
 }
 #endif
 
@@ -153,7 +153,7 @@ namespace NMib::NProcess::NPlatform
 			}
 			else
 			{
-				_Dest.m_Statistics("CPU time Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
+				_Dest.m_Statistics("CPU time Total", CProcessStat(EProcessStatUnit_Seconds, UserTime + SystemTime, 0.001));
 				_Dest.m_Statistics("CPU time User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
 				_Dest.m_Statistics("CPU time Kernel", CProcessStat(EProcessStatUnit_Seconds, SystemTime, 0.001));
 			}
@@ -161,7 +161,6 @@ namespace NMib::NProcess::NPlatform
 			auto ContextSwitches = _Info.ru_nvcsw + _Info.ru_nivcsw;
 			if (ContextSwitches)
 				_Dest.m_Statistics("Context switches", CProcessStat(EProcessStatUnit_GeneralNumber, ContextSwitches, 1, "times"));
-
 		}
 
 #ifdef DPlatformFamily_macOS
@@ -189,7 +188,7 @@ namespace NMib::NProcess::NPlatform
 			}
 			else
 			{
-				_Dest.m_Statistics("CPU time Total", CProcessStat(EProcessStatUnit_Seconds, UserTime+SystemTime, 0.001));
+				_Dest.m_Statistics("CPU time Total", CProcessStat(EProcessStatUnit_Seconds, UserTime + SystemTime, 0.001));
 				_Dest.m_Statistics("CPU time User", CProcessStat(EProcessStatUnit_Seconds, UserTime, 0.001));
 				_Dest.m_Statistics("CPU time Kernel", CProcessStat(EProcessStatUnit_Seconds, SystemTime, 0.001));
 			}
@@ -220,7 +219,8 @@ namespace NMib::NProcess::NPlatform
 
 	constinit TCSubSystem<CSubSystem_Process_Platform_POSIX_Launch, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_Launch = {DAggregateInit};
 
-	NStr::CStr fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths, NStr::CStr const &_LocalPaths)
+	auto fg_FindExecutable(NStr::CStr const &_Path, bool _bAllowLocate, NMib::NFile::EFileAttrib _Type, NContainer::TCVector<NStr::CStr> const &_ExtraPaths, NStr::CStr const &_LocalPaths)
+		-> NStr::CStr
 	{
 		auto fExistsAndHasRightAttribs = [&](NStr::CStr const &_Path)
 			{
@@ -279,7 +279,6 @@ namespace NMib::NProcess::NPlatform
 	{
 		return fg_FindExecutable(_Path, _bAllowLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, {});
 	}
-
 
 	CPOSIXLaunchContext::CPOSIXLaunchContext()
 		: mp_bStarted(false)
@@ -353,7 +352,7 @@ namespace NMib::NProcess::NPlatform
 	bool CPOSIXLaunchContext::f_RedirectStdInWrite(int &_Pipe, NMib::NStr::CStr &_Errors)
 	{
 		if (mp_hStdinWrite != -1)
-			fp_DestroyPipe(mp_hStdinWrite );
+			fp_DestroyPipe(mp_hStdinWrite);
 		{
 			DMibLock(mp_PipeLock);
 			mp_hStdinWrite = dup(_Pipe);
@@ -417,16 +416,7 @@ namespace NMib::NProcess::NPlatform
 	}
 #endif
 
-	bool CPOSIXLaunchContext::fp_LaunchChild
-		(
-			int &_hStdOutRead
-			, int &_hStdOutWrite
-			, int &_hStdInRead
-			, int &_hStdInWrite
-			, int &_hStdErrRead
-			, int &_hStdErrWrite
-			, NStr::CStr &_Errors
-		)
+	bool CPOSIXLaunchContext::fp_LaunchChild(int &_hStdOutRead, int &_hStdOutWrite, int &_hStdInRead, int &_hStdInWrite, int &_hStdErrRead, int &_hStdErrWrite, NStr::CStr &_Errors)
 	{
 		NStr::CStr Program = mp_LastLaunchOptions.m_Target;
 
@@ -435,23 +425,18 @@ namespace NMib::NProcess::NPlatform
 		if (mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_Document || mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_URL)
 		{
 			if (!fg_Linux_LaunchDocumentOrURL(mp_LastLaunchOptions, Program, _Errors))
-			{
 				return false;
-			}
 		}
 		else if (mp_LastLaunchOptions.m_Elevation == NProcess::EProcessLaunchElevation_Elevate)
 		{
 			if (!fg_Linux_LaunchExecutableWithRoot(this, mp_LastLaunchOptions, Program, _hStdErrRead, _hStdErrWrite, _hStdInRead, _hStdInWrite, _Errors))
-			{
 				return false;
-			}
 		}
 #endif
 
 #ifndef DPlatformFamily_Linux
 		if (mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_Document || mp_LastLaunchOptions.m_LaunchType == NProcess::EProcessLaunchType_URL)
 		{
-
 			if (mp_LastLaunchOptions.m_bSandboxed)
 			{
 				_Errors += "Launching sandboxed not supported for document/URL launches implemented\n";
@@ -460,9 +445,7 @@ namespace NMib::NProcess::NPlatform
 
 #ifdef DPlatformFamily_macOS
 			if (mp_LastLaunchOptions.m_Operation == "open folder")
-			{
 				return fg_MacOS_LaunchFinder(mp_LastLaunchOptions, mp_ProcessID, _Errors);
-			}
 
 			bool bRet = fg_MacOS_LaunchDocument(mp_LastLaunchOptions, mp_ProcessID, _Errors);
 			return bRet;
@@ -497,7 +480,6 @@ namespace NMib::NProcess::NPlatform
 				fp_DestroyPipe(_hStdOutWrite);
 			}
 
-
 			return bRetVal;
 #else
 			_Errors += "Launching elevated is not implemented" DMibNewLine;
@@ -516,7 +498,6 @@ namespace NMib::NProcess::NPlatform
 		}
 		else
 		{
-
 			NStr::CStr LocalPaths;
 			if (auto pPath = mp_LastLaunchOptions.m_Environment.f_FindEqual("PATH"))
 				LocalPaths = *pPath;
@@ -541,7 +522,15 @@ namespace NMib::NProcess::NPlatform
 					}
 				}
 
-				Program = fg_FindExecutable(OriginalProgram, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
+				Program = fg_FindExecutable
+					(
+						OriginalProgram
+						, mp_LastLaunchOptions.m_bAllowExecutableLocate
+						, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable
+						, {}
+						, LocalPaths
+					)
+				;
 #else
 				Program = fg_FindExecutable(Program, mp_LastLaunchOptions.m_bAllowExecutableLocate, NMib::NFile::EFileAttrib_File | NMib::NFile::EFileAttrib_Executable, {}, LocalPaths);
 #endif
@@ -597,11 +586,9 @@ namespace NMib::NProcess::NPlatform
 				return false;
 			}
 
-
 			NStr::CStr Chroot;
 
-			auto fl_ConvertChrootPath
-				= [&](NStr::CStr const &_Path) -> NStr::CStr
+			auto fl_ConvertChrootPath = [&](NStr::CStr const &_Path) -> NStr::CStr
 				{
 					NStr::CStr CanonicalPath = _Path;
 					if (Chroot.f_IsEmpty())
@@ -646,8 +633,8 @@ namespace NMib::NProcess::NPlatform
 			}
 #endif
 
-			bool bNeedsTwoPhaseSpawn =
-				(!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() && mp_LastLaunchOptions.m_WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory() && !bCanSpawnChdir)
+			bool bNeedsTwoPhaseSpawn
+				= (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty() && mp_LastLaunchOptions.m_WorkingDirectory != NSys::NFile::fg_GetCurrentDirectory() && !bCanSpawnChdir)
 				|| mp_LastLaunchOptions.m_LaunchPriority != EExecutionPriority_Default
 				|| !mp_LastLaunchOptions.m_Limits.f_IsEmpty()
 				|| !Chroot.f_IsEmpty()
@@ -884,9 +871,7 @@ namespace NMib::NProcess::NPlatform
 			}
 
 			for (auto iEnv = FinalEnv.f_GetIterator(); iEnv; ++iEnv)
-			{
 				EnvList.f_Insert(Env.f_Insert(NStr::CStr(NStr::CStr::CFormat("{}={}") << iEnv.f_GetKey() << *iEnv)).f_GetStrUniqueWritable());
-			}
 
 			EnvList.f_Insert((ch8 *)nullptr);
 
@@ -894,7 +879,7 @@ namespace NMib::NProcess::NPlatform
 			{
 				try
 				{
-					auto fCallPosixSpawnApi = [&](auto &&_fFunction, ch8 const *_pFunctionName, ch8 const *_pParams, auto &&...p_Params)
+					auto fCallPosixSpawnApi = [&](auto &&_fFunction, ch8 const *_pFunctionName, ch8 const *_pParams, auto && ...p_Params)
 						{
 							using namespace NStr;
 							int ErrNo = _fFunction(p_Params...);
@@ -1007,16 +992,7 @@ namespace NMib::NProcess::NPlatform
 							int RelativePriority = 0;
 							auto QosClass = NMib::NPlatform::fg_PriorityToQualityOfService(mp_LastLaunchOptions.m_LaunchPriority, RelativePriority);
 							if (QosClass == QOS_CLASS_UTILITY || QosClass == QOS_CLASS_BACKGROUND)
-							{
-								DCallPosixSpawnApi
-									(
-										posix_spawnattr_set_qos_class_np
-										, ""
-										, &SpawnAttributes
-										, QosClass
-									)
-								;
-							}
+								DCallPosixSpawnApi(posix_spawnattr_set_qos_class_np, "", &SpawnAttributes, QosClass);
 						}
 					}
 #endif
@@ -1157,7 +1133,16 @@ namespace NMib::NProcess::NPlatform
 								if (setrlimit(RLimit, &Limits))
 								{
 									int ErrNo = errno;
-									DMibConErrOut("{}{\n}", NMib::NPlatform::fg_FormatErrno(NStr::CStr::CFormat("setrlimit({}, {{{}, {}}) when setting limits in forked process") << RLimit << Limits.rlim_cur << Limits.rlim_max, ErrNo));
+									DMibConErrOut
+										(
+											"{}{\n}"
+											, NMib::NPlatform::fg_FormatErrno
+											(
+												NStr::CStr::CFormat("setrlimit({}, {{{}, {}}) when setting limits in forked process") << RLimit << Limits.rlim_cur << Limits.rlim_max
+												, ErrNo
+											)
+										)
+									;
 									NMib::NSys::fg_TerminateProcess(67);
 								}
 							}
@@ -1284,16 +1269,15 @@ namespace NMib::NProcess::NPlatform
 
 	bool CPOSIXLaunchContext::fp_DoStart(NStr::CStr &_Errors)
 	{
-
 		fp_Close();
 		bool bOK = false;
 
-		int hStdoutRead;				// parent stdout read int
-		int hStdoutWrite;	// child stdout write int
-		int hStderrRead;				// parent stdout read int
-		int hStderrWrite;	// child stdout write int
-		int hStdinWrite;				// parent stdin write int
-		int hStdinRead;					// child stdin read int
+		int hStdoutRead; // parent stdout read int
+		int hStdoutWrite; // child stdout write int
+		int hStderrRead; // parent stdout read int
+		int hStderrWrite; // child stdout write int
+		int hStdinWrite; // parent stdin write int
+		int hStdinRead; // child stdin read int
 
 		hStdoutRead = -1;
 		hStdoutWrite = -1;
@@ -1307,7 +1291,6 @@ namespace NMib::NProcess::NPlatform
 			// Create a child stdout pipe.
 			if (mp_LastLaunchOptions.m_bEnableStdRedirection)
 			{
-
 				if (!fg_CreatePipe(hStdoutRead, hStdoutWrite))
 				{
 					int ErrNo = errno;
@@ -1335,7 +1318,6 @@ namespace NMib::NProcess::NPlatform
 					_Errors += "\n";
 					break;
 				}
-
 			}
 			else
 			{
@@ -1385,8 +1367,7 @@ namespace NMib::NProcess::NPlatform
 	void CPOSIXLaunchContext::fp_RedirectOutput(bool _bWaitForEOF)
 	{
 //				DMibScopeConOutTimeMeasure("fp_RedirectOutput");
-		auto fl_Read
-			= [&](int _FileDes, EProcessLaunchOutputType _OutputType) -> bool
+		auto fl_Read = [&](int _FileDes, EProcessLaunchOutputType _OutputType) -> bool
 			{
 				bool bEndOfFile = false;
 				while (1)
@@ -1494,7 +1475,6 @@ namespace NMib::NProcess::NPlatform
 						bStdErrEof = true;
 				}
 			}
-
 		}
 		else
 		{
@@ -1604,9 +1584,7 @@ namespace NMib::NProcess::NPlatform
 		int ExitCode = 255;
 
 		if (mp_ProcessID.f_Load() == -1)
-		{
 			bExited = true;
-		}
 		else
 		{
 			if (mp_LastLaunchOptions.m_CPUUsage != 0.0 && mp_LastLaunchOptions.m_CPUUsage != 1.0)
@@ -1828,9 +1806,7 @@ namespace NMib::NProcess::NPlatform
 		if (bExited)
 		{
 			if (mp_LastLaunchOptions.m_fOnStateChange)
-			{
 				fp_OnExit(ExitCode);
-			}
 		}
 		fp_Close();
 		return 0;
@@ -2074,7 +2050,6 @@ namespace NMib::NProcess::NPlatform
 		return mp_bOverallStatsAvailable.f_Load();
 	}
 
-
 	void CPOSIXLaunchContext::fp_UpdateOverallStats
 		(
 			rusage const &_RUsage
@@ -2194,7 +2169,6 @@ umint NMib::NProcess::NPlatform::fg_ProcessLaunch_GetID(void *_pLaunch)
 
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetExecutionStatistics(void *_pLaunch)
 {
-
 	CProcessStatistics Stats;
 
 #ifdef DPlatformFamily_macOS
@@ -2225,7 +2199,6 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 
 NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_GetMemoryStatistics(void *_pLaunch)
 {
-
 	NMib::NProcess::CProcessStatistics Stats;
 
 #ifdef DPlatformFamily_macOS
@@ -2264,7 +2237,6 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
 	return pLaunch->f_OverallMemoryStatistics();
 }
-
 
 void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
@@ -2317,7 +2289,6 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 #endif
 }
 
-
 void NMib::NProcess::NPlatform::fg_Process_GetMemoryOverallStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
 }
@@ -2347,7 +2318,7 @@ void NMib::NProcess::NPlatform::fg_ProcessLaunch_CancelAll()
 	}
 }
 
-void NMib::NProcess::NPlatform::fg_Process_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params)
+void NMib::NProcess::NPlatform::fg_Process_RegisterURLHandler(NMib::NStr::CStr const &_Protocol, NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params)
 {
 	#ifdef DPlatformFamily_macOS
 		NPlatform::fg_MacOS_RegisterURLHandler(_Protocol, _ExePath, _Params);
@@ -2365,7 +2336,7 @@ void NMib::NProcess::NPlatform::fg_Process_DeRegisterURLHandler(NMib::NStr::CStr
 	#endif
 }
 
-void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name)
+void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const &_Name)
 {
 	#ifdef DPlatformFamily_macOS
 		NPlatform::fg_MacOS_Process_RegisterAtStartup(_ExePath, _Params, _Name);
@@ -2375,7 +2346,7 @@ void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr co
 	// DMibPDebugBreak; // Not implemented
 }
 
-void NMib::NProcess::NPlatform::fg_Process_DeRegisterAtStartup(NMib::NStr::CStr const& _ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const& _Name)
+void NMib::NProcess::NPlatform::fg_Process_DeRegisterAtStartup(NMib::NStr::CStr const &_ExePath, NMib::NStr::CStr const &_Params, NMib::NStr::CStr const &_Name)
 {
 	#ifdef DPlatformFamily_macOS
 		NPlatform::fg_MacOS_Process_DeRegisterAtStartup(_ExePath, _Params, _Name);
