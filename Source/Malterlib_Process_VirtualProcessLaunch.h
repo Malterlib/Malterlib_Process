@@ -17,6 +17,7 @@ namespace NMib::NProcess
 		virtual EProcessLaunchCloseFlag f_GetCloseFlags() const = 0;
 		virtual void f_Close(EProcessLaunchCloseFlag _CloseFlags) = 0;
 		virtual void f_StopProcess() const = 0;
+		virtual void f_StopProcessGroup() const;
 		virtual bool f_IsOpen() const = 0;
 		virtual bool f_IsRunning() const = 0;
 		virtual void f_SendStdIn(NMib::NStr::CStrIO const &_Data) const = 0;
@@ -46,6 +47,7 @@ namespace NMib::NProcess
 	class CVirtualProcessLaunch_Default : public CVirtualProcessLaunch
 	{
 		CProcessLaunch m_Launch;
+		bool m_bCreatedProcessGroup;
 	public:
 		CVirtualProcessLaunch_Default(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags);
 		~CVirtualProcessLaunch_Default();
@@ -54,6 +56,7 @@ namespace NMib::NProcess
 		EProcessLaunchCloseFlag f_GetCloseFlags() const override;
 		void f_Close(EProcessLaunchCloseFlag _CloseFlags) override;
 		void f_StopProcess() const override;
+		void f_StopProcessGroup() const override;
 		bool f_IsOpen() const override;
 		bool f_IsRunning() const override;
 		void f_SendStdIn(NMib::NStr::CStrIO const &_Data) const override;
@@ -133,8 +136,14 @@ namespace NMib::NProcess
 
 		CLaunchInfo *f_AddLaunch(CProcessLaunchParams const &_Params, bool _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory = FVirtualProcessLaunchFactory());
 
-		void f_TerminateAll(bool _bBlock = false, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
-		void f_StopAll();
+		void f_TerminateAll
+			(
+				bool _bBlock = false
+				, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr
+				, EProcessLaunchCloseFlag _Termination = EProcessLaunchCloseFlag_TerminateProcess
+			)
+		;
+		void f_StopAll(bool _bProcessGroups = false);
 		void f_ReapCompleted();
 		bool f_BlockOnExit(fp32 _Timeout = 0.0f, umint _nMaxRunning = 0, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
 		bool f_WaitForChange(fp32 _Timeout = 0.0f);

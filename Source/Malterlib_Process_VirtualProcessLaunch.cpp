@@ -10,6 +10,12 @@ namespace NMib::NProcess
 	{
 	}
 
+	// Stops the process group of a launch made with m_bCreateNewProcessGroup. A launch without process groups stops the process
+	void CVirtualProcessLaunch::f_StopProcessGroup() const
+	{
+		f_StopProcess();
+	}
+
 	bool CProcessLaunchHandler::CLaunchInfo::fp_Lingering() const
 	{
 		if (m_pProcessLaunch)
@@ -141,7 +147,8 @@ namespace NMib::NProcess
 		return pInfo;
 	}
 
-	void CProcessLaunchHandler::f_TerminateAll(bool _bBlock, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats)
+	// _Termination is EProcessLaunchCloseFlag_TerminateProcess or EProcessLaunchCloseFlag_TerminateProcessTree
+	void CProcessLaunchHandler::f_TerminateAll(bool _bBlock, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats, EProcessLaunchCloseFlag _Termination)
 	{
 		for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
 		{
@@ -150,12 +157,13 @@ namespace NMib::NProcess
 				if (o_pMemoryStats)
 					o_pMemoryStats->f_Insert(Iter->m_pProcessLaunch->f_GetOverallMemoryStatistics());
 
-				Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_TerminateProcess | (_bBlock ? EProcessLaunchCloseFlag_BlockOnExit : EProcessLaunchCloseFlag_LingerUntilDone));
+				Iter->m_pProcessLaunch->f_Close(_Termination | (_bBlock ? EProcessLaunchCloseFlag_BlockOnExit : EProcessLaunchCloseFlag_LingerUntilDone));
 			}
 		}
 	}
 
-	void CProcessLaunchHandler::f_StopAll()
+	// _bProcessGroups also stops what the launches started, for launches made with m_bCreateNewProcessGroup
+	void CProcessLaunchHandler::f_StopAll(bool _bProcessGroups)
 	{
 		NException::CDisableExceptionTraceScope DisableExceptionTrace;
 		for (auto &Launch : m_Launches)
@@ -164,7 +172,10 @@ namespace NMib::NProcess
 				continue;
 			try
 			{
-				Launch.m_pProcessLaunch->f_StopProcess();
+				if (_bProcessGroups)
+					Launch.m_pProcessLaunch->f_StopProcessGroup();
+				else
+					Launch.m_pProcessLaunch->f_StopProcess();
 			}
 			catch (NException::CException const &)
 			{
@@ -255,6 +266,7 @@ namespace NMib::NProcess
 
 	CVirtualProcessLaunch_Default::CVirtualProcessLaunch_Default(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags)
 		: m_Launch(_Params, _DestructFlags)
+		, m_bCreatedProcessGroup(_Params.m_bCreateNewProcessGroup)
 	{
 	}
 
@@ -264,6 +276,7 @@ namespace NMib::NProcess
 
 	CVirtualProcessLaunch_Default::CVirtualProcessLaunch_Default(CVirtualProcessLaunch_Default &&_Other)
 		: m_Launch(fg_Move(_Other.m_Launch))
+		, m_bCreatedProcessGroup(_Other.m_bCreatedProcessGroup)
 	{
 	}
 
@@ -281,6 +294,14 @@ namespace NMib::NProcess
 	void CVirtualProcessLaunch_Default::f_StopProcess() const
 	{
 		return m_Launch.f_StopProcess();
+	}
+
+	void CVirtualProcessLaunch_Default::f_StopProcessGroup() const
+	{
+		if (!m_bCreatedProcessGroup)
+			return m_Launch.f_StopProcess();
+
+		return m_Launch.f_StopProcessGroup();
 	}
 
 	bool CVirtualProcessLaunch_Default::f_IsOpen() const
