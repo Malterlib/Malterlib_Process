@@ -97,8 +97,10 @@ namespace NMib::NProcess
 			NThread::CMutual m_DelayedOutputLock;
 			struct CDelayedOutput
 			{
-				EProcessLaunchOutputType m_Type;
+				NContainer::CIOByteVector m_BinaryOutput;
 				NStr::CStr m_Output;
+				EProcessLaunchOutputType m_Type;
+				bool m_bBinary = false;
 			};
 			NContainer::TCLinkedList<CDelayedOutput> m_DelayedOutput;
 			void fp_Clear();

@@ -25,6 +25,7 @@ namespace NMib::NProcess
 		NStorage::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
 		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CProcessLaunchStateChangeVariant _State, fp64 _TimeSinceStart)> m_fOnStateChange;
 		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr _Output)> m_fOnOutput;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector _Output)> m_fOnOutputBinary;
 
 		struct CPendingStop
 		{
@@ -112,6 +113,7 @@ namespace NMib::NProcess
 
 			fg_Move(Internal.m_fOnStateChange).f_Destroy().f_DiscardResult();
 			fg_Move(Internal.m_fOnOutput).f_Destroy().f_DiscardResult();
+			fg_Move(Internal.m_fOnOutputBinary).f_Destroy().f_DiscardResult();
 			Internal.m_PendingProcessStops.f_Clear();
 			co_return {};
 		}
@@ -381,6 +383,23 @@ namespace NMib::NProcess
 				f_ProcessOutput(EProcessLaunchOutputType_StdErr, true);
 				f_ProcessOutput(EProcessLaunchOutputType_GeneralError, true);
 				f_ProcessOutput(EProcessLaunchOutputType_TerminateMessage, true);
+			}
+
+			// Passed on as read, without the filtering, whole line buffering and logging of f_ProcessOutput, which work on text
+			void f_DispatchBinaryOutput(EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)
+			{
+				auto ThisActor = m_ThisWeak.f_Lock();
+				if (!ThisActor)
+					return; // Already deleted
+
+				NConcurrency::g_Dispatch(ThisActor) / [pThis = m_pThis, _OutputType, Output = _Output]() mutable
+					{
+						auto &Internal = *pThis->mp_pInternal;
+						if (Internal.m_fOnOutputBinary)
+							Internal.m_fOnOutputBinary.f_CallDiscard(_OutputType, fg_Move(Output));
+					}
+					> NConcurrency::g_DiscardResult
+				;
 			}
 
 			void f_ProcessOutput(EProcessLaunchOutputType _OutputType, bool _bFlush)
@@ -678,6 +697,24 @@ namespace NMib::NProcess
 			;
 		}
 
+		if (Params.m_fOnOutputBinary)
+		{
+			Internal.m_fOnOutputBinary = NConcurrency::g_ActorFunctorWeak(_CallbackActor) / [fOnOutputBinary = fg_Move(Params.m_fOnOutputBinary)]
+				(EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector _Output) -> NConcurrency::TCFuture<void>
+				{
+					fOnOutputBinary(_OutputType, _Output);
+
+					co_return {};
+				}
+			;
+
+			Params.m_fOnOutputBinary = [pState](EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)
+				{
+					pState->f_DispatchBinaryOutput(_OutputType, _Output);
+				}
+			;
+		}
+
 #if (DMibSysLogSeverities) != 0
 		if (pState->m_ToLog & ELogFlag_Info)
 		{
@@ -696,6 +733,9 @@ namespace NMib::NProcess
 
 					if (!Internal.m_fOnOutput.f_IsEmpty())
 						fg_Move(Internal.m_fOnOutput).f_Destroy() > Results;
+
+					if (!Internal.m_fOnOutputBinary.f_IsEmpty())
+						fg_Move(Internal.m_fOnOutputBinary).f_Destroy() > Results;
 
 					if (!Internal.m_fOnStateChange.f_IsEmpty())
 						fg_Move(Internal.m_fOnStateChange).f_Destroy() > Results;

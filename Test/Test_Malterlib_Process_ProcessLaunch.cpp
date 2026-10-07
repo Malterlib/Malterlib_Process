@@ -1518,6 +1518,88 @@ namespace
 			};
 		}
 
+		static NMib::NContainer::CIOByteVector fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType)
+		{
+			NMib::NContainer::CIOByteVector Output;
+			if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+			{
+				for (umint i = 0; i < 256; ++i)
+					Output.f_Insert(uint8(i));
+			}
+			else
+				Output.f_Insert((uint8 const *)"\0err\xff", 5);
+
+			return Output;
+		}
+
+		template <EProxyType t_ProxyType>
+		void f_TestBinaryOutput()
+		{
+			DMibTestSuite("Binary Output")
+			{
+				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+				{
+					NMib::NSys::fg_ConsoleOutputBinary(fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut));
+					NMib::NSys::fg_ConsoleErrorOutputBinary(fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr));
+					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
+				}
+				else
+				{
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
+					NMib::NContainer::CIOByteVector StdOut;
+					NMib::NContainer::CIOByteVector StdErr;
+					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
+					Params.m_Parameters = fs_GetTestPath(fg_TestGetCurrentPath(), "", "Null");
+
+					Params.m_bThreaded = true;
+					NMib::NThread::CMutual Lock;
+					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+						{
+							DMibLock(Lock);
+							switch (_State.f_GetTypeID())
+							{
+							case NMib::NProcess::EProcessLaunchState_Launched:
+								break;
+							case NMib::NProcess::EProcessLaunchState_Exited:
+								{
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
+								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+								{
+									Exited = EExitResult_NotLaunched;
+									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+								}
+								break;
+							}
+						}
+					;
+
+					Params.m_fOnOutputBinary = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NContainer::CIOByteVector const &_Output)
+						{
+							DMibLock(Lock);
+							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+								StdOut.f_Insert(_Output);
+							else
+								StdErr.f_Insert(_Output);
+						}
+					;
+
+					{
+						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+					}
+
+					DMibLock(Lock);
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibExpect(StdOut, ==, fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut));
+					DMibExpect(StdErr, ==, fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr));
+					DMibExpect(ExitCode.f_Load(), ==, m_ExitCode.f_Get());
+				}
+			};
+		}
+
 		template <EProxyType t_ProxyType>
 		void f_TestWebLaunch()
 		{
@@ -2135,6 +2217,7 @@ namespace
 					f_TestLimits<t_ProxyType>();
 #endif
 				f_TestStdOut<t_ProxyType>();
+				f_TestBinaryOutput<t_ProxyType>();
 				f_TestSimpleURLLaunch<t_ProxyType>();
 
 				if (t_ProxyType != EProxyType_None)

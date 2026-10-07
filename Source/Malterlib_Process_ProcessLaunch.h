@@ -184,6 +184,8 @@ namespace NMib::NProcess
 		NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
 
 		NFunction::TCFunction<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_fOnOutput;
+		// Stdout and stderr as read, in place of m_fOnOutput, which still gets the other output. Proxies carry output as text
+		NFunction::TCFunction<void (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)> m_fOnOutputBinary;
 		NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> m_fDispatcher;
 
 		static CProcessLaunchParams fs_LaunchDocument

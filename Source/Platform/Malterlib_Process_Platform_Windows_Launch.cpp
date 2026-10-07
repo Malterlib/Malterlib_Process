@@ -417,6 +417,7 @@ namespace NMib::NProcess::NPlatform
 		protected:
 			void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
 			void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
+			void fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, uint8 const *_pData, umint _Size);
 			void fp_OnExit(uint32 _ExitCode);
 			virtual bool f_DestroyThread() override;
 
@@ -2187,8 +2188,7 @@ namespace NMib::NProcess::NPlatform
 			CConsoleRedirector *pThis = (CConsoleRedirector *)lpOverlapped->hEvent;
 			if (dwNumberOfBytesTransfered)
 			{
-				NStr::CStr Temp((ch8 const *)lpOverlapped->Pointer, dwNumberOfBytesTransfered); // Assume UTF8
-				pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut, NStr::CStr(Temp));
+				pThis->fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut, (uint8 const *)lpOverlapped->Pointer, dwNumberOfBytesTransfered);
 			}
 
 			if
@@ -2230,8 +2230,7 @@ namespace NMib::NProcess::NPlatform
 			CConsoleRedirector *pThis = (CConsoleRedirector *)lpOverlapped->hEvent;
 			if (dwNumberOfBytesTransfered)
 			{
-				NStr::CStr Temp((ch8 const *)lpOverlapped->Pointer, dwNumberOfBytesTransfered);
-				pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr, NStr::CStr(Temp));
+				pThis->fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr, (uint8 const *)lpOverlapped->Pointer, dwNumberOfBytesTransfered);
 			}
 
 			if
@@ -2504,6 +2503,34 @@ namespace NMib::NProcess::NPlatform
 				else
 					mp_LastLaunchOptions.m_fOnOutput(_OutputType, _Output);
 			}
+		}
+
+		// Stdout and stderr as read: bytes for m_fOnOutputBinary, otherwise text assumed to be UTF-8
+		void CConsoleRedirector::fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, uint8 const *_pData, umint _Size)
+		{
+			if (!mp_LastLaunchOptions.m_fOnOutputBinary)
+			{
+				fp_OnOutput(_OutputType, NStr::CStr((ch8 const *)_pData, _Size));
+				return;
+			}
+
+			NContainer::CIOByteVector Output;
+			Output.f_Insert(_pData, _Size);
+
+			if (mp_LastLaunchOptions.m_fDispatcher)
+			{
+				NStorage::TCSharedPointer<CConsoleRedirector> pThis = fg_Explicit(this);
+				mp_LastLaunchOptions.m_fDispatcher
+					(
+						[_OutputType, Output = fg_Move(Output), pThis]()
+						{
+							pThis->mp_LastLaunchOptions.m_fOnOutputBinary(_OutputType, Output);
+						}
+					)
+				;
+			}
+			else
+				mp_LastLaunchOptions.m_fOnOutputBinary(_OutputType, Output);
 		}
 
 		void CConsoleRedirector::fp_OnExit(uint32 _ExitCode)

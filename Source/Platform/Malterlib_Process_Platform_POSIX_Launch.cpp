@@ -1413,10 +1413,18 @@ namespace NMib::NProcess::NPlatform
 						}
 						if (mp_LastLaunchOptions.m_bEnableStdRedirection)
 						{
-							NStr::CStr Temp;
-							Temp.f_AddStr((ch8 const *)Buffer, ReadBytes);
-							//DMibConOut("{}", Temp);
-							fp_OnOutput(_OutputType, Temp);
+							if (mp_LastLaunchOptions.m_fOnOutputBinary)
+							{
+								NContainer::CIOByteVector Output;
+								Output.f_Insert(Buffer, ReadBytes);
+								fp_OnOutputBinary(_OutputType, fg_Move(Output));
+							}
+							else
+							{
+								NStr::CStr Temp;
+								Temp.f_AddStr((ch8 const *)Buffer, ReadBytes);
+								fp_OnOutput(_OutputType, Temp);
+							}
 						}
 					}
 				}
@@ -1885,6 +1893,24 @@ namespace NMib::NProcess::NPlatform
 			else
 				mp_LastLaunchOptions.m_fOnOutput(_OutputType, _Output);
 		}
+	}
+
+	void CPOSIXLaunchContext::fp_OnOutputBinary(EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector &&_Output)
+	{
+		if (mp_LastLaunchOptions.m_fDispatcher)
+		{
+			NStorage::TCSharedPointer<CPOSIXLaunchContext> pThis = fg_Explicit(this);
+			mp_LastLaunchOptions.m_fDispatcher
+				(
+					[_OutputType, Output = fg_Move(_Output), pThis]()
+					{
+						pThis->mp_LastLaunchOptions.m_fOnOutputBinary(_OutputType, Output);
+					}
+				)
+			;
+		}
+		else
+			mp_LastLaunchOptions.m_fOnOutputBinary(_OutputType, _Output);
 	}
 
 	void CPOSIXLaunchContext::fp_OnExit(uint32 _ExitCode)

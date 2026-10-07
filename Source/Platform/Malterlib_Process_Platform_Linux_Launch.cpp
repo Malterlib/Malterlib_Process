@@ -181,8 +181,21 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 
 		NFunction::TCFunctionMovable<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
 		NFunction::TCFunctionMovable<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_fOnOutput;
+		NFunction::TCFunctionMovable<void (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)> m_fOnOutputBinary;
 
 		NMib::NThread::CMutual m_Lock;
+
+		void f_Output(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+		{
+			if (m_fOnOutputBinary && (_OutputType == EProcessLaunchOutputType_StdOut || _OutputType == EProcessLaunchOutputType_StdErr))
+			{
+				NContainer::CIOByteVector Output;
+				Output.f_Insert((uint8 const *)_Output.f_GetStr(), _Output.f_GetLen());
+				m_fOnOutputBinary(_OutputType, Output);
+			}
+			else if (m_fOnOutput)
+				m_fOnOutput(_OutputType, _Output);
+		}
 
 		void * m_pLaunchedProcess;
 	};
@@ -190,6 +203,9 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 	NStorage::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
 	pLaunchData->m_bReceivedPID = !o_Params.m_bStdOutPID;
 	pLaunchData->m_fOnOutput = fg_Move(o_Params.m_fOnOutput);
+	// The handshake reads the output as text, so the bytes passed on are those of the text
+	pLaunchData->m_fOnOutputBinary = fg_Move(o_Params.m_fOnOutputBinary);
+	o_Params.m_fOnOutputBinary.f_Clear();
 	pLaunchData->m_fOnStateChange = fg_Move(o_Params.m_fOnStateChange);
 	pLaunchData->m_StdInPipeName = fg_Move(InPipeName);
 	pLaunchData->m_pLaunchContext = _pLaunchContext;
@@ -286,10 +302,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 				return;
 
 			if (pLaunchData->m_bReceivedPID)
-			{
-				if (pLaunchData->m_fOnOutput)
-					pLaunchData->m_fOnOutput(_OutputType, _Output);
-			}
+				pLaunchData->f_Output(_OutputType, _Output);
 			else
 			{
 				if (_OutputType != EProcessLaunchOutputType_StdOut || pLaunchData->m_bFailed)
@@ -367,19 +380,14 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot(NMib::NProcess
 							if (pLaunchData->m_fOnStateChange)
 								pLaunchData->m_fOnStateChange(pLaunchData->m_pLaunchedProcess, 0.0);
 
-							if (!pLaunchData->m_QueuedStdOut.f_IsEmpty() && pLaunchData->m_fOnOutput)
+							if (!pLaunchData->m_QueuedStdOut.f_IsEmpty())
 							{
-								pLaunchData->m_fOnOutput(_OutputType, pLaunchData->m_QueuedStdOut);
+								pLaunchData->f_Output(_OutputType, pLaunchData->m_QueuedStdOut);
 								pLaunchData->m_QueuedStdOut.f_Clear();
 							}
 
-							if (pLaunchData->m_fOnOutput)
-							{
-								for (auto iOutput = pLaunchData->m_LaunchOutputs.f_GetIterator(); iOutput; ++iOutput)
-								{
-									pLaunchData->m_fOnOutput(iOutput->m_OutputType, iOutput->m_Output);
-								}
-							}
+							for (auto iOutput = pLaunchData->m_LaunchOutputs.f_GetIterator(); iOutput; ++iOutput)
+								pLaunchData->f_Output(iOutput->m_OutputType, iOutput->m_Output);
 
 							return ;
 						}

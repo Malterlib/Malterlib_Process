@@ -1317,6 +1317,14 @@ namespace NMib::NProcess
 				}
 			;
 
+			// Text output drops a read that starts with NUL, so stdout and stderr are sent as read
+			Params.m_fOnOutputBinary
+				= [pState](EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)
+				{
+					pState->f_SendStdOutput(_OutputType, NStr::CStr(NStr::CAllowNUL(), (ch8 const *)_Output.f_GetArray(), _Output.f_GetLen()));
+				}
+			;
+
 			Params.m_fDispatcher
 				= [pState](NFunction::TCFunction<void ()> const &_ToDispatch)
 				{
@@ -2077,6 +2085,29 @@ namespace NMib::NProcess
 			, NMib::NStr::CStr const &_Output
 		) const
 	{
+		// The server sends stdout and stderr as read, in a string that can hold any byte
+		if (m_Params.m_fOnOutputBinary && (_OutputType == EProcessLaunchOutputType_StdOut || _OutputType == EProcessLaunchOutputType_StdErr))
+		{
+			NContainer::CIOByteVector Output;
+			Output.f_Insert((uint8 const *)_Output.f_GetStr(), _Output.f_GetLen());
+
+			if (m_Params.m_fDispatcher)
+			{
+				m_Params.m_fDispatcher
+					(
+						[_pState, _OutputType, Output = fg_Move(Output)]
+						{
+							_pState->m_Params.m_fOnOutputBinary(_OutputType, Output);
+						}
+					)
+				;
+			}
+			else
+				m_Params.m_fOnOutputBinary(_OutputType, Output);
+
+			return;
+		}
+
 		if (m_Params.m_fOnOutput)
 		{
 			if (m_Params.m_fDispatcher)
@@ -2126,7 +2157,8 @@ namespace NMib::NProcess
 
 	void CProxiedLaunchServer::CInternal::CLaunchState::f_SendStdOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 	{
-		if (!_Output.f_IsEmpty())
+		// The output can start with NUL, which f_IsEmpty treats as the end of the string
+		if (_Output.f_GetLen() != 0)
 		{
 			NPrivate::CProcessLaunch_Output Message(m_LaunchID, _OutputType, _Output);
 

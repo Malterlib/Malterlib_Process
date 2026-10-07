@@ -65,6 +65,7 @@ namespace NMib::NProcess
 	{
 		m_LaunchParams.m_fDispatcher.f_Clear();
 		m_LaunchParams.m_fOnOutput.f_Clear();
+		m_LaunchParams.m_fOnOutputBinary.f_Clear();
 		m_LaunchParams.m_fOnStateChange.f_Clear();
 	}
 
@@ -88,11 +89,16 @@ namespace NMib::NProcess
 
 					if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited)
 					{
-						if (_bDelayOutput && pInfo->m_LaunchParams.m_fOnOutput)
+						if (_bDelayOutput)
 						{
 							DMibLock(pInfo->m_DelayedOutputLock);
 							for (auto &Delayed : pInfo->m_DelayedOutput)
-								pInfo->m_LaunchParams.m_fOnOutput(Delayed.m_Type, Delayed.m_Output);
+							{
+								if (Delayed.m_bBinary)
+									pInfo->m_LaunchParams.m_fOnOutputBinary(Delayed.m_Type, Delayed.m_BinaryOutput);
+								else
+									pInfo->m_LaunchParams.m_fOnOutput(Delayed.m_Type, Delayed.m_Output);
+							}
 						}
 					}
 
@@ -133,6 +139,26 @@ namespace NMib::NProcess
 						auto &Output = pInfo->m_DelayedOutput.f_Insert();
 						Output.m_Type = _OutputType;
 						Output.m_Output = _Output;
+					}
+				}
+			;
+		}
+
+		if (_bDelayOutput && _Params.m_fOnOutputBinary)
+		{
+			Params.m_fOnOutputBinary
+				= [pDestroyedNotification, pInfo](EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)
+				{
+					DMibLock(pDestroyedNotification->m_DestroyLock);
+					if (pDestroyedNotification->m_Destroyed.f_Load())
+						return; // No longer valid
+
+					{
+						DMibLock(pInfo->m_DelayedOutputLock);
+						auto &Output = pInfo->m_DelayedOutput.f_Insert();
+						Output.m_Type = _OutputType;
+						Output.m_BinaryOutput = _Output;
+						Output.m_bBinary = true;
 					}
 				}
 			;

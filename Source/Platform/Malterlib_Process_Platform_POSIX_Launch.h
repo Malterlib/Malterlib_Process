@@ -67,6 +67,7 @@ namespace NMib::NProcess::NPlatform
 	private:
 		void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
 		void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
+		void fp_OnOutputBinary(NMib::NProcess::EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector &&_Output);
 		void fp_OnExit(uint32 _ExitCode);
 		bool fp_DoStart(NStr::CStr &_Errors);
 		bool fp_LaunchChild
