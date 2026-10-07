@@ -1022,6 +1022,10 @@ namespace NMib::NProcess::NPlatform
 					if (NewFlags != PreviousFlags)
 						DCallPosixSpawnApi(posix_spawnattr_setflags, "", &SpawnAttributes, NewFlags);
 
+#ifdef DPlatformFamily_macOS
+					DCallPosixSpawnApi(NMib::NSys::fg_Mem_PrepareSpawnAttributes, "", &SpawnAttributes);
+#endif
+
 					auto pExecutable = ProgramToLaunch.f_GetStr();
 
 					pid_t Pid = -1;
