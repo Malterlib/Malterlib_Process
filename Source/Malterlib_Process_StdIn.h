@@ -12,6 +12,7 @@ namespace NMib::NProcess
 		EStdInReaderFlag_None = 0
 		, EStdInReaderFlag_Exclusive = DMibBit(0) // Set to gurantee exclusive input, otherwise several CStdInReader can be created and all will receive input
 		, EStdInReaderFlag_VirtualTerminalInput = DMibBit(2) // Set to receive terminal input as virtual terminal sequences on Windows consoles
+		, EStdInReaderFlag_LineInput = DMibBit(3) // Set to keep the line editing, echo and signals of a POSIX terminal while every reader sets it
 	};
 
 	enum EStdInReaderOutputType

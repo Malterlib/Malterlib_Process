@@ -284,6 +284,117 @@ namespace
 				DMibExpect(CurrentMode.c_cflag, ==, OriginalMode.c_cflag);
 #endif
 			};
+
+#ifndef DPlatformFamily_Windows
+			DMibTestSuite("LineInput")
+			{
+				if (!(NTest::fg_TestReportFlags() & NTest::ETestReportFlag_ProcessRecursive))
+				{
+					NStr::CStr Output;
+					NStr::CStr Error;
+					uint32 ExitCode = 1;
+					bool bLaunched = NProcess::CProcessLaunch::fs_LaunchBlock
+						(
+							NFile::CFile::fs_GetProgramPath()
+							, {"--test", NTest::fg_TestGetCurrentPath(), "--process-recursive"}
+							, Output, Error, ExitCode
+						)
+					;
+					DMibExpectTrue(bLaunched);
+					DMibExpect(ExitCode, ==, 0);
+					if (ExitCode)
+						DMibConErrOut("{}{}", Output, Error);
+
+					return;
+				}
+
+				int SavedInput = dup(0);
+				DMibAssert(SavedInput, >=, 0);
+				int Master = -1;
+				int Slave = -1;
+				auto RestoreInput = g_OnScopeExit / [&]
+					{
+						dup2(SavedInput, 0);
+						close(SavedInput);
+						if (Slave >= 0)
+							close(Slave);
+						if (Master >= 0)
+							close(Master);
+					}
+				;
+				Master = posix_openpt(O_RDWR | O_NOCTTY);
+				DMibAssert(Master, >=, 0);
+				DMibAssert(grantpt(Master), ==, 0);
+				DMibAssert(unlockpt(Master), ==, 0);
+				Slave = open(ptsname(Master), O_RDWR | O_NOCTTY);
+				DMibAssert(Slave, >=, 0);
+				DMibAssert(dup2(Slave, 0), ==, 0);
+				termios OriginalMode{};
+				DMibAssert(tcgetattr(0, &OriginalMode), ==, 0);
+				OriginalMode.c_lflag |= ICANON | ECHO | ISIG;
+				OriginalMode.c_iflag |= ICRNL;
+				DMibAssert(tcsetattr(0, TCSANOW, &OriginalMode), ==, 0);
+
+				CDeferredStdInLoop Loop;
+				auto *pOldLoop = NSys::fg_GetThreadIoLoop();
+				auto RestoreLoop = g_OnScopeExit / [&]
+					{
+						Loop.f_CompleteRemovals();
+						NSys::fg_SetThreadIoLoop(pOldLoop);
+					}
+				;
+				NSys::fg_SetThreadIoLoop(&Loop);
+
+				auto fParams = [](NProcess::EStdInReaderFlag _Flags)
+					{
+						auto Params = NProcess::CStdInReaderParams::fs_Create([](NProcess::EStdInReaderOutputType, NStr::CStr const &) {});
+						Params.m_Flags = _Flags;
+						return Params;
+					}
+				;
+				auto fCurrentMode = []
+					{
+						termios CurrentMode{};
+						DMibAssert(tcgetattr(0, &CurrentMode), ==, 0);
+						return CurrentMode;
+					}
+				;
+
+				NStorage::TCUniquePointer<NProcess::CStdInReader> LineReader = fg_Construct(fParams(NProcess::EStdInReaderFlag_LineInput));
+				{
+					DMibTestPath("Line");
+					termios CurrentMode = fCurrentMode();
+					DMibExpect(CurrentMode.c_lflag & (ICANON | ECHO | ISIG), ==, tcflag_t(ICANON | ECHO | ISIG));
+					DMibExpect(CurrentMode.c_iflag & ICRNL, ==, tcflag_t(ICRNL));
+				}
+
+				NStorage::TCUniquePointer<NProcess::CStdInReader> RawReader = fg_Construct(fParams(NProcess::EStdInReaderFlag_None));
+				{
+					DMibTestPath("RawWithAnotherReader");
+					termios CurrentMode = fCurrentMode();
+					DMibExpect(CurrentMode.c_lflag & (ICANON | ECHO | ISIG), ==, tcflag_t(0));
+					DMibExpect(CurrentMode.c_iflag & ICRNL, ==, tcflag_t(0));
+				}
+
+				RawReader.f_Clear();
+				{
+					DMibTestPath("LineAfterRemoval");
+					termios CurrentMode = fCurrentMode();
+					DMibExpect(CurrentMode.c_lflag & (ICANON | ECHO | ISIG), ==, tcflag_t(ICANON | ECHO | ISIG));
+					DMibExpect(CurrentMode.c_iflag & ICRNL, ==, tcflag_t(ICRNL));
+				}
+
+				LineReader.f_Clear();
+				Loop.f_CompleteRemovals();
+				{
+					DMibTestPath("Restored");
+					termios CurrentMode = fCurrentMode();
+					// Canonical-mode restoration may set the kernel-managed PENDIN flag.
+					DMibExpect(CurrentMode.c_lflag & ~PENDIN, ==, OriginalMode.c_lflag & ~PENDIN);
+					DMibExpect(CurrentMode.c_iflag, ==, OriginalMode.c_iflag);
+				}
+			};
+#endif
 		}
 	};
 

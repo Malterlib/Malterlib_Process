@@ -89,15 +89,8 @@ namespace NMib::NProcess::NPlatform
 
 			if (tcgetattr(0, &mp_OldSettings) >= 0)
 			{
-				auto NewSettings = mp_OldSettings;
-				// Emulate the behaviour of cfmakeraw() but without breaking NL
-				NewSettings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
-//				NewSettings.c_oflag &= ~OPOST;
-				NewSettings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-				NewSettings.c_cflag &= ~(CSIZE | PARENB);
-				NewSettings.c_cflag |= CS8;
-				tcsetattr(0, TCSANOW, &NewSettings);
 				mp_bOldSettingsSet = true;
+				f_UpdateTerminalMode();
 			}
 
 			mp_pRegistration = mp_pLoop->f_Register
@@ -109,6 +102,34 @@ namespace NMib::NProcess::NPlatform
 					, false
 				)
 			;
+		}
+
+		// Reapplies the terminal mode from the flags of all registered readers; must be called with the subsystem lock held
+		// whenever the reader set changes
+		void f_UpdateTerminalMode()
+		{
+			if (!mp_bOldSettingsSet || m_Readers.f_IsEmpty())
+				return;
+
+			bool bLineInput = true;
+			for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
+			{
+				if (!(iReader->m_pParams->m_Flags & EStdInReaderFlag_LineInput))
+					bLineInput = false;
+			}
+
+			auto NewSettings = mp_OldSettings;
+			if (!bLineInput)
+			{
+				// Emulate the behaviour of cfmakeraw() but without breaking NL
+				NewSettings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
+//				NewSettings.c_oflag &= ~OPOST;
+				NewSettings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+				NewSettings.c_cflag &= ~(CSIZE | PARENB);
+				NewSettings.c_cflag |= CS8;
+			}
+
+			tcsetattr(0, TCSANOW, &NewSettings);
 		}
 
 		// Transfers the registration to its closer; null when not registered.
@@ -312,6 +333,8 @@ namespace NMib::NProcess::NPlatform
 
 				SubSystem.m_bRegistrationPending = false;
 			}
+			else
+				pImp->f_UpdateTerminalMode();
 		}
 
 		if (!pToClose)
@@ -517,6 +540,8 @@ void *NMib::NProcess::NPlatform::fg_Process_StdInReader_Open(NMib::NProcess::CSt
 						else
 							pImp->f_Register();
 					}
+					else
+						pImp->f_UpdateTerminalMode();
 
 					return pReader.f_Detach();
 				}
