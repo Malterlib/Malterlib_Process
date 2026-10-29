@@ -105,7 +105,7 @@ namespace NMib::NProcess
 				{
 					Internal.f_Stop(EStop::mc_TerminateProcessTree);
 				}
-				catch (NException::CException const &_Exception)
+				catch ([[maybe_unused]] NException::CException const &_Exception)
 				{
 					DMibLogWithCategory(ProcessLaunch, Error, "Failed to terminate the process tree: {}", _Exception.f_GetErrorStr());
 				}
