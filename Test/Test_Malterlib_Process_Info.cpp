@@ -18,6 +18,19 @@ namespace
 
 		void f_DoTests()
 		{
+			DMibTestSuite("WaitForTermination")
+			{
+				// A process can install termination handlers one after another, as each command of a command line client does
+				umint nInstalled = 0;
+				for (umint i = 0; i < 3; ++i)
+				{
+					auto Handler = NMib::NProcess::NPlatform::fg_Process_WaitForTermination([] {});
+					if (Handler)
+						++nInstalled;
+				}
+				DMibExpect(nInstalled, ==, umint(3));
+			};
+
 			DMibTestSuite("VersionInfo")
 			{
 

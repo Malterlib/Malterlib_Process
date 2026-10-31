@@ -712,14 +712,28 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 	g_TerminationEvent.f_Destruct();
 }
 
-constinit static NMib::NStorage::TCAggregate<NMib::NFunction::TCFunction<void ()>> gs_TerminationFunction = {DAggregateInit};
+namespace
+{
+	// Lives until shutdown rather than per handler, as a process can install handlers one after another
+	struct CTerminationHandlerState : public NMib::CSubSystem
+	{
+		NMib::NThread::CLowLevelLock m_Lock;
+		NMib::NStorage::TCSharedPointer<NMib::NFunction::TCFunction<void ()>> m_pOnTerminate;
+	};
+
+	constinit NMib::TCSubSystem<CTerminationHandlerState, NMib::ESubSystemDestruction_BeforeMemoryManager> g_TerminationHandlerState = {DAggregateInit};
+}
 
 NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTermination(NFunction::TCFunction<void ()> &&_fOnTerminate)
 {
-	if (gs_TerminationFunction.f_IsConstructed())
-		DMibError("You can only install one wait for termination handler");
+	auto &State = *g_TerminationHandlerState;
+	{
+		DMibLock(State.m_Lock);
+		if (State.m_pOnTerminate)
+			DMibError("You can only install one wait for termination handler");
 
-	gs_TerminationFunction.f_Construct(fg_Move(_fOnTerminate));
+		State.m_pOnTerminate = fg_Construct(fg_Move(_fOnTerminate));
+	}
 
 	static PHANDLER_ROUTINE fHandler = [](DWORD _CtrlType) -> BOOL
 		{
@@ -727,7 +741,16 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 
 			if (_CtrlType == CTRL_C_EVENT || _CtrlType == CTRL_BREAK_EVENT)
 			{
-				(*gs_TerminationFunction)();
+				auto &State = *g_TerminationHandlerState;
+				NMib::NStorage::TCSharedPointer<NMib::NFunction::TCFunction<void ()>> pOnTerminate;
+				{
+					DMibLock(State.m_Lock);
+					pOnTerminate = State.m_pOnTerminate;
+				}
+
+				if (pOnTerminate)
+					(*pOnTerminate)();
+
 				return true;
 			}
 
@@ -742,7 +765,6 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 		)
 	;
 
-
 	return g_OnScopeExitShared / []
 		{
 			SetConsoleCtrlHandler
@@ -751,7 +773,10 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 					, false
 				)
 			;
-			gs_TerminationFunction.f_Destruct();
+
+			auto &State = *g_TerminationHandlerState;
+			DMibLock(State.m_Lock);
+			State.m_pOnTerminate.f_Clear();
 		}
 	;
 }
