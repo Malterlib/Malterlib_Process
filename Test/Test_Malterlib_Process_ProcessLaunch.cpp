@@ -490,11 +490,6 @@ namespace
 		template <EProxyType t_ProxyType>
 		void f_TestDocument()
 		{
-/*
-#ifdef DPlatformFamily_macOS
-			return;
-#endif
-*/
 			DMibTestSuite("Document")
 			{
 				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)

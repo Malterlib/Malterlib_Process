@@ -44,23 +44,23 @@ namespace NMib::NProcess
 	enum EProcessLimit
 	{
 		// Posix limits
-		EProcessLimit_CoreDumpSize				// RLIMIT_CPU			The largest size (in bytes) core file that may be created.
-		, EProcessLimit_CpuTime					// RLIMIT_CPU			The maximum amount of cpu time (in seconds) to be used by each process.
-		, EProcessLimit_DataSegment				// RLIMIT_DATA			The maximum size (in bytes) of the data segment for a process; this defines how far a program may extend its break with the sbrk(2) system call.
-		, EProcessLimit_FileSize				// RLIMIT_FSIZE			The largest size (in bytes) file that may be created.
-		, EProcessLimit_LockedMemory			// RLIMIT_MEMLOCK		The maximum size (in bytes) which a process may lock into memory using the mlock(2) function.
-		, EProcessLimit_OpenedFiles				// RLIMIT_NOFILE		The maximum number of open files for this process.
-		, EProcessLimit_Threads					// RLIMIT_NPROC			The maximum number of simultaneous processes for this user id.
-		, EProcessLimit_ResidentMemory			// RLIMIT_RSS			The maximum size (in bytes) to which a process's resident set size may grow.
-		, EProcessLimit_StackSize				// RLIMIT_STACK			The maximum size (in bytes) of the stack segment for a process
+		EProcessLimit_CoreDumpSize     // RLIMIT_CPU			The largest size (in bytes) core file that may be created.
+		, EProcessLimit_CpuTime        // RLIMIT_CPU			The maximum amount of cpu time (in seconds) to be used by each process.
+		, EProcessLimit_DataSegment    // RLIMIT_DATA    The maximum size (in bytes) of the data segment for a process, which limits how far sbrk(2) may extend its break.
+		, EProcessLimit_FileSize       // RLIMIT_FSIZE			The largest size (in bytes) file that may be created.
+		, EProcessLimit_LockedMemory   // RLIMIT_MEMLOCK		The maximum size (in bytes) which a process may lock into memory using the mlock(2) function.
+		, EProcessLimit_OpenedFiles    // RLIMIT_NOFILE		The maximum number of open files for this process.
+		, EProcessLimit_Threads        // RLIMIT_NPROC			The maximum number of simultaneous processes for this user id.
+		, EProcessLimit_ResidentMemory // RLIMIT_RSS			The maximum size (in bytes) to which a process's resident set size may grow.
+		, EProcessLimit_StackSize      // RLIMIT_STACK			The maximum size (in bytes) of the stack segment for a process
 
 		// Linux specific limits
-		, EProcessLimit_VirtualAddressSpace		// RLIMIT_AS			The maximum size of the process's virtual memory (address space) in bytes.
-		, EProcessLimit_MessageQueueSize		// RLIMIT_MSGQUEUE		Specifies the limit on the number of bytes that can be allocated for POSIX message queues for the real user ID of the calling process.
-		, EProcessLimit_NiceValue				// RLIMIT_NICE			Specifies a ceiling to which the process's nice value can be raised using setpriority(2) or nice(2).
-		, EProcessLimit_RealtimePriority		// RLIMIT_RTPRIO		Specifies a ceiling on the real-time priority that may be set for this process using sched_setscheduler(2) and sched_setparam(2).
-		, EProcessLimit_RealtimeTime			// RLIMIT_RTTIME		Specifies a limit (in microseconds) on the amount of CPU time that a process scheduled under a real-time scheduling policy may consume without making a blocking system call.
-		, EProcessLimit_SignalsPending			// RLIMIT_SIGPENDING	Specifies the limit on the number of signals that may be queued for the real user ID of the calling process.
+		, EProcessLimit_VirtualAddressSpace // RLIMIT_AS			The maximum size of the process's virtual memory (address space) in bytes.
+		, EProcessLimit_MessageQueueSize    // RLIMIT_MSGQUEUE   The number of bytes that can be allocated for POSIX message queues for the real user ID of the calling process.
+		, EProcessLimit_NiceValue           // RLIMIT_NICE			Specifies a ceiling to which the process's nice value can be raised using setpriority(2) or nice(2).
+		, EProcessLimit_RealtimePriority    // RLIMIT_RTPRIO     A ceiling on the real-time priority this process may set using sched_setscheduler(2) and sched_setparam(2).
+		, EProcessLimit_RealtimeTime        // RLIMIT_RTTIME     CPU time (in microseconds) a process under a real-time scheduling policy may use without a blocking system call.
+		, EProcessLimit_SignalsPending      // RLIMIT_SIGPENDING	Specifies the limit on the number of signals that may be queued for the real user ID of the calling process.
 	};
 
 	struct CProcessLimit
