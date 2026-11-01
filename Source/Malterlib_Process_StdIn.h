@@ -9,10 +9,10 @@ namespace NMib::NProcess
 {
 	enum EStdInReaderFlag
 	{
-		EStdInReaderFlag_None = 0
-		, EStdInReaderFlag_Exclusive = DMibBit(0) // Set to gurantee exclusive input, otherwise several CStdInReader can be created and all will receive input
+		EStdInReaderFlag_None                   = 0
+		, EStdInReaderFlag_Exclusive            = DMibBit(0) // Set to gurantee exclusive input, otherwise several CStdInReader can be created and all will receive input
 		, EStdInReaderFlag_VirtualTerminalInput = DMibBit(2) // Set to receive terminal input as virtual terminal sequences on Windows consoles
-		, EStdInReaderFlag_LineInput = DMibBit(3) // Set to keep the line editing, echo and signals of a POSIX terminal while every reader sets it
+		, EStdInReaderFlag_LineInput            = DMibBit(3) // Set to keep the line editing, echo and signals of a POSIX terminal while every reader sets it
 	};
 
 	enum EStdInReaderOutputType
@@ -25,35 +25,37 @@ namespace NMib::NProcess
 	struct CStdInReaderParams
 	{
 	public:
-
 	public:
 		CStdInReaderParams();
 		CStdInReaderParams(CStdInReaderParams const &_From) = delete;
 		CStdInReaderParams(CStdInReaderParams &&_From);
 
-		CStdInReaderParams &operator =(CStdInReaderParams const &_From) = delete;
-		CStdInReaderParams &operator =(CStdInReaderParams &&_From);
+		CStdInReaderParams &operator = (CStdInReaderParams const &_From) = delete;
+		CStdInReaderParams &operator = (CStdInReaderParams &&_From);
 
 		EStdInReaderFlag m_Flags;
 		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> m_fOnReceiveInput;
 		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)> m_fOnReceiveBinaryInput;
 		NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> m_fDispatcher;
 
-		static CStdInReaderParams fs_Create
+		static auto fs_Create
 			(
 				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> &&_fOnReceiveInput
 				, EStdInReaderFlag _Flags = EStdInReaderFlag_None
 				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher = {}
 			)
+			-> CStdInReaderParams
 		;
-		static CStdInReaderParams fs_CreateBinary
+		static auto fs_CreateBinary
 			(
 				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)> &&_fOnReceiveInput
 				, EStdInReaderFlag _Flags = EStdInReaderFlag_None
 				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher = {}
 			)
+			-> CStdInReaderParams
 		;
 	};
+
 	struct CStdInReaderPromptParams
 	{
 	public:
@@ -71,6 +73,7 @@ namespace NMib::NProcess
 
 		void *m_pStdInReader;
 		void fp_CheckOpen() const;
+
 	public:
 		CStdInReader(CStdInReaderParams &&_Params);
 		~CStdInReader();
@@ -92,7 +95,6 @@ namespace NMib::NProcess
 		NStorage::TCUniquePointer<CStdInReader> m_pStdInReader;
 
 	public:
-
 		CBlockingStdInReader();
 		~CBlockingStdInReader();
 		NStr::CStr f_ReadLine();
@@ -104,5 +106,5 @@ namespace NMib::NProcess
 #include "Malterlib_Process_StdIn.hpp"
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NProcess;
+using namespace NMib::NProcess;
 #endif

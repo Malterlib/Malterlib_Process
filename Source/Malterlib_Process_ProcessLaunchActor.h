@@ -14,23 +14,23 @@ namespace NMib::NProcess
 	public:
 		enum ELogFlag
 		{
-			ELogFlag_None = 0
-			, ELogFlag_OtherError = DMibBit(0)
-			, ELogFlag_StdOut = DMibBit(1)
-			, ELogFlag_StdErr = DMibBit(2)
-			, ELogFlag_Info = DMibBit(3)
-			, ELogFlag_AdditionallyOutputToStdErr = DMibBit(4)
+			ELogFlag_None                                     = 0
+			, ELogFlag_OtherError                             = DMibBit(0)
+			, ELogFlag_StdOut                                 = DMibBit(1)
+			, ELogFlag_StdErr                                 = DMibBit(2)
+			, ELogFlag_Info                                   = DMibBit(3)
+			, ELogFlag_AdditionallyOutputToStdErr             = DMibBit(4)
 			, ELogFlag_AdditionallyOutputToStdErrDirectStdErr = DMibBit(5)
-			, ELogFlag_ErrorExit = DMibBit(6)
-			, ELogFlag_Error = ELogFlag_OtherError | ELogFlag_ErrorExit
-			, ELogFlag_All = ELogFlag_Error | ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Info
+			, ELogFlag_ErrorExit                              = DMibBit(6)
+			, ELogFlag_Error                                  = ELogFlag_OtherError | ELogFlag_ErrorExit
+			, ELogFlag_All                                    = ELogFlag_Error | ELogFlag_StdOut | ELogFlag_StdErr | ELogFlag_Info
 		};
 
 		enum ESimpleLaunchFlag
 		{
-			ESimpleLaunchFlag_None = 0
+			ESimpleLaunchFlag_None                                 = 0
 			, ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode = DMibBit(0)
-			, ESimpleLaunchFlag_ForwardStdInput = DMibBit(1)
+			, ESimpleLaunchFlag_ForwardStdInput                    = DMibBit(1)
 		};
 
 		struct COutput
@@ -52,14 +52,7 @@ namespace NMib::NProcess
 
 		struct CSimpleLaunch : public CLaunch
 		{
-			CSimpleLaunch
-				(
-					NStr::CStr const &_Executable
-					, NContainer::TCVector<NStr::CStr> const &_Params
-					, NStr::CStr const &_WorkingDir
-					, ESimpleLaunchFlag _Flags
-				)
-			;
+			CSimpleLaunch(NStr::CStr const &_Executable, NContainer::TCVector<NStr::CStr> const &_Params, NStr::CStr const &_WorkingDir, ESimpleLaunchFlag _Flags);
 			CSimpleLaunch(CProcessLaunchParams const &_Params, ESimpleLaunchFlag _Flags);
 
 			ESimpleLaunchFlag m_SimpleFlags = ESimpleLaunchFlag_None;
@@ -79,12 +72,7 @@ namespace NMib::NProcess
 		CProcessLaunchActor();
 		~CProcessLaunchActor();
 
-		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Launch
-			(
-				CLaunch _Launch
-				, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor
-			)
-		;
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Launch(CLaunch _Launch, NConcurrency::TCActor<NConcurrency::CActor> _CallbackActor);
 
 		NConcurrency::TCFuture<CSimpleLaunchResult> f_LaunchSimple(CSimpleLaunch _SimpleLaunch);
 
@@ -127,5 +115,5 @@ namespace NMib::NProcess
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NProcess;
+using namespace NMib::NProcess;
 #endif

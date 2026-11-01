@@ -19,9 +19,11 @@ namespace NMib::NProcess::NPlatform
 			: m_pParams(fg_Construct(fg_Move(_Params)))
 		{
 		}
+
 		CWindowsStdInReader()
 		{
 		}
+
 		~CWindowsStdInReader();
 
 		NStorage::TCSharedPointer<NMib::NProcess::CStdInReaderParams> m_pParams;
@@ -45,6 +47,7 @@ namespace NMib::NProcess::NPlatform
 			: mp_hStdInFile(GetStdHandle(STD_INPUT_HANDLE))
 		{
 		}
+
 		~CWindowsStdInReaderImplementation()
 		{
 			DMibFastCheck(!mp_pRegistration);
@@ -141,16 +144,7 @@ namespace NMib::NProcess::NPlatform
 			NSys::CIoLoopRegisterOptions Options;
 			Options.m_bWaitableHandle = true;
 
-			mp_pRegistration = mp_pLoop->f_Register
-				(
-					(NSys::CIoLoopHandle)(umint)mp_hStdInFile
-					, this
-					, NSys::EIoLoopEvent::mc_Read
-					, &fs_OnConsoleSignaled
-					, false
-					, Options
-				)
-			;
+			mp_pRegistration = mp_pLoop->f_Register((NSys::CIoLoopHandle)(umint)mp_hStdInFile, this, NSys::EIoLoopEvent::mc_Read, &fs_OnConsoleSignaled, false, Options);
 		}
 
 		// Transfers the registration to its closer; null when not registered.
@@ -234,20 +228,13 @@ namespace NMib::NProcess::NPlatform
 					auto const &Record = mp_Records[i];
 					switch (Record.EventType)
 					{
-						case KEY_EVENT:
-							mp_Translator.f_TranslateKey(Record.Event.KeyEvent, Text);
-							break;
+					case KEY_EVENT: mp_Translator.f_TranslateKey(Record.Event.KeyEvent, Text); break;
 
-						case MOUSE_EVENT:
-							mp_Translator.f_TranslateMouse(Record.Event.MouseEvent, Text);
-							break;
+					case MOUSE_EVENT: mp_Translator.f_TranslateMouse(Record.Event.MouseEvent, Text); break;
 
-						case WINDOW_BUFFER_SIZE_EVENT:
-							bScreenChanged = true;
-							break;
+					case WINDOW_BUFFER_SIZE_EVENT: bScreenChanged = true; break;
 
-						default:
-							break;
+					default: break;
 					}
 				}
 			}
@@ -489,7 +476,6 @@ namespace NMib::NProcess::NPlatform
 						)
 					;
 				}
-
 			}
 			else
 			{
@@ -619,10 +605,7 @@ void NMib::NProcess::NPlatform::fg_Process_StdInReader_Close(void *_pStdInReader
 }
 
 // Requires a live input reader; non-console input produces no resize events. Console callbacks run on the reader's I/O-loop thread.
-auto NMib::NProcess::NPlatform::fg_Process_StdInReader_RegisterScreenChange
-	(
-		NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange
-	)
+auto NMib::NProcess::NPlatform::fg_Process_StdInReader_RegisterScreenChange(NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange)
 	-> NMib::COnScopeExitShared
 {
 	auto &SubSystem = *g_SubSystem_Process_Platform_Windows_StdInReader;

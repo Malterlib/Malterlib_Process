@@ -10,17 +10,17 @@ namespace NMib::NProcess
 {
 	DMibImpErrorClassDefine(CExceptionProcessProxyProtocol, NException::CException);
 
-#	define DMibErrorProcessProxyProtocol(_Description) DMibImpError(NMib::NProcess::CExceptionProcessProxyProtocol, _Description)
+#define DMibErrorProcessProxyProtocol(_Description) DMibImpError(NMib::NProcess::CExceptionProcessProxyProtocol, _Description)
 
 	class CProxiedLaunchClient
 	{
 	public:
 		struct CInternal;
+
 	private:
 		NStorage::TCUniquePointer<CInternal> m_pInternal;
 
 	public:
-
 		FVirtualProcessLaunchFactory f_GetFactory();
 
 		CProxiedLaunchClient(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_OnError);
@@ -31,16 +31,17 @@ namespace NMib::NProcess
 	{
 	public:
 		struct CInternal;
+
 	private:
 		NStorage::TCUniquePointer<CInternal> m_pInternal;
-	public:
 
+	public:
 		CProxiedLaunchServer();
 		~CProxiedLaunchServer();
 	};
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NProcess;
+using namespace NMib::NProcess;
 #endif
 

@@ -9,6 +9,6 @@ using FOnOpenURL = void (NMib::NStr::CStr const &_URL);
 
 @interface CMacOSEventHandler : NSObject
 {
-	FOnOpenURL* m_pfOnOpenURL;
+	FOnOpenURL *m_pfOnOpenURL;
 }
 @end

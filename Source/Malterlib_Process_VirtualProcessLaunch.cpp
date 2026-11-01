@@ -77,8 +77,7 @@ namespace NMib::NProcess
 
 		NStorage::TCSharedPointer<CDestroyed> pDestroyedNotification = m_pDestroyedNotification;
 
-		Params.m_fOnStateChange
-			= [_bDelayOutput, pDestroyedNotification, this, pInfo](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
+		Params.m_fOnStateChange = [_bDelayOutput, pDestroyedNotification, this, pInfo](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
 			{
 				NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> fOnStateChange;
 				{
@@ -127,8 +126,7 @@ namespace NMib::NProcess
 
 		if (_bDelayOutput && _Params.m_fOnOutput)
 		{
-			Params.m_fOnOutput
-				= [pDestroyedNotification, pInfo](EProcessLaunchOutputType _OutputType, NStr::CStr const &_Output)
+			Params.m_fOnOutput = [pDestroyedNotification, pInfo](EProcessLaunchOutputType _OutputType, NStr::CStr const &_Output)
 				{
 					DMibLock(pDestroyedNotification->m_DestroyLock);
 					if (pDestroyedNotification->m_Destroyed.f_Load())
@@ -146,8 +144,7 @@ namespace NMib::NProcess
 
 		if (_bDelayOutput && _Params.m_fOnOutputBinary)
 		{
-			Params.m_fOnOutputBinary
-				= [pDestroyedNotification, pInfo](EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)
+			Params.m_fOnOutputBinary = [pDestroyedNotification, pInfo](EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)
 				{
 					DMibLock(pDestroyedNotification->m_DestroyLock);
 					if (pDestroyedNotification->m_Destroyed.f_Load())
@@ -168,7 +165,6 @@ namespace NMib::NProcess
 			pInfo->m_pProcessLaunch = pInfo->m_Factory(Params, EProcessLaunchCloseFlag_None);
 		else
 			pInfo->m_pProcessLaunch = fg_Construct<CVirtualProcessLaunch_Default>(Params, EProcessLaunchCloseFlag_None);
-
 
 		return pInfo;
 	}
@@ -305,7 +301,6 @@ namespace NMib::NProcess
 		, m_bCreatedProcessGroup(_Other.m_bCreatedProcessGroup)
 	{
 	}
-
 
 	EProcessLaunchCloseFlag CVirtualProcessLaunch_Default::f_GetCloseFlags() const
 	{
