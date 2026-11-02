@@ -68,7 +68,7 @@ namespace NMib::NProcess::NPlatform
 		return m_Process == _Process;
 	}
 
-	void CProcessEntry::f_MapProcess(uint32 _ID, uint32 _ParentID, NStr::CWStr _FileName, NTime::CTime const &_CreationTime)
+	void CProcessEntry::f_MapProcess(uint32 _ID, uint32 _ParentID, NStr::CWStr const &_FileName, NTime::CTime const &_CreationTime)
 	{
 		CProcessEntry *pEntry = m_AllProcess.f_Find(_ID);
 
@@ -241,7 +241,7 @@ namespace NMib::NProcess::NPlatform
 			return Ret;
 		}
 
-		NStr::CStr fg_ExpandEnvironmentVars(NStr::CStr _Path)
+		NStr::CStr fg_ExpandEnvironmentVars(NStr::CStr const &_Path)
 		{
 			NStr::CStr Path = _Path.f_ReplaceChar('\\', '/');
 			NStr::CStr RetPath;

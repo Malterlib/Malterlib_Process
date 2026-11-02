@@ -87,9 +87,9 @@ namespace NMib::NProcess
 				m_iRenderInsertPos = _NewInsertPos;
 			}
 
-			CPrompt(CStdInReaderPromptParams _Params, NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor)
+			CPrompt(CStdInReaderPromptParams &&_Params, NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor)
 				: m_StdOutActor(_StdOutActor)
-				, m_Params(_Params)
+				, m_Params(fg_Move(_Params))
 			{
 			}
 
@@ -811,7 +811,7 @@ namespace NMib::NProcess
 		auto &Entry = Internal.m_ReadEntries.f_Insert();
 		auto Future = Entry.m_Promise.f_Future();
 
-		Entry.m_EntryInfo = CInternal::CPrompt{_Params, Internal.f_GetStdOutActor()};
+		Entry.m_EntryInfo = CInternal::CPrompt{fg_Move(_Params), Internal.f_GetStdOutActor()};
 
 		Internal.f_RegisterForRead();
 		Internal.f_HandleBufferedStdIn();

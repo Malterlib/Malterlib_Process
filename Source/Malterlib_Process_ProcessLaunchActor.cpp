@@ -201,7 +201,7 @@ namespace NMib::NProcess
 				LogName = _SimpleLaunch.m_LogName;
 		}
 
-		auto fLogError = [ToLog = _SimpleLaunch.m_ToLog, LogName](CStr _Error)
+		auto fLogError = [ToLog = _SimpleLaunch.m_ToLog, LogName](CStr const &_Error)
 			{
 				if (ToLog & ELogFlag_OtherError)
 				{
