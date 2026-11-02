@@ -545,9 +545,9 @@ namespace NMib::NProcess
 			;
 		}
 
-		Params.m_fOnStateChange = [this, pState](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+		Params.m_fOnStateChange = [this, pState, ThisWeak = fg_ThisActor(this).f_Weak()](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 			{
-				auto ThisActor = pState->m_ThisWeak.f_Lock();
+				auto ThisActor = ThisWeak.f_Lock();
 				if (!ThisActor)
 					return; // Already deleted
 
