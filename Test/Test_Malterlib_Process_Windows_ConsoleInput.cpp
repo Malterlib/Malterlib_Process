@@ -8,7 +8,7 @@
 #include "../Source/Platform/Malterlib_Process_Platform_Windows_ConsoleInput.h"
 
 #ifndef MOUSE_HWHEELED
-#	define MOUSE_HWHEELED 0x0008
+#	define MOUSE_HWHEELED 0x0008 // NOLINT(malterlib-macro-naming)
 #endif
 
 namespace

@@ -10,7 +10,7 @@ namespace NMib::NProcess
 {
 	DMibImpErrorClassDefine(CExceptionProcessProxyProtocol, NException::CException);
 
-#define DMibErrorProcessProxyProtocol(_Description) DMibImpError(NMib::NProcess::CExceptionProcessProxyProtocol, _Description)
+#define DMibErrorProcessProxyProtocol(d_Description) DMibImpError(NMib::NProcess::CExceptionProcessProxyProtocol, d_Description)
 
 	class CProxiedLaunchClient
 	{

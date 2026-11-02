@@ -5,18 +5,18 @@
 #include <AclAPI.h>
 #include <Windows.h>
 
-#define DESKTOP_ALL (DESKTOP_READOBJECTS | DESKTOP_CREATEWINDOW | \
+#define DDesktopAll (DESKTOP_READOBJECTS | DESKTOP_CREATEWINDOW | \
 	DESKTOP_CREATEMENU | DESKTOP_HOOKCONTROL | DESKTOP_JOURNALRECORD | \
 	DESKTOP_JOURNALPLAYBACK | DESKTOP_ENUMERATE | DESKTOP_WRITEOBJECTS | \
 	DESKTOP_SWITCHDESKTOP | STANDARD_RIGHTS_REQUIRED)
 
-#define WINSTA_ALL (WINSTA_ENUMDESKTOPS | WINSTA_READATTRIBUTES | \
+#define DWinStaAll (WINSTA_ENUMDESKTOPS | WINSTA_READATTRIBUTES | \
 	WINSTA_ACCESSCLIPBOARD | WINSTA_CREATEDESKTOP | \
 	WINSTA_WRITEATTRIBUTES | WINSTA_ACCESSGLOBALATOMS | \
 	WINSTA_EXITWINDOWS | WINSTA_ENUMERATE | WINSTA_READSCREEN | \
 	STANDARD_RIGHTS_REQUIRED)
 
-#define GENERIC_ACCESS (GENERIC_READ | GENERIC_WRITE | \
+#define DGenericAccess (GENERIC_READ | GENERIC_WRITE | \
 	GENERIC_EXECUTE | GENERIC_ALL)
 
 namespace NMib::NProcess::NPlatform
@@ -124,12 +124,12 @@ namespace NMib::NProcess::NPlatform
 						ACCESS_ALLOWED_ACE &TempAce = *((ACCESS_ALLOWED_ACE *)pTempAce);
 						if (TempAce.Header.AceType == ACCESS_ALLOWED_ACE_TYPE && EqualSid(&TempAce.SidStart, psid))
 						{
-							if (TempAce.Header.AceFlags == (CONTAINER_INHERIT_ACE | INHERIT_ONLY_ACE | OBJECT_INHERIT_ACE) && TempAce.Mask == GENERIC_ACCESS)
+							if (TempAce.Header.AceFlags == (CONTAINER_INHERIT_ACE | INHERIT_ONLY_ACE | OBJECT_INHERIT_ACE) && TempAce.Mask == DGenericAccess)
 							{
 								_bAdded = false;
 								continue;
 							}
-							if (TempAce.Header.AceFlags == NO_PROPAGATE_INHERIT_ACE && TempAce.Mask == WINSTA_ALL)
+							if (TempAce.Header.AceFlags == NO_PROPAGATE_INHERIT_ACE && TempAce.Mask == DWinStaAll)
 							{
 								_bAdded = false;
 								continue;
@@ -155,7 +155,7 @@ namespace NMib::NProcess::NPlatform
 				pace->Header.AceType = ACCESS_ALLOWED_ACE_TYPE;
 				pace->Header.AceFlags = CONTAINER_INHERIT_ACE | INHERIT_ONLY_ACE | OBJECT_INHERIT_ACE;
 				pace->Header.AceSize = LOWORD(sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD));
-				pace->Mask = GENERIC_ACCESS;
+				pace->Mask = DGenericAccess;
 
 				if (!CopySid(GetLengthSid(psid), &pace->SidStart, psid))
 					__leave;
@@ -166,7 +166,7 @@ namespace NMib::NProcess::NPlatform
 				// Add the second ACE to the window station.
 
 				pace->Header.AceFlags = NO_PROPAGATE_INHERIT_ACE;
-				pace->Mask = WINSTA_ALL;
+				pace->Mask = DWinStaAll;
 
 				if (!AddAce(pNewAcl, ACL_REVISION, MAXDWORD, (LPVOID)pace, pace->Header.AceSize))
 					__leave;
@@ -314,7 +314,7 @@ namespace NMib::NProcess::NPlatform
 						ACCESS_ALLOWED_ACE &TempAce = *((ACCESS_ALLOWED_ACE *)pTempAce);
 						if (TempAce.Header.AceType == ACCESS_ALLOWED_ACE_TYPE && EqualSid(&TempAce.SidStart, psid))
 						{
-							if (TempAce.Header.AceFlags == 0 && TempAce.Mask == DESKTOP_ALL)
+							if (TempAce.Header.AceFlags == 0 && TempAce.Mask == DDesktopAll)
 							{
 								_bAdded = false;
 								continue;
@@ -332,7 +332,7 @@ namespace NMib::NProcess::NPlatform
 			{
 				// Add ACE to the DACL.
 
-				if (!AddAccessAllowedAce(pNewAcl, ACL_REVISION, DESKTOP_ALL, psid))
+				if (!AddAccessAllowedAce(pNewAcl, ACL_REVISION, DDesktopAll, psid))
 					__leave;
 			}
 
