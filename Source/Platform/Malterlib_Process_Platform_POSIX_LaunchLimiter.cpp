@@ -111,11 +111,11 @@ namespace NMib::NProcess::NPlatform
 		f_PruneByTimeRecursive(m_StartTime);
 	}
 
-	void CProcessLaunchLimiter::CProcessEntry::f_EnumChildren(NContainer::TCVector<CProcessEntry *> &_oChildren)
+	void CProcessLaunchLimiter::CProcessEntry::f_EnumChildren(NContainer::TCVector<CProcessEntry *> &o_Children)
 	{
-		_oChildren.f_Insert(this);
+		o_Children.f_Insert(this);
 		for (auto iChild = m_Children.f_GetIterator(); iChild; ++iChild)
-			iChild->f_EnumChildren(_oChildren);
+			iChild->f_EnumChildren(o_Children);
 	}
 
 	bool CProcessLaunchLimiter::CProcessEntry::f_PauseTree(NContainer::TCVector<CProcessEntry *> const &_Children)

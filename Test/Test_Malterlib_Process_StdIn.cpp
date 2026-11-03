@@ -115,7 +115,8 @@ namespace
 							CActorSubscription Subscription;
 							if (bBinary)
 							{
-								auto OnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType, NContainer::CIOByteVector, NStr::CStr) -> TCFuture<void>
+								auto OnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / []
+									(EStdInReaderOutputType _Type, NContainer::CIOByteVector _Input, NStr::CStr _Error) -> TCFuture<void>
 									{
 										co_return {};
 									}
@@ -124,7 +125,7 @@ namespace
 							}
 							else
 							{
-								auto OnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType, NStr::CStrIO) -> TCFuture<void>
+								auto OnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType _Type, NStr::CStrIO _Input) -> TCFuture<void>
 									{
 										co_return {};
 									}
@@ -139,7 +140,7 @@ namespace
 									(
 										EPriority_NormalHighCPU
 										, 0
-										, [OwnLoopActive, pManager = &Manager](CConcurrencyThreadLocal &)
+										, [OwnLoopActive, pManager = &Manager](CConcurrencyThreadLocal &_ThreadLocal)
 										{
 											OwnLoopActive.f_SetResult(pManager->f_GetThreadIoLoop() == pManager->f_GetQueueIoLoop(EPriority_NormalHighCPU, 0));
 										}

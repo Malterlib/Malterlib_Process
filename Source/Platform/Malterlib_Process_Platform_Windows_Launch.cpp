@@ -28,8 +28,8 @@
 
 namespace NMib::NProcess::NPlatform
 {
-	BOOL fg_ChangeAceToWindowStation(HWINSTA hwinsta, PSID psid, bool _bRemove, bool &_bAdded);
-	BOOL fg_ChangeAceToDesktop(HDESK hdesk, PSID psid, bool _bRemove, bool &_bAdded);
+	BOOL fg_ChangeAceToWindowStation(HWINSTA _WindowStation, PSID _pSid, bool _bRemove, bool &_bAdded);
+	BOOL fg_ChangeAceToDesktop(HDESK _Desktop, PSID _pSid, bool _bRemove, bool &_bAdded);
 
 	struct CProcessLaunchLink
 	{
@@ -262,11 +262,11 @@ namespace NMib::NProcess::NPlatform
 			return RetPath;
 		}
 
-		void fg_TerminateProcessTree(HANDLE _hProcess, NStr::CStr &_Log)
+		void fg_TerminateProcessTree(HANDLE _Process, NStr::CStr &_Log)
 		{
 			_Log += "\r\n\r\nProcess timed out and was killed along with any child processes:" DMibNewLine;
 			{
-				uint32 ProcessIDToKill = GetProcessId(_hProcess);
+				uint32 ProcessIDToKill = GetProcessId(_Process);
 				CProcessEntry RootProcess;
 				HANDLE hProcessSnap;
 				PROCESSENTRY32 pe32;
@@ -347,8 +347,8 @@ namespace NMib::NProcess::NPlatform
 			NThread::CMutual m_ExitTimeLock;
 			fp64 m_ExitTime;
 
-			static void WINAPI fsp_StdOutReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
-			static void WINAPI fsp_StdErrReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
+			static void WINAPI fsp_StdOutReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped);
+			static void WINAPI fsp_StdErrReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped);
 
 		protected:
 			struct COverallExecution
@@ -392,7 +392,7 @@ namespace NMib::NProcess::NPlatform
 
 			void fp_UpdateOverall();
 
-			bool fp_LaunchChild(HANDLE _hStdOut, HANDLE _hStdIn, HANDLE _hStdErr, NStr::CStr &_Errors);
+			bool fp_LaunchChild(HANDLE _StdOut, HANDLE _StdIn, HANDLE _StdErr, NStr::CStr &_Errors);
 			int fp_RedirectStdout();
 			int fp_RedirectStderr();
 			void fp_DestroyHandle(HANDLE &_Handle);
@@ -640,14 +640,14 @@ namespace NMib::NProcess::NPlatform
 			return {};
 		}
 
-		bool fg_SetLimitsOnJob(NMib::NProcess::CProcessLaunchParams const &_LaunchParams, HANDLE _hJob, NStr::CStr &_Errors)
+		bool fg_SetLimitsOnJob(NMib::NProcess::CProcessLaunchParams const &_LaunchParams, HANDLE _Job, NStr::CStr &_Errors)
 		{
 			bool bFailedLaunch = false;
 			JOBOBJECT_BASIC_LIMIT_INFORMATION LimitInfo;
 			NMemory::fg_MemClear(LimitInfo);
 
 			DWORD ReturnLength;
-			QueryInformationJobObject(_hJob, JobObjectBasicLimitInformation, &LimitInfo, sizeof(LimitInfo), &ReturnLength);
+			QueryInformationJobObject(_Job, JobObjectBasicLimitInformation, &LimitInfo, sizeof(LimitInfo), &ReturnLength);
 
 			bool bSetLimits = false;
 
@@ -661,13 +661,13 @@ namespace NMib::NProcess::NPlatform
 				fg_MemClear(RateInfo);
 
 				DWORD ReturnLength;
-				bool bInfo = QueryInformationJobObject(_hJob, JobObjectCpuRateControlInformation, &RateInfo, sizeof(RateInfo), &ReturnLength);
+				bool bInfo = QueryInformationJobObject(_Job, JobObjectCpuRateControlInformation, &RateInfo, sizeof(RateInfo), &ReturnLength);
 
 				RateInfo.ControlFlags |= JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP;
 				RateInfo.CpuRate = fg_Clamp((_LaunchParams.m_CPUUsage * fp32(100.0f)).f_ToIntRound(), 1, 100*100);
 				//RateInfo.CpuRate = 50;
 
-				BOOL bOK = SetInformationJobObject(_hJob, JobObjectCpuRateControlInformation, &RateInfo, sizeof(RateInfo));
+				BOOL bOK = SetInformationJobObject(_Job, JobObjectCpuRateControlInformation, &RateInfo, sizeof(RateInfo));
 
 				if (!bOK)*/
 				{
@@ -723,7 +723,7 @@ namespace NMib::NProcess::NPlatform
 			}
 			if (bSetLimits)
 			{
-				BOOL bOK = SetInformationJobObject(_hJob, JobObjectBasicLimitInformation, &LimitInfo, sizeof(LimitInfo));
+				BOOL bOK = SetInformationJobObject(_Job, JobObjectBasicLimitInformation, &LimitInfo, sizeof(LimitInfo));
 				if (!bOK)
 				{
 					_Errors += NStr::CStr::CFormat("Failed to set job affinity mask: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
@@ -766,7 +766,7 @@ namespace NMib::NProcess::NPlatform
 				DMibError("Failed to launch self to signal stop for process (Exit status {}): {}{}"_f << ExitCode << StdOut << StdErr);
 		}
 
-		bool CConsoleRedirector::fp_LaunchChild(HANDLE _hStdOut, HANDLE _hStdIn, HANDLE _hStdErr, NStr::CStr &_Errors)
+		bool CConsoleRedirector::fp_LaunchChild(HANDLE _StdOut, HANDLE _StdIn, HANDLE _StdErr, NStr::CStr &_Errors)
 		{
 			void *pOldvalue = nullptr;
 
@@ -1169,7 +1169,7 @@ namespace NMib::NProcess::NPlatform
 				// detect child death instead of blocking forever.
 				if (!PipeBaseName.f_IsEmpty())
 				{
-					auto fConnectAndVerify = [&](HANDLE _hPipe, char const *_pName) -> bool
+					auto fConnectAndVerify = [&](HANDLE _Pipe, char const *_pName) -> bool
 						{
 							while (true)
 							{
@@ -1189,7 +1189,7 @@ namespace NMib::NProcess::NPlatform
 									)
 								;
 
-								BOOL bConnected = ConnectNamedPipe(_hPipe, &Overlapped);
+								BOOL bConnected = ConnectNamedPipe(_Pipe, &Overlapped);
 								DWORD Error = GetLastError();
 
 								if (!bConnected && Error == ERROR_IO_PENDING)
@@ -1200,19 +1200,19 @@ namespace NMib::NProcess::NPlatform
 
 									if (WaitResult == WAIT_OBJECT_0 + 1)
 									{
-										CancelIo(_hPipe);
+										CancelIo(_Pipe);
 										_Errors += NStr::CStr::CFormat("Child process exited before connecting to {} pipe" DMibNewLine) << _pName;
 										return false;
 									}
 									else if (WaitResult == WAIT_TIMEOUT)
 									{
-										CancelIo(_hPipe);
+										CancelIo(_Pipe);
 										_Errors += NStr::CStr::CFormat("Timed out waiting for child to connect to {} pipe" DMibNewLine) << _pName;
 										return false;
 									}
 									else if (WaitResult != WAIT_OBJECT_0)
 									{
-										CancelIo(_hPipe);
+										CancelIo(_Pipe);
 										_Errors
 											+= NStr::CStr::CFormat("WaitForMultipleObjects ({}) failed: {}" DMibNewLine)
 											<< _pName
@@ -1229,11 +1229,11 @@ namespace NMib::NProcess::NPlatform
 
 								// Verify the connecting process is the child we launched
 								ULONG ClientPid = 0;
-								if (GetNamedPipeClientProcessId(_hPipe, &ClientPid) && ClientPid == mp_ProcessID)
+								if (GetNamedPipeClientProcessId(_Pipe, &ClientPid) && ClientPid == mp_ProcessID)
 									return true;
 
 								// Wrong process connected, disconnect and retry
-								DisconnectNamedPipe(_hPipe);
+								DisconnectNamedPipe(_Pipe);
 							}
 						}
 					;
@@ -1709,9 +1709,9 @@ namespace NMib::NProcess::NPlatform
 				// Set up the start up info struct.
 				NMemory::fg_MemClear(si);
 				si.cb = sizeof(STARTUPINFOW);
-				si.hStdOutput = _hStdOut;
-				si.hStdInput = _hStdIn;
-				si.hStdError = _hStdErr;
+				si.hStdOutput = _StdOut;
+				si.hStdInput = _StdIn;
+				si.hStdError = _StdErr;
 				si.wShowWindow = mp_LastLaunchOptions.m_bShowLaunched ? SW_SHOWNORMAL : SW_HIDE;
 				si.dwFlags = STARTF_USESHOWWINDOW;
 				if (bRunAsUser)
@@ -2163,83 +2163,83 @@ namespace NMib::NProcess::NPlatform
 			return false;
 		}
 
-		void WINAPI CConsoleRedirector::fsp_StdOutReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
+		void WINAPI CConsoleRedirector::fsp_StdOutReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped)
 		{
-			CConsoleRedirector *pThis = (CConsoleRedirector *)lpOverlapped->hEvent;
-			if (dwNumberOfBytesTransfered)
-				pThis->fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut, (uint8 const *)lpOverlapped->Pointer, dwNumberOfBytesTransfered);
+			CConsoleRedirector *pThis = (CConsoleRedirector *)_pOverlapped->hEvent;
+			if (_nBytesTransferred)
+				pThis->fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut, (uint8 const *)_pOverlapped->Pointer, _nBytesTransferred);
 
 			if
 			(
-				dwErrorCode == ERROR_OPERATION_ABORTED // CancelIo was called
-				|| dwErrorCode == ERROR_BROKEN_PIPE // Pipe has been ended
-				|| dwErrorCode == ERROR_NO_DATA // Pipe closing in progress
+				_ErrorCode == ERROR_OPERATION_ABORTED // CancelIo was called
+				|| _ErrorCode == ERROR_BROKEN_PIPE // Pipe has been ended
+				|| _ErrorCode == ERROR_NO_DATA // Pipe closing in progress
 			)
 			{
 				return;
 			}
 
-			if (dwErrorCode)
+			if (_ErrorCode)
 			{
-				NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(dwErrorCode);
+				NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(_ErrorCode);
 				pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stdout pipe error: {}" DMibNewLine) << Error);
 			}
 
 			if (::ReadFileEx(pThis->mp_hStdoutRead, pThis->mp_StdOutReadBuffer.f_GetArray(), 4096, &pThis->mp_StdOutRead, &CConsoleRedirector::fsp_StdOutReadFinished))
 				return;
 
-			dwErrorCode = GetLastError();
+			_ErrorCode = GetLastError();
 			if
 			(
-				dwErrorCode == ERROR_OPERATION_ABORTED // CancelIo was called
-				|| dwErrorCode == ERROR_BROKEN_PIPE // Pipe has been ended
-				|| dwErrorCode == ERROR_NO_DATA // Pipe closing in progress
+				_ErrorCode == ERROR_OPERATION_ABORTED // CancelIo was called
+				|| _ErrorCode == ERROR_BROKEN_PIPE // Pipe has been ended
+				|| _ErrorCode == ERROR_NO_DATA // Pipe closing in progress
 			)
 			{
 				return;
 			}
 
-			NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(dwErrorCode);
+			NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(_ErrorCode);
 			pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stdout pipe error: {}" DMibNewLine) << Error);
 		}
 
-		void WINAPI CConsoleRedirector::fsp_StdErrReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
+		void WINAPI CConsoleRedirector::fsp_StdErrReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped)
 		{
-			CConsoleRedirector *pThis = (CConsoleRedirector *)lpOverlapped->hEvent;
-			if (dwNumberOfBytesTransfered)
-				pThis->fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr, (uint8 const *)lpOverlapped->Pointer, dwNumberOfBytesTransfered);
+			CConsoleRedirector *pThis = (CConsoleRedirector *)_pOverlapped->hEvent;
+			if (_nBytesTransferred)
+				pThis->fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr, (uint8 const *)_pOverlapped->Pointer, _nBytesTransferred);
 
 			if
 			(
-				dwErrorCode == ERROR_OPERATION_ABORTED // CancelIo was called
-				|| dwErrorCode == ERROR_BROKEN_PIPE // Pipe has been ended
-				|| dwErrorCode == ERROR_NO_DATA // Pipe closing in progress
+				_ErrorCode == ERROR_OPERATION_ABORTED // CancelIo was called
+				|| _ErrorCode == ERROR_BROKEN_PIPE // Pipe has been ended
+				|| _ErrorCode == ERROR_NO_DATA // Pipe closing in progress
 			)
 			{
 				return;
 			}
 
-			if (dwErrorCode)
+			if (_ErrorCode)
 			{
-				NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(dwErrorCode);
+				NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(_ErrorCode);
 				pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stderr pipe error: {}" DMibNewLine) << Error);
 			}
 
 			if (::ReadFileEx(pThis->mp_hStderrRead, pThis->mp_StdErrReadBuffer.f_GetArray(), 4096, &pThis->mp_StdErrRead, &CConsoleRedirector::fsp_StdErrReadFinished))
 				return;
 
-			dwErrorCode = GetLastError();
+			_ErrorCode = GetLastError();
 			if
 			(
-				dwErrorCode == ERROR_OPERATION_ABORTED // CancelIo was called
-				|| dwErrorCode == ERROR_BROKEN_PIPE // Pipe has been ended
-				|| dwErrorCode == ERROR_NO_DATA // Pipe closing in progress
+				_ErrorCode == ERROR_OPERATION_ABORTED // CancelIo was called
+				|| _ErrorCode == ERROR_BROKEN_PIPE // Pipe has been ended
+				|| _ErrorCode == ERROR_NO_DATA // Pipe closing in progress
 			)
 			{
 				return;
 			}
 
-			NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(dwErrorCode);
+			NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(_ErrorCode);
 			pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stderr pipe error: {}" DMibNewLine) << Error);
 		}
 
@@ -2537,12 +2537,12 @@ namespace NMib::NProcess::NPlatform
 
 		static BOOL APIENTRY fsg_CreatePipeEx
 			(
-				OUT LPHANDLE lpReadPipe
-				, OUT LPHANDLE lpWritePipe
-				, IN LPSECURITY_ATTRIBUTES lpPipeAttributes
-				, IN DWORD nSize
-				, DWORD dwReadMode
-				, DWORD dwWriteMode
+				OUT LPHANDLE o_pReadPipe
+				, OUT LPHANDLE o_pWritePipe
+				, IN LPSECURITY_ATTRIBUTES _pPipeAttributes
+				, IN DWORD _BufferSize
+				, DWORD _ReadMode
+				, DWORD _WriteMode
 				, NMib::NStr::CStr &_ExtendedError
 			)
 		/*++
@@ -2559,15 +2559,15 @@ namespace NMib::NProcess::NPlatform
 
 		Arguments:
 
-			lpReadPipe - Returns a handle to the read side of the pipe.  Data
+			o_pReadPipe - Returns a handle to the read side of the pipe.  Data
 				may be read from the pipe by specifying this handle value in a
 				subsequent call to ReadFile.
 
-			lpWritePipe - Returns a handle to the write side of the pipe.  Data
+			o_pWritePipe - Returns a handle to the write side of the pipe.  Data
 				may be written to the pipe by specifying this handle value in a
 				subsequent call to WriteFile.
 
-			lpPipeAttributes - An optional parameter that may be used to specify
+			_pPipeAttributes - An optional parameter that may be used to specify
 				the attributes of the new pipe.  If the parameter is not
 				specified, then the pipe is created without a security
 				descriptor, and the resulting handles are not inherited on
@@ -2575,7 +2575,7 @@ namespace NMib::NProcess::NPlatform
 				are used on the pipe, and the inherit handles flag effects both
 				pipe handles.
 
-			nSize - Supplies the requested buffer size for the pipe.  This is
+			_BufferSize - Supplies the requested buffer size for the pipe.  This is
 				only a suggestion and is used by the operating system to
 				calculate an appropriate buffering mechanism.  A value of zero
 				indicates that the system is to choose the default buffering
@@ -2598,7 +2598,7 @@ namespace NMib::NProcess::NPlatform
 			// Only one valid OpenMode flag - FILE_FLAG_OVERLAPPED
 			//
 
-			if ((dwReadMode | dwWriteMode) & (~FILE_FLAG_OVERLAPPED))
+			if ((_ReadMode | _WriteMode) & (~FILE_FLAG_OVERLAPPED))
 			{
 				SetLastError(ERROR_INVALID_PARAMETER);
 				return FALSE;
@@ -2608,8 +2608,8 @@ namespace NMib::NProcess::NPlatform
 			// Set the default timeout to 120 seconds
 			//
 
-			if (nSize == 0)
-				nSize = 4096;
+			if (_BufferSize == 0)
+				_BufferSize = 4096;
 
 			NStr::CWStr PipeName
 				= NStr::CWStr::CFormat(str_utf16("\\\\.\\Pipe\\AnonOverlapped.{nfh,sf0,sj8}.{nfh,sf0,sj8}.{nfh,sf0,sj8}.{nfh,sf0,sj16}"))
@@ -2624,13 +2624,13 @@ namespace NMib::NProcess::NPlatform
 			ReadPipeHandle = CreateNamedPipeW
 				(
 					PipeName.f_GetStr()
-					, PIPE_ACCESS_INBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE | dwReadMode
+					, PIPE_ACCESS_INBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE | _ReadMode
 					, PIPE_TYPE_BYTE | PIPE_WAIT
 					, 1 // Number of pipes
-					, nSize // Out buffer size
-					, nSize // In buffer size
+					, _BufferSize // Out buffer size
+					, _BufferSize // In buffer size
 					, 120 * 1000 // Timeout in ms
-					, lpPipeAttributes
+					, _pPipeAttributes
 				)
 			;
 
@@ -2686,9 +2686,9 @@ namespace NMib::NProcess::NPlatform
 					PipeName.f_GetStr()
 					, GENERIC_WRITE
 					, 0 // No sharing
-					, lpPipeAttributes
+					, _pPipeAttributes
 					, OPEN_EXISTING
-					, FILE_ATTRIBUTE_NORMAL | dwWriteMode
+					, FILE_ATTRIBUTE_NORMAL | _WriteMode
 					, NULL // Template file
 				)
 			;
@@ -2728,8 +2728,8 @@ namespace NMib::NProcess::NPlatform
 				return FALSE;
 			}
 
-			*lpReadPipe = ReadPipeHandle;
-			*lpWritePipe = WritePipeHandle;
+			*o_pReadPipe = ReadPipeHandle;
+			*o_pWritePipe = WritePipeHandle;
 			Cleanup.f_Clear();
 			return TRUE;
 		}

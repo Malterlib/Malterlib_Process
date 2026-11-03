@@ -197,21 +197,21 @@ namespace
 			using CType = CProxiedProcessLaunch;
 		};
 
-		template <bool t_bProxied>
+		template <bool tf_bProxied>
 		auto f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
-			-> NMib::TCEnableIf<!t_bProxied, NMib::NStorage::TCUniquePointer<NMib::NProcess::CProcessLaunch>>
+			-> NMib::TCEnableIf<!tf_bProxied, NMib::NStorage::TCUniquePointer<NMib::NProcess::CProcessLaunch>>
 		{
 			return NMib::fg_Construct(_Params, _Flag);
 		}
 
-		template <bool t_bProxied>
+		template <bool tf_bProxied>
 		auto f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
-			-> NMib::TCEnableIf<t_bProxied, NMib::NStorage::TCUniquePointer<CProxiedProcessLaunch>>
+			-> NMib::TCEnableIf<tf_bProxied, NMib::NStorage::TCUniquePointer<CProxiedProcessLaunch>>
 		{
 			return NMib::fg_Construct(_Params, _Flag, this);
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestExecutable(bool _bThreaded, bool _bForceFork)
 		{
 			DMibTestSuite((_bThreaded ? "Executable" : "Executable non threaded"))
@@ -224,7 +224,7 @@ namespace
 					using namespace NMib::NStr;
 
 					CStr ProxyType;
-					switch (t_ProxyType)
+					switch (tf_ProxyType)
 					{
 					case EProxyType_None: ProxyType = "N"; break;
 					case EProxyType_Proxied: ProxyType = "P"; break;
@@ -280,7 +280,7 @@ namespace
 						}
 					;
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						if (!_bThreaded)
 							pLauncher->f_Start();
 					}
@@ -300,7 +300,7 @@ namespace
 					}
 
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						if (!_bThreaded)
 							pLauncher->f_Start();
 					}
@@ -332,7 +332,7 @@ namespace
 					;
 
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						if (!_bThreaded)
 							pLauncher->f_Start();
 					}
@@ -354,7 +354,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestExecutableFromDll()
 		{
 #if !defined(DMibSanitizerEnabled_Thread) && !defined(DCompiler_MSVC_Workaround_DllsBroken)
@@ -393,7 +393,7 @@ namespace
 #endif
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestPerformance(bool _bThreaded, bool _bForceFork)
 		{
 			DMibTestSuite(CTestCategory(_bThreaded ? "Performance" : "Performance non threaded") << CTestGroup("Performance"))
@@ -461,7 +461,7 @@ namespace
 							StdOut.f_Clear();
 						}
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 							if (!_bThreaded)
 								pLauncher->f_Start();
 						}
@@ -480,7 +480,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestDocument()
 		{
 			DMibTestSuite("Document")
@@ -599,7 +599,7 @@ namespace
 						;
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						}
 
 						{
@@ -624,7 +624,7 @@ namespace
 						}
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
 						while (Exited.f_Load() == EExitResult_None)
@@ -658,7 +658,7 @@ namespace
 							NMib::NFile::CFile::fs_DeleteFile(TestFilePath);
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
 						while (Exited.f_Load() == EExitResult_None)
@@ -799,7 +799,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestElevation()
 		{
 			DMibTestSuite(NMib::NTest::CTestCategory("Elevation") << NMib::NTest::CTestGroup("Manual"))
@@ -823,7 +823,7 @@ namespace
 				else
 				{
 #ifdef DPlatformFamily_Linux
-					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated && t_ProxyType != EProxyType_ElevatedProxied)
+					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated && tf_ProxyType != EProxyType_ElevatedProxied)
 #else
 					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
 #endif
@@ -873,7 +873,7 @@ namespace
 						;
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						}
 
 						{
@@ -896,7 +896,7 @@ namespace
 						Params.m_Target = "/Blah";
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						}
 
 						{
@@ -925,7 +925,7 @@ namespace
 						Params.m_Target = OldTarget;
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
 						while (Exited.f_Load() == EExitResult_None)
@@ -956,7 +956,7 @@ namespace
 						;
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
 						while (Exited.f_Load() == EExitResult_None)
@@ -978,7 +978,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestDeElevation()
 		{
 #ifndef DPlatformFamily_Windows
@@ -1028,7 +1028,7 @@ namespace
 					DMibTestSuite("Block on exit")
 					{
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						}
 						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
@@ -1040,7 +1040,7 @@ namespace
 						ExitCode = 66;
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
 						while (Exited.f_Load() == EExitResult_None)
@@ -1063,7 +1063,7 @@ namespace
 						;
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
 
 						while (Exited.f_Load() == EExitResult_None)
@@ -1114,7 +1114,7 @@ namespace
 
 							{
 								Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Block on exit");
-								auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+								auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 							}
 
 							{
@@ -1128,7 +1128,7 @@ namespace
 
 							{
 								Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Wait for exit");
-								auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+								auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 							}
 
 							while (Exited.f_Load() == EExitResult_None)
@@ -1152,7 +1152,7 @@ namespace
 
 							{
 								Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Wait for exit with dispatch");
-								auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+								auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 							}
 
 							while (Exited.f_Load() == EExitResult_None)
@@ -1172,7 +1172,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestSandbox()
 		{
 			DMibTestSuite("Sandbox")
@@ -1268,7 +1268,7 @@ namespace
 						;
 
 						{
-							auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						}
 
 						{
@@ -1281,7 +1281,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestLimits()
 		{
 			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
@@ -1355,9 +1355,9 @@ namespace
 					;
 					{
 						umint nLaunches = NMib::fg_Min(nCores * 16, 64u);
-						NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
+						NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<tf_ProxyType>::CType>> Launches;
 						for (umint i = 0; i < nLaunches; ++i)
-							Launches.f_Insert(f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit));
+							Launches.f_Insert(f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit));
 					}
 
 					{
@@ -1388,7 +1388,7 @@ namespace
 		}
 
 	public:
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestStdOut()
 		{
 			DMibTestSuite("StdOut")
@@ -1443,7 +1443,7 @@ namespace
 						}
 					;
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 					}
 
 					{
@@ -1478,7 +1478,7 @@ namespace
 			return Output;
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestBinaryOutput()
 		{
 			DMibTestSuite("Binary Output")
@@ -1533,7 +1533,7 @@ namespace
 					;
 
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 					}
 
 					DMibLock(Lock);
@@ -1545,7 +1545,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestWebLaunch()
 		{
 			DMibTestSuite("WebLaunch")
@@ -1579,10 +1579,10 @@ namespace
 					)
 				;
 
-				NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<t_ProxyType>::CType>> Launches;
+				NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<tf_ProxyType>::CType>> Launches;
 				umint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
 				for (umint i = 0; i < nCores * 2; ++i)
-					Launches.f_Insert(f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone));
+					Launches.f_Insert(f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone));
 
 				Launches.f_Clear();
 				while (Finished.f_Load() != nCores * 2)
@@ -1590,7 +1590,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestSimpleURLLaunch()
 		{
 			DMibTestSuite(NMib::NTest::CTestCategory("SimpleURL") << NMib::NTest::CTestGroup("Manual"))
@@ -1640,11 +1640,11 @@ namespace
 					ExitCode = 66;
 
 					{
-						auto Launch = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						auto Launch = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 					}
 
 #ifdef DPlatformFamily_Linux
-					if (t_ProxyType == EProxyType_ElevatedProxied)
+					if (tf_ProxyType == EProxyType_ElevatedProxied)
 					{
 						DMibLock(Lock);
 						DMibTest(DMibExpr(Failed.f_Load()));
@@ -1672,11 +1672,11 @@ namespace
 					}
 
 					{
-						auto Launch = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						auto Launch = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 					}
 
 #ifdef DPlatformFamily_Linux
-					if (t_ProxyType == EProxyType_ElevatedProxied)
+					if (tf_ProxyType == EProxyType_ElevatedProxied)
 					{
 						DMibLock(Lock);
 						DMibTest(DMibExpr(Failed.f_Load()));
@@ -1703,14 +1703,14 @@ namespace
 					}
 
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 					}
 
 					while (Exited.f_Load() == EExitResult_None)
 						NMib::NSys::fg_Thread_SmallestSleep();
 
 #ifdef DPlatformFamily_Linux
-					if (t_ProxyType == EProxyType_ElevatedProxied)
+					if (tf_ProxyType == EProxyType_ElevatedProxied)
 					{
 						DMibLock(Lock);
 						DMibTest(DMibExpr(Failed.f_Load()));
@@ -1746,7 +1746,7 @@ namespace
 					;
 
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 					}
 					while (Exited.f_Load() == EExitResult_None)
 					{
@@ -1756,7 +1756,7 @@ namespace
 					}
 
 #ifdef DPlatformFamily_Linux
-					if (t_ProxyType == EProxyType_ElevatedProxied)
+					if (tf_ProxyType == EProxyType_ElevatedProxied)
 					{
 						DMibLock(Lock);
 						DMibTest(DMibExpr(Failed.f_Load()));
@@ -1774,7 +1774,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestProxyFailure(bool _bThreaded, bool _bForceFork)
 		{
 			DMibTestSuite((_bThreaded ? "Proxy failure" : "Proxy failure non threaded"))
@@ -1822,7 +1822,7 @@ namespace
 						}
 					;
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						if (!_bThreaded)
 							pLauncher->f_Start();
 					}
@@ -1840,7 +1840,7 @@ namespace
 					}
 
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						if (!_bThreaded)
 							pLauncher->f_Start();
 					}
@@ -1868,7 +1868,7 @@ namespace
 					;
 
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						if (!_bThreaded)
 							pLauncher->f_Start();
 					}
@@ -1887,7 +1887,7 @@ namespace
 			};
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_TestKillSandbox()
 		{
 			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
@@ -1997,7 +1997,7 @@ namespace
 					;
 
 					{
-						auto pLauncher = f_CreateLaunch<t_ProxyType != EProxyType_None>
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>
 							(
 								Params
 								, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit | NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess
@@ -2084,15 +2084,15 @@ namespace
 			}
 		}
 
-		template <EProxyType t_ProxyType>
+		template <EProxyType tf_ProxyType>
 		void f_DoAllTests(bool _bForceFork)
 		{
 			f_EnableClientFailure(false);
 
 			NMib::NStr::CStr Desc = "Normal";
-			if (t_ProxyType == EProxyType_Proxied)
+			if (tf_ProxyType == EProxyType_Proxied)
 				Desc = "Proxied";
-			else if (t_ProxyType == EProxyType_ElevatedProxied)
+			else if (tf_ProxyType == EProxyType_ElevatedProxied)
 				Desc = "Proxied Elevated";
 
 			if (_bForceFork)
@@ -2100,43 +2100,43 @@ namespace
 
 			NMib::NTest::CTestCategory TestCategory(Desc);
 
-			if (t_ProxyType == EProxyType_ElevatedProxied)
+			if (tf_ProxyType == EProxyType_ElevatedProxied)
 				TestCategory << NMib::NTest::CTestGroup("Manual");
 
 			DMibTestCategory(TestCategory)
 			{
-				f_TestExecutable<t_ProxyType>(true, _bForceFork);
-				f_TestExecutable<t_ProxyType>(false, _bForceFork);
+				f_TestExecutable<tf_ProxyType>(true, _bForceFork);
+				f_TestExecutable<tf_ProxyType>(false, _bForceFork);
 #ifdef DPlatformFamily_Windows
-				f_TestDocument<t_ProxyType>();
+				f_TestDocument<tf_ProxyType>();
 #endif
-				f_TestElevation<t_ProxyType>();
-				if (t_ProxyType == EProxyType_None)
+				f_TestElevation<tf_ProxyType>();
+				if (tf_ProxyType == EProxyType_None)
 					f_TestElevationStdIn();
 
-				f_TestDeElevation<t_ProxyType>();
-				f_TestPerformance<t_ProxyType>(true, _bForceFork);
-				f_TestPerformance<t_ProxyType>(false, _bForceFork);
+				f_TestDeElevation<tf_ProxyType>();
+				f_TestPerformance<tf_ProxyType>(true, _bForceFork);
+				f_TestPerformance<tf_ProxyType>(false, _bForceFork);
 #ifdef DPlatformFamily_Windows
-				f_TestSandbox<t_ProxyType>();
+				f_TestSandbox<tf_ProxyType>();
 #endif
-				f_TestKillSandbox<t_ProxyType>();
-				f_TestExecutableFromDll<t_ProxyType>();
+				f_TestKillSandbox<tf_ProxyType>();
+				f_TestExecutableFromDll<tf_ProxyType>();
 #ifndef DPlatformFamily_Linux // Not supported on linux for now
 #	ifdef DPlatformFamily_macOS
 				if (NMib::NProcess::NPlatform::fg_Process_GetElevation() >= NMib::NProcess::EProcessElevation_IsElevated) // Process pause is unreliable unless root is used for now
 #	endif
-					f_TestLimits<t_ProxyType>();
+					f_TestLimits<tf_ProxyType>();
 #endif
-				f_TestStdOut<t_ProxyType>();
-				f_TestBinaryOutput<t_ProxyType>();
-				f_TestSimpleURLLaunch<t_ProxyType>();
+				f_TestStdOut<tf_ProxyType>();
+				f_TestBinaryOutput<tf_ProxyType>();
+				f_TestSimpleURLLaunch<tf_ProxyType>();
 
-				if (t_ProxyType != EProxyType_None)
+				if (tf_ProxyType != EProxyType_None)
 				{
 					f_EnableClientFailure(true);
-					f_TestProxyFailure<t_ProxyType>(true, _bForceFork);
-					f_TestProxyFailure<t_ProxyType>(false, _bForceFork);
+					f_TestProxyFailure<tf_ProxyType>(true, _bForceFork);
+					f_TestProxyFailure<tf_ProxyType>(false, _bForceFork);
 				}
 				//f_TestWebLaunch();
 			};

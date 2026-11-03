@@ -62,7 +62,7 @@ extern "C"
 #ifdef DPlatformFamily_Linux
 namespace NLocal
 {
-	extern int (*g_f_posix_spawn_file_actions_addchdir_np)(posix_spawn_file_actions_t * __restrict __actions, char const * __restrict __path) __THROW __nonnull((1, 2));
+	extern int (*g_f_posix_spawn_file_actions_addchdir_np)(posix_spawn_file_actions_t * __restrict _pFileActions, char const * __restrict _pPath) __THROW __nonnull((1, 2));
 }
 #endif
 
@@ -416,7 +416,7 @@ namespace NMib::NProcess::NPlatform
 	}
 #endif
 
-	bool CPOSIXLaunchContext::fp_LaunchChild(int &_hStdOutRead, int &_hStdOutWrite, int &_hStdInRead, int &_hStdInWrite, int &_hStdErrRead, int &_hStdErrWrite, NStr::CStr &_Errors)
+	bool CPOSIXLaunchContext::fp_LaunchChild(int &_StdOutRead, int &_StdOutWrite, int &_StdInRead, int &_StdInWrite, int &_StdErrRead, int &_StdErrWrite, NStr::CStr &_Errors)
 	{
 		NStr::CStr Program = mp_LastLaunchOptions.m_Target;
 
@@ -429,7 +429,7 @@ namespace NMib::NProcess::NPlatform
 		}
 		else if (mp_LastLaunchOptions.m_Elevation == NProcess::EProcessLaunchElevation_Elevate)
 		{
-			if (!fg_Linux_LaunchExecutableWithRoot(this, mp_LastLaunchOptions, Program, _hStdErrRead, _hStdErrWrite, _hStdInRead, _hStdInWrite, _Errors))
+			if (!fg_Linux_LaunchExecutableWithRoot(this, mp_LastLaunchOptions, Program, _StdErrRead, _StdErrWrite, _StdInRead, _StdInWrite, _Errors))
 				return false;
 		}
 #endif
@@ -464,20 +464,20 @@ namespace NMib::NProcess::NPlatform
 				return false;
 			}
 #ifdef DPlatformFamily_macOS
-			fp_DestroyPipe(_hStdErrWrite);
-			fp_DestroyPipe(_hStdErrRead);
+			fp_DestroyPipe(_StdErrWrite);
+			fp_DestroyPipe(_StdErrRead);
 
-			bool bRetVal = fg_MacOS_LaunchExecutableWithRoot(mp_LastLaunchOptions, mp_ProcessID, _hStdOutRead, _hStdInWrite, _Errors);
+			bool bRetVal = fg_MacOS_LaunchExecutableWithRoot(mp_LastLaunchOptions, mp_ProcessID, _StdOutRead, _StdInWrite, _Errors);
 
 			if (bRetVal)
 			{
 				DMibLock(mp_PipeLock);
-				mp_hStdinWrite = _hStdInWrite;
-				mp_hStdoutRead = _hStdOutRead;
-				_hStdInWrite = -1;
-				_hStdOutRead = -1;
-				fp_DestroyPipe(_hStdInRead);
-				fp_DestroyPipe(_hStdOutWrite);
+				mp_hStdinWrite = _StdInWrite;
+				mp_hStdoutRead = _StdOutRead;
+				_StdInWrite = -1;
+				_StdOutRead = -1;
+				fp_DestroyPipe(_StdInRead);
+				fp_DestroyPipe(_StdOutWrite);
 			}
 
 			return bRetVal;
@@ -958,21 +958,21 @@ namespace NMib::NProcess::NPlatform
 						}
 					;
 
-					fCloseOrDup(_hStdInRead, 0);
+					fCloseOrDup(_StdInRead, 0);
 
-					fCloseOrDup(_hStdOutWrite, 1);
+					fCloseOrDup(_StdOutWrite, 1);
 
-					if (_hStdErrWrite == -1)
-						fCloseOrDup(_hStdOutWrite, 2);
+					if (_StdErrWrite == -1)
+						fCloseOrDup(_StdOutWrite, 2);
 					else
-						fCloseOrDup(_hStdErrWrite, 2);
+						fCloseOrDup(_StdErrWrite, 2);
 
-					fDestroyPipe(_hStdInWrite);
-					fDestroyPipe(_hStdOutRead);
-					fDestroyPipe(_hStdErrRead);
-					fDestroyPipe(_hStdInRead);
-					fDestroyPipe(_hStdOutWrite);
-					fDestroyPipe(_hStdErrWrite);
+					fDestroyPipe(_StdInWrite);
+					fDestroyPipe(_StdOutRead);
+					fDestroyPipe(_StdErrRead);
+					fDestroyPipe(_StdInRead);
+					fDestroyPipe(_StdOutWrite);
+					fDestroyPipe(_StdErrWrite);
 
 					short PreviousFlags = 0;
 					DCallPosixSpawnApi(posix_spawnattr_getflags, "", &SpawnAttributes, &PreviousFlags);
@@ -1015,15 +1015,15 @@ namespace NMib::NProcess::NPlatform
 
 					{
 						DMibLock(mp_PipeLock);
-						mp_hStdinWrite = _hStdInWrite;
-						mp_hStdoutRead = _hStdOutRead;
-						mp_hStderrRead = _hStdErrRead;
-						_hStdInWrite = -1;
-						_hStdOutRead = -1;
-						_hStdErrRead = -1;
-						fp_DestroyPipe(_hStdInRead);
-						fp_DestroyPipe(_hStdOutWrite);
-						fp_DestroyPipe(_hStdErrWrite);
+						mp_hStdinWrite = _StdInWrite;
+						mp_hStdoutRead = _StdOutRead;
+						mp_hStderrRead = _StdErrRead;
+						_StdInWrite = -1;
+						_StdOutRead = -1;
+						_StdErrRead = -1;
+						fp_DestroyPipe(_StdInRead);
+						fp_DestroyPipe(_StdOutWrite);
+						fp_DestroyPipe(_StdErrWrite);
 					}
 
 					mp_ProcessID.f_Store(Pid);
@@ -1073,21 +1073,21 @@ namespace NMib::NProcess::NPlatform
 							}
 						;
 
-						fCloseOrDup(_hStdInRead, 0);
+						fCloseOrDup(_StdInRead, 0);
 
-						fCloseOrDup(_hStdOutWrite, 1);
+						fCloseOrDup(_StdOutWrite, 1);
 
-						if (_hStdErrWrite == -1)
-							fCloseOrDup(_hStdOutWrite, 2);
+						if (_StdErrWrite == -1)
+							fCloseOrDup(_StdOutWrite, 2);
 						else
-							fCloseOrDup(_hStdErrWrite, 2);
+							fCloseOrDup(_StdErrWrite, 2);
 
-						fp_DestroyPipe(_hStdInWrite);
-						fp_DestroyPipe(_hStdOutRead);
-						fp_DestroyPipe(_hStdErrRead);
-						fp_DestroyPipe(_hStdInRead);
-						fp_DestroyPipe(_hStdOutWrite);
-						fp_DestroyPipe(_hStdErrWrite);
+						fp_DestroyPipe(_StdInWrite);
+						fp_DestroyPipe(_StdOutRead);
+						fp_DestroyPipe(_StdErrRead);
+						fp_DestroyPipe(_StdInRead);
+						fp_DestroyPipe(_StdOutWrite);
+						fp_DestroyPipe(_StdErrWrite);
 
 						if (mp_LastLaunchOptions.m_bCreateNewProcessGroup)
 						{
@@ -1208,15 +1208,15 @@ namespace NMib::NProcess::NPlatform
 				else
 				{
 					DMibLock(mp_PipeLock);
-					mp_hStdinWrite = _hStdInWrite;
-					mp_hStdoutRead = _hStdOutRead;
-					mp_hStderrRead = _hStdErrRead;
-					_hStdInWrite = -1;
-					_hStdOutRead = -1;
-					_hStdErrRead = -1;
-					fp_DestroyPipe(_hStdInRead);
-					fp_DestroyPipe(_hStdOutWrite);
-					fp_DestroyPipe(_hStdErrWrite);
+					mp_hStdinWrite = _StdInWrite;
+					mp_hStdoutRead = _StdOutRead;
+					mp_hStderrRead = _StdErrRead;
+					_StdInWrite = -1;
+					_StdOutRead = -1;
+					_StdErrRead = -1;
+					fp_DestroyPipe(_StdInRead);
+					fp_DestroyPipe(_StdOutWrite);
+					fp_DestroyPipe(_StdErrWrite);
 
 					mp_ProcessID.f_Store(ForkResult);
 				}

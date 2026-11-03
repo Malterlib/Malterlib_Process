@@ -78,7 +78,7 @@ namespace NMib::NProcess::NPlatform
 		void fp_OnOutputBinary(NMib::NProcess::EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector &&_Output);
 		void fp_OnExit(uint32 _ExitCode);
 		bool fp_DoStart(NStr::CStr &_Errors);
-		bool fp_LaunchChild(int &_hStdOutRead, int &_hStdOutWrite, int &_hStdInRead, int &_hStdInWrite, int &_hStdErrRead, int &_hStdErrWrite, NStr::CStr &_Errors);
+		bool fp_LaunchChild(int &_StdOutRead, int &_StdOutWrite, int &_StdInRead, int &_StdInWrite, int &_StdErrRead, int &_StdErrWrite, NStr::CStr &_Errors);
 
 		void fp_Close();
 		virtual bool f_DestroyThread() override;

@@ -14,8 +14,8 @@ auto NMib::NProcess::NPlatform::fg_MacOS_LaunchExecutableWithRoot
 	(
 		NMib::NProcess::CProcessLaunchParams const &_Params
 		, NAtomic::TCAtomic<pid_t> &o_PID
-		, int &_hStdOutRead
-		, int &_hStdInWrite
+		, int &_StdOutRead
+		, int &_StdInWrite
 		, NMib::NStr::CStr &_Errors
 	)
 	-> bool
@@ -115,11 +115,11 @@ auto NMib::NProcess::NPlatform::fg_MacOS_LaunchExecutableWithRoot
 		return false;
 	}
 
-	close(_hStdOutRead);
-	close(_hStdInWrite);
+	close(_StdOutRead);
+	close(_StdInWrite);
 
-	_hStdOutRead = dup(fileno(pPipe));
-	_hStdInWrite = dup(fileno(pPipe));
+	_StdOutRead = dup(fileno(pPipe));
+	_StdInWrite = dup(fileno(pPipe));
 
 	fclose(pPipe);
 
@@ -129,7 +129,7 @@ auto NMib::NProcess::NPlatform::fg_MacOS_LaunchExecutableWithRoot
 		int BytesRead = 0;
 
 		while (BytesRead < 16)
-			BytesRead += read(_hStdOutRead, Buffer + BytesRead, 16 - BytesRead);
+			BytesRead += read(_StdOutRead, Buffer + BytesRead, 16 - BytesRead);
 
 		NMib::NStr::CStr ProcessID(Buffer, BytesRead);
 		ProcessID = "0x" + ProcessID;
@@ -137,8 +137,8 @@ auto NMib::NProcess::NPlatform::fg_MacOS_LaunchExecutableWithRoot
 	}
 
 #ifdef F_SETNOSIGPIPE
-	fcntl(_hStdOutRead, F_SETNOSIGPIPE, 1);
-	fcntl(_hStdInWrite, F_SETNOSIGPIPE, 1);
+	fcntl(_StdOutRead, F_SETNOSIGPIPE, 1);
+	fcntl(_StdInWrite, F_SETNOSIGPIPE, 1);
 #endif
 
 	return true;

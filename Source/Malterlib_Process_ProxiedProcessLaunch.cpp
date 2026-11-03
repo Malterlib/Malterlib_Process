@@ -576,8 +576,8 @@ namespace NMib::NProcess::NPrivate
 
 	static_assert(DProcessProxyProtocolNumTypeID == TCEvalNumTypeID<0>::mc_Value, "Num type ids incorrectly defined");
 
-	template <typename t_CVisitor>
-	bool fg_VisitType(t_CVisitor &&_Visitor, uint32 _TypeID)
+	template <typename tf_CVisitor>
+	bool fg_VisitType(tf_CVisitor &&_Visitor, uint32 _TypeID)
 	{
 		switch (_TypeID)
 		{
@@ -1493,10 +1493,10 @@ namespace NMib::NProcess
 			{
 			}
 
-			template <typename t_CType>
+			template <typename tf_CType>
 			void operator () ()
 			{
-				t_CType Message;
+				tf_CType Message;
 
 				try
 				{
@@ -1513,7 +1513,7 @@ namespace NMib::NProcess
 					Message.f_HandleMessage
 						(
 							m_pServer
-							, [fOnReply, MessageID](typename t_CType::CResponse const &_Response)
+							, [fOnReply, MessageID](typename tf_CType::CResponse const &_Response)
 							{
 								NStream::TCBinaryStreamMemory<> Stream;
 								Stream << uint8(1); // Reply
@@ -1530,7 +1530,7 @@ namespace NMib::NProcess
 					Message.f_HandleMessage
 						(
 							m_pClient
-							, [fOnReply, MessageID](typename t_CType::CResponse const &_Response)
+							, [fOnReply, MessageID](typename tf_CType::CResponse const &_Response)
 							{
 								NStream::TCBinaryStreamMemory<> Stream;
 								Stream << uint8(1); // Reply

@@ -25,7 +25,7 @@ namespace
 		{
 		}
 
-		void f_WaitAndDispatchTimeout(pfp64) override
+		void f_WaitAndDispatchTimeout(pfp64 _Timeout) override
 		{
 		}
 
@@ -42,17 +42,26 @@ namespace
 		{
 		}
 
-		void f_Deregister(NSys::CIoLoopRegistration *) override
+		void f_Deregister(NSys::CIoLoopRegistration *_pRegistration) override
 		{
 		}
 
-		auto f_Register(NSys::CIoLoopHandle, void *, NSys::EIoLoopEvent, NSys::FIoLoopReadinessCallback, bool, NSys::CIoLoopRegisterOptions const &) -> NSys::CIoLoopRegistration * override
+		auto f_Register
+			(
+				NSys::CIoLoopHandle _Handle
+				, void *_pToken
+				, NSys::EIoLoopEvent _EventMask
+				, NSys::FIoLoopReadinessCallback _fOnEvents
+				, bool _bNotifyRegistered
+				, NSys::CIoLoopRegisterOptions const &_Options
+			)
+			-> NSys::CIoLoopRegistration * override
 		{
 			++m_nRegistrations;
 			return reinterpret_cast<NSys::CIoLoopRegistration *>(this);
 		}
 
-		void f_DeregisterAsync(NSys::CIoLoopRegistration *, NFunction::TCFunctionMovable<void ()> &&_fOnClosed) override
+		void f_DeregisterAsync(NSys::CIoLoopRegistration *_pRegistration, NFunction::TCFunctionMovable<void ()> &&_fOnClosed) override
 		{
 			DMibFastCheck(!m_fOnClosed);
 			m_fOnClosed = fg_Move(_fOnClosed);
@@ -137,14 +146,14 @@ namespace
 							= bBinary
 							? NProcess::CStdInReaderParams::fs_CreateBinary
 							(
-								[&](NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &, NStr::CStr const &)
+								[&](NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)
 								{
 									fOnInput(_Type);
 								}
 							)
 							: NProcess::CStdInReaderParams::fs_Create
 							(
-								[&](NProcess::EStdInReaderOutputType _Type, NStr::CStrIO const &)
+								[&](NProcess::EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)
 								{
 									fOnInput(_Type);
 								}
@@ -262,7 +271,7 @@ namespace
 					{
 						auto Params = NProcess::CStdInReaderParams::fs_Create
 							(
-								[](NProcess::EStdInReaderOutputType, NStr::CStr const &)
+								[](NProcess::EStdInReaderOutputType _Type, NStr::CStr const &_Input)
 								{
 								}
 							)
@@ -373,7 +382,7 @@ namespace
 					{
 						auto Params = NProcess::CStdInReaderParams::fs_Create
 							(
-								[](NProcess::EStdInReaderOutputType, NStr::CStr const &)
+								[](NProcess::EStdInReaderOutputType _Type, NStr::CStr const &_Input)
 								{
 								}
 							)

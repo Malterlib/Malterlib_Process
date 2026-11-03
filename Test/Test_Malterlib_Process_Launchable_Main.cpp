@@ -11,9 +11,9 @@ using namespace NMib;
 using FOnOpenURL = void (NStr::CStr const &_URL);
 
 #ifdef DPlatformFamily_macOS
-void fg_CreateMacOSEventHandler(FOnOpenURL *_pfOnOpenURL);
+void fg_CreateMacOSEventHandler(FOnOpenURL *_pOnOpenURL);
 void fg_DestroyMacOSEventHandler();
-void fg_RunApplicationMain(int argc, char *argv[]);
+void fg_RunApplicationMain(int _ArgC, char *_pArgV[]);
 #endif
 
 void fg_OnOpenURL(NStr::CStr const &_URL)

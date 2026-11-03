@@ -486,8 +486,8 @@ namespace NMib::NProcess
 		static umint fs_KillProcessesInDirectory(NStr::CStr const &_NamePattern, NStr::CStr const &_ArgsPattern = {}, NStr::CStr const &_Directory = {}, fp64 _Timeout = 30.0);
 
 	private:
-		CProcessLaunch(CProcessLaunch const &) = delete;
-		CProcessLaunch &operator = (CProcessLaunch const &) = delete;
+		CProcessLaunch(CProcessLaunch const &_Other) = delete;
+		CProcessLaunch &operator = (CProcessLaunch const &_Other) = delete;
 
 		void *m_pProcessLaunch;
 		EProcessLaunchCloseFlag m_DestructFlags;

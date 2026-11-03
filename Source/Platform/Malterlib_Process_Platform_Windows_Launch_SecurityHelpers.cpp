@@ -21,7 +21,7 @@
 
 namespace NMib::NProcess::NPlatform
 {
-	BOOL fg_ChangeAceToWindowStation(HWINSTA hwinsta, PSID psid, bool _bRemove, bool &_bAdded)
+	BOOL fg_ChangeAceToWindowStation(HWINSTA _WindowStation, PSID _pSid, bool _bRemove, bool &_bAdded)
 	{
 		ACCESS_ALLOWED_ACE *pace = NULL;
 		ACL_SIZE_INFORMATION aclSizeInfo;
@@ -44,7 +44,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			// Obtain the DACL for the window station.
 
-			if (!GetUserObjectSecurity(hwinsta, &si, psd, dwSidSize, &dwSdSizeNeeded))
+			if (!GetUserObjectSecurity(_WindowStation, &si, psd, dwSidSize, &dwSdSizeNeeded))
 			{
 				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 				{
@@ -60,7 +60,7 @@ namespace NMib::NProcess::NPlatform
 
 					dwSidSize = dwSdSizeNeeded;
 
-					if (!GetUserObjectSecurity(hwinsta, &si, psd, dwSidSize, &dwSdSizeNeeded))
+					if (!GetUserObjectSecurity(_WindowStation, &si, psd, dwSidSize, &dwSdSizeNeeded))
 						__leave;
 				}
 				else
@@ -93,7 +93,7 @@ namespace NMib::NProcess::NPlatform
 
 			// Compute the size of the new ACL.
 
-			dwNewAclSize = aclSizeInfo.AclBytesInUse + (2 * sizeof(ACCESS_ALLOWED_ACE)) + (2 * GetLengthSid(psid)) - (2 * sizeof(DWORD));
+			dwNewAclSize = aclSizeInfo.AclBytesInUse + (2 * sizeof(ACCESS_ALLOWED_ACE)) + (2 * GetLengthSid(_pSid)) - (2 * sizeof(DWORD));
 
 			// Allocate memory for the new ACL.
 
@@ -122,7 +122,7 @@ namespace NMib::NProcess::NPlatform
 							__leave;
 
 						ACCESS_ALLOWED_ACE &TempAce = *((ACCESS_ALLOWED_ACE *)pTempAce);
-						if (TempAce.Header.AceType == ACCESS_ALLOWED_ACE_TYPE && EqualSid(&TempAce.SidStart, psid))
+						if (TempAce.Header.AceType == ACCESS_ALLOWED_ACE_TYPE && EqualSid(&TempAce.SidStart, _pSid))
 						{
 							if (TempAce.Header.AceFlags == (CONTAINER_INHERIT_ACE | INHERIT_ONLY_ACE | OBJECT_INHERIT_ACE) && TempAce.Mask == DGenericAccess)
 							{
@@ -147,17 +147,17 @@ namespace NMib::NProcess::NPlatform
 
 			if (!_bRemove)
 			{
-				pace = (ACCESS_ALLOWED_ACE *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD));
+				pace = (ACCESS_ALLOWED_ACE *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD));
 
 				if (pace == NULL)
 					__leave;
 
 				pace->Header.AceType = ACCESS_ALLOWED_ACE_TYPE;
 				pace->Header.AceFlags = CONTAINER_INHERIT_ACE | INHERIT_ONLY_ACE | OBJECT_INHERIT_ACE;
-				pace->Header.AceSize = LOWORD(sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD));
+				pace->Header.AceSize = LOWORD(sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD));
 				pace->Mask = DGenericAccess;
 
-				if (!CopySid(GetLengthSid(psid), &pace->SidStart, psid))
+				if (!CopySid(GetLengthSid(_pSid), &pace->SidStart, _pSid))
 					__leave;
 
 				if (!AddAce(pNewAcl, ACL_REVISION, MAXDWORD, (LPVOID)pace, pace->Header.AceSize))
@@ -179,7 +179,7 @@ namespace NMib::NProcess::NPlatform
 
 			// Set the new security descriptor for the window station.
 
-			if (!SetUserObjectSecurity(hwinsta, &si, psdNew))
+			if (!SetUserObjectSecurity(_WindowStation, &si, psdNew))
 				__leave;
 
 			// Indicate success.
@@ -210,7 +210,7 @@ namespace NMib::NProcess::NPlatform
 		return bSuccess;
 	}
 
-	BOOL fg_ChangeAceToDesktop(HDESK hdesk, PSID psid, bool _bRemove, bool &_bAdded)
+	BOOL fg_ChangeAceToDesktop(HDESK _Desktop, PSID _pSid, bool _bRemove, bool &_bAdded)
 	{
 		ACL_SIZE_INFORMATION aclSizeInfo;
 		BOOL bDaclExist;
@@ -232,7 +232,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			// Obtain the security descriptor for the desktop object.
 
-			if (!GetUserObjectSecurity(hdesk, &si, psd, dwSidSize, &dwSdSizeNeeded))
+			if (!GetUserObjectSecurity(_Desktop, &si, psd, dwSidSize, &dwSdSizeNeeded))
 			{
 				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 				{
@@ -248,7 +248,7 @@ namespace NMib::NProcess::NPlatform
 
 					dwSidSize = dwSdSizeNeeded;
 
-					if (!GetUserObjectSecurity(hdesk, &si, psd, dwSidSize, &dwSdSizeNeeded))
+					if (!GetUserObjectSecurity(_Desktop, &si, psd, dwSidSize, &dwSdSizeNeeded))
 						__leave;
 				}
 				else
@@ -282,7 +282,7 @@ namespace NMib::NProcess::NPlatform
 
 			// Compute the size of the new ACL.
 
-			dwNewAclSize = aclSizeInfo.AclBytesInUse + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD);
+			dwNewAclSize = aclSizeInfo.AclBytesInUse + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD);
 
 			// Allocate buffer for the new ACL.
 
@@ -312,7 +312,7 @@ namespace NMib::NProcess::NPlatform
 							__leave;
 
 						ACCESS_ALLOWED_ACE &TempAce = *((ACCESS_ALLOWED_ACE *)pTempAce);
-						if (TempAce.Header.AceType == ACCESS_ALLOWED_ACE_TYPE && EqualSid(&TempAce.SidStart, psid))
+						if (TempAce.Header.AceType == ACCESS_ALLOWED_ACE_TYPE && EqualSid(&TempAce.SidStart, _pSid))
 						{
 							if (TempAce.Header.AceFlags == 0 && TempAce.Mask == DDesktopAll)
 							{
@@ -332,7 +332,7 @@ namespace NMib::NProcess::NPlatform
 			{
 				// Add ACE to the DACL.
 
-				if (!AddAccessAllowedAce(pNewAcl, ACL_REVISION, DDesktopAll, psid))
+				if (!AddAccessAllowedAce(pNewAcl, ACL_REVISION, DDesktopAll, _pSid))
 					__leave;
 			}
 
@@ -343,7 +343,7 @@ namespace NMib::NProcess::NPlatform
 
 			// Set the new security descriptor for the desktop object.
 
-			if (!SetUserObjectSecurity(hdesk, &si, psdNew))
+			if (!SetUserObjectSecurity(_Desktop, &si, psdNew))
 				__leave;
 
 			// Indicate success.

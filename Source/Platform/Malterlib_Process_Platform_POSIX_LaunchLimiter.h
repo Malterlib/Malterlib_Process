@@ -46,7 +46,7 @@ namespace NMib::NProcess::NPlatform
 			void f_PruneByTime();
 			void f_MapProcess(pid_t _ID, uint64 _StartTime);
 			void f_MapProcessParent(pid_t _ID, pid_t _ParentID);
-			void f_EnumChildren(NContainer::TCVector<CProcessEntry *> &_oChildren);
+			void f_EnumChildren(NContainer::TCVector<CProcessEntry *> &o_Children);
 			bool f_PauseTree(NContainer::TCVector<CProcessEntry *> const &_Children);
 			bool f_UnPauseTree(NContainer::TCVector<CProcessEntry *> const &_Children);
 			void f_Touch();

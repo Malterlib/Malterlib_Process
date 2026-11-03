@@ -75,7 +75,7 @@ namespace
 						}
 					;
 
-					Params.m_fOnStateChange = [&](CProcessLaunchStateChangeVariant const &_State, fp64)
+					Params.m_fOnStateChange = [&](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
 							if (_State.f_GetTypeID() == EProcessLaunchState_Exited || _State.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
 							{

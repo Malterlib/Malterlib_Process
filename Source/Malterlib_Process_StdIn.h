@@ -70,8 +70,8 @@ namespace NMib::NProcess
 		CStdInReader(CStdInReader &&_Other);
 
 	private:
-		CStdInReader(CStdInReader const &) = delete;
-		CStdInReader &operator = (CStdInReader const &) = delete;
+		CStdInReader(CStdInReader const &_Other) = delete;
+		CStdInReader &operator = (CStdInReader const &_Other) = delete;
 
 		void *m_pStdInReader;
 		void fp_CheckOpen() const;

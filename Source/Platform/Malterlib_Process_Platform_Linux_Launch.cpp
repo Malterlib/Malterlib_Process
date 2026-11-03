@@ -559,7 +559,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_DeRegisterURLHandler(NMib::NStr::CStr c
 	return true;
 }
 
-bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CProcessLaunchParams &_Params, NMib::NStr::CStr &_Program, NMib::NStr::CStr &_oErrors)
+bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CProcessLaunchParams &_Params, NMib::NStr::CStr &_Program, NMib::NStr::CStr &o_Errors)
 {
 	if
 	(
@@ -571,13 +571,13 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 		)
 	)
 	{
-		_oErrors = "Launching a document or URL elevated is not supported on Linux.";
+		o_Errors = "Launching a document or URL elevated is not supported on Linux.";
 		return false;
 	}
 
 	if (_Params.m_Elevation == NProcess::EProcessLaunchElevation_Elevate)
 	{
-		_oErrors = "Launching a document or URL elevated is not supported on Linux.";
+		o_Errors = "Launching a document or URL elevated is not supported on Linux.";
 		return false;
 	}
 
