@@ -44,7 +44,7 @@ namespace NMib::NProcess::NPlatform
 	struct CWindowsStdInReaderImplementation : public NMib::NThread::CThread
 	{
 		CWindowsStdInReaderImplementation()
-			: mp_hStdInFile(GetStdHandle(STD_INPUT_HANDLE))
+			: mp_StdInFile(GetStdHandle(STD_INPUT_HANDLE))
 		{
 		}
 
@@ -60,14 +60,14 @@ namespace NMib::NProcess::NPlatform
 				while (f_GetState() >= NThread::EThreadState_Running)
 				{
 					NLocal::g_OptionalFunctions.m_fCancelSynchronousIo(f_GetThread());
-					NLocal::g_OptionalFunctions.m_fCancelIoEx(mp_hStdInFile, nullptr);
+					NLocal::g_OptionalFunctions.m_fCancelIoEx(mp_StdInFile, nullptr);
 					NSys::fg_Thread_SmallestSleep();
 				}
 				f_Stop(true);
 			}
 
 			if (m_bConsoleModeSaved)
-				SetConsoleMode(mp_hStdInFile, m_OldConsoleMode);
+				SetConsoleMode(mp_StdInFile, m_OldConsoleMode);
 		}
 
 		// Reapplies the console mode from the union of all registered readers' flags; must be
@@ -89,20 +89,20 @@ namespace NMib::NProcess::NPlatform
 			if (mp_Translator.m_bVirtualTerminalInput)
 				NewConsoleMode |= ENABLE_MOUSE_INPUT;
 
-			SetConsoleMode(mp_hStdInFile, NewConsoleMode);
+			SetConsoleMode(mp_StdInFile, NewConsoleMode);
 		}
 
 		bool f_NeedsIoLoop() const
 		{
-			return mp_hStdInFile && GetFileType(mp_hStdInFile) == FILE_TYPE_CHAR;
+			return mp_StdInFile && GetFileType(mp_StdInFile) == FILE_TYPE_CHAR;
 		}
 
 		void f_Init(NSys::ICIoLoop *_pLoop)
 		{
-			if (!mp_hStdInFile)
+			if (!mp_StdInFile)
 				return;
 
-			auto HandleType = GetFileType(mp_hStdInFile);
+			auto HandleType = GetFileType(mp_StdInFile);
 			if (HandleType == FILE_TYPE_CHAR)
 			{
 				m_bIsChar = true;
@@ -138,13 +138,13 @@ namespace NMib::NProcess::NPlatform
 
 			DMibFastCheck(!mp_pRegistration);
 
-			m_bConsoleModeSaved = GetConsoleMode(mp_hStdInFile, &m_OldConsoleMode) != 0;
+			m_bConsoleModeSaved = GetConsoleMode(mp_StdInFile, &m_OldConsoleMode) != 0;
 			f_UpdateConsoleMode();
 
 			NSys::CIoLoopRegisterOptions Options;
 			Options.m_bWaitableHandle = true;
 
-			mp_pRegistration = mp_pLoop->f_Register((NSys::CIoLoopHandle)(umint)mp_hStdInFile, this, NSys::EIoLoopEvent::mc_Read, &fsp_OnConsoleSignaled, false, Options);
+			mp_pRegistration = mp_pLoop->f_Register((NSys::CIoLoopHandle)(umint)mp_StdInFile, this, NSys::EIoLoopEvent::mc_Read, &fsp_OnConsoleSignaled, false, Options);
 		}
 
 		// Transfers the registration to its closer; null when not registered.
@@ -203,7 +203,7 @@ namespace NMib::NProcess::NPlatform
 			while (true)
 			{
 				DWORD nAvailable = 0;
-				if (!GetNumberOfConsoleInputEvents(mp_hStdInFile, &nAvailable))
+				if (!GetNumberOfConsoleInputEvents(mp_StdInFile, &nAvailable))
 				{
 					mp_bFinished = true;
 					fp_SendToReaders(EStdInReaderOutputType_GeneralError, "GetNumberOfConsoleInputEvents failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
@@ -216,16 +216,16 @@ namespace NMib::NProcess::NPlatform
 				mp_Records.f_SetLen(nAvailable);
 
 				DWORD nRead = 0;
-				if (!ReadConsoleInputW(mp_hStdInFile, mp_Records.f_GetArray(), nAvailable, &nRead))
+				if (!ReadConsoleInputW(mp_StdInFile, mp_Records.f_GetArray(), nAvailable, &nRead))
 				{
 					mp_bFinished = true;
 					fp_SendToReaders(EStdInReaderOutputType_GeneralError, "ReadConsoleInputW failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
 					break;
 				}
 
-				for (DWORD i = 0; i < nRead; ++i)
+				for (DWORD iRecord = 0; iRecord < nRead; ++iRecord)
 				{
-					auto const &Record = mp_Records[i];
+					auto const &Record = mp_Records[iRecord];
 					switch (Record.EventType)
 					{
 					case KEY_EVENT: mp_Translator.f_TranslateKey(Record.Event.KeyEvent, Text); break;
@@ -265,17 +265,17 @@ namespace NMib::NProcess::NPlatform
 			while (true)
 			{
 				DWORD nBytesRead = 0;
-				if (!ReadFile(mp_hStdInFile, mp_StdInReadBuffer.f_GetArray(), gc_StdInReadChunkBytes, &nBytesRead, nullptr))
+				if (!ReadFile(mp_StdInFile, mp_StdInReadBuffer.f_GetArray(), gc_StdInReadChunkBytes, &nBytesRead, nullptr))
 				{
-					DWORD dwError = GetLastError();
+					DWORD ErrorCode = GetLastError();
 
-					if (dwError == ERROR_OPERATION_ABORTED)
+					if (ErrorCode == ERROR_OPERATION_ABORTED)
 						return false; // The reader is closing; nobody is left to tell
 
-					if (dwError == ERROR_BROKEN_PIPE || dwError == ERROR_NO_DATA || dwError == ERROR_HANDLE_EOF)
+					if (ErrorCode == ERROR_BROKEN_PIPE || ErrorCode == ERROR_NO_DATA || ErrorCode == ERROR_HANDLE_EOF)
 						fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
 					else
-						fp_SendToReaders(EStdInReaderOutputType_GeneralError, "ReadFile failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwError));
+						fp_SendToReaders(EStdInReaderOutputType_GeneralError, "ReadFile failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(ErrorCode));
 					bRet = false;
 				}
 				else
@@ -300,7 +300,7 @@ namespace NMib::NProcess::NPlatform
 		void fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrIO const &_String);
 		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Buffer);
 
-		HANDLE mp_hStdInFile;
+		HANDLE mp_StdInFile;
 		NSys::ICIoLoop *mp_pLoop = nullptr;
 		NSys::CIoLoopRegistration *mp_pRegistration = nullptr;
 		NContainer::CIOByteVector mp_StdInReadBuffer;

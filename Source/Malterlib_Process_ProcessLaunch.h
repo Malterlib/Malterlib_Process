@@ -489,8 +489,8 @@ namespace NMib::NProcess
 		CProcessLaunch(CProcessLaunch const &_Other) = delete;
 		CProcessLaunch &operator = (CProcessLaunch const &_Other) = delete;
 
-		void *m_pProcessLaunch;
-		EProcessLaunchCloseFlag m_DestructFlags;
+		void *mp_pProcessLaunch;
+		EProcessLaunchCloseFlag mp_DestructFlags;
 		void fp_CheckOpen() const;
 	};
 }

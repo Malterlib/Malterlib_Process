@@ -49,8 +49,8 @@ namespace
 			DMibTest(DMibExpr(Actual.f_GetLen()) == DMibExpr(Expected.f_GetLen()));
 
 			umint nMin = Actual.f_GetLen() < Expected.f_GetLen() ? Actual.f_GetLen() : Expected.f_GetLen();
-			for (umint i = 0; i < nMin; ++i)
-				DMibTest(DMibExpr(Actual[i]) == DMibExpr(Expected[i]))(ETestFlag_Aggregated);
+			for (umint iToken = 0; iToken < nMin; ++iToken)
+				DMibTest(DMibExpr(Actual[iToken]) == DMibExpr(Expected[iToken]))(ETestFlag_Aggregated);
 		}
 
 		// Round-trip: parse a cmd-style cmdline, re-encode with CRT rules, parse
@@ -81,8 +81,8 @@ namespace
 			DMibTest(DMibExpr(TokensB.f_GetLen()) == DMibExpr(TokensA.f_GetLen()));
 
 			umint nMin = TokensB.f_GetLen() < TokensA.f_GetLen() ? TokensB.f_GetLen() : TokensA.f_GetLen();
-			for (umint i = 0; i < nMin; ++i)
-				DMibTest(DMibExpr(TokensB[i]) == DMibExpr(TokensA[i]))(ETestFlag_Aggregated);
+			for (umint iToken = 0; iToken < nMin; ++iToken)
+				DMibTest(DMibExpr(TokensB[iToken]) == DMibExpr(TokensA[iToken]))(ETestFlag_Aggregated);
 		}
 
 		// Round-trip: encode params with fs_GetParamsWindows, then parse back
@@ -109,8 +109,8 @@ namespace
 			DMibTest(DMibExpr(Decoded.f_GetLen()) == DMibExpr(Params.f_GetLen()));
 
 			umint nMin = Decoded.f_GetLen() < Params.f_GetLen() ? Decoded.f_GetLen() : Params.f_GetLen();
-			for (umint i = 0; i < nMin; ++i)
-				DMibTest(DMibExpr(Decoded[i]) == DMibExpr(Params[i]))(ETestFlag_Aggregated);
+			for (umint iToken = 0; iToken < nMin; ++iToken)
+				DMibTest(DMibExpr(Decoded[iToken]) == DMibExpr(Params[iToken]))(ETestFlag_Aggregated);
 		}
 
 #ifdef DPlatformFamily_Windows
@@ -150,11 +150,11 @@ namespace
 			DMibTest(DMibExpr((umint)nArgs) == DMibExpr(Params.f_GetLen() + 1));
 
 			umint nMin = ((umint)nArgs - 1) < Params.f_GetLen() ? ((umint)nArgs - 1) : Params.f_GetLen();
-			for (umint i = 0; i < nMin; ++i)
+			for (umint iToken = 0; iToken < nMin; ++iToken)
 			{
-				NStr::CWStr ArgW = reinterpret_cast<ch16 const *>(pArgs[i + 1]);
+				NStr::CWStr ArgW = reinterpret_cast<ch16 const *>(pArgs[iToken + 1]);
 				NStr::CStr Arg = ArgW;
-				DMibTest(DMibExpr(Arg) == DMibExpr(Params[i]))(ETestFlag_Aggregated);
+				DMibTest(DMibExpr(Arg) == DMibExpr(Params[iToken]))(ETestFlag_Aggregated);
 			}
 		}
 #endif
@@ -175,10 +175,10 @@ namespace
 
 						DMibExpect(Executable, ==, Expected[0]);
 						DMibAssert(Params.f_GetLen(), ==, Expected.f_GetLen() - 1);
-						for (umint i = 0; i < Params.f_GetLen(); ++i)
+						for (umint iArgument = 0; iArgument < Params.f_GetLen(); ++iArgument)
 						{
-							DMibTestPath("Argument {}"_f << i);
-							DMibExpect(Params[i], ==, Expected[i + 1]);
+							DMibTestPath("Argument {}"_f << iArgument);
+							DMibExpect(Params[iArgument], ==, Expected[iArgument + 1]);
 						}
 					}
 				;
@@ -211,11 +211,11 @@ namespace
 				{
 					DMibTestPath("EncoderRoundTrip");
 					CStr LongArgument;
-					for (umint i = 0; i < 2048; ++i)
+					for (umint iRepeat = 0; iRepeat < 2048; ++iRepeat)
 						LongArgument += "text \"quoted\" \\ ";
 					NContainer::TCVector<CStr> Tokens{"/opt/Tool Name/bin/tool", "", "O'Reilly", "\tleading", "trailing\n", "\r", "世界", LongArgument};
-					for (umint i = 0; i < 64; ++i)
-						Tokens.f_Insert("argument {}"_f << i);
+					for (umint iArgument = 0; iArgument < 64; ++iArgument)
+						Tokens.f_Insert("argument {}"_f << iArgument);
 
 					CStr CommandLine = NProcess::CProcessLaunchParams::fs_GetParamsUnix(Tokens);
 					CStr Executable;
@@ -223,10 +223,10 @@ namespace
 
 					DMibExpect(Executable, ==, Tokens[0]);
 					DMibAssert(Params.f_GetLen(), ==, Tokens.f_GetLen() - 1);
-					for (umint i = 0; i < Params.f_GetLen(); ++i)
+					for (umint iArgument = 0; iArgument < Params.f_GetLen(); ++iArgument)
 					{
-						DMibTestPath("Argument {}"_f << i);
-						DMibExpect(Params[i], ==, Tokens[i + 1]);
+						DMibTestPath("Argument {}"_f << iArgument);
+						DMibExpect(Params[iArgument], ==, Tokens[iArgument + 1]);
 					}
 				}
 			};

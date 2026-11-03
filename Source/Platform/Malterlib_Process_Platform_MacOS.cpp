@@ -17,14 +17,14 @@
 
 uint64 NMib::NProcess::NPlatform::fg_Process_GetPhysicalMemory()
 {
-	int lVars[2];
+	int SysCtlData[2];
 	uint64 PhysicalMemory = 0;
 	size_t Length;
 
-	lVars[0] = CTL_HW;
-	lVars[1] = HW_MEMSIZE;
+	SysCtlData[0] = CTL_HW;
+	SysCtlData[1] = HW_MEMSIZE;
 	Length = sizeof(uint64);
-	int Ret = sysctl(lVars, 2, &PhysicalMemory, &Length, NULL, 0); // ! This looks portable to Linux but is not!! Should use the /proc/sys route there.
+	int Ret = sysctl(SysCtlData, 2, &PhysicalMemory, &Length, NULL, 0); // ! This looks portable to Linux but is not!! Should use the /proc/sys route there.
 
 	if (Ret != 0)
 	{
@@ -221,10 +221,10 @@ NMib::NContainer::TCVector<NMib::NProcess::NPlatform::CPOSIXProcessInfo> NMib::N
 
 NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatform::fg_Process_Enum(EProcessInfoFlag _ToGet, NContainer::TCVector<CProcessInfo> *_pOldEnum)
 {
-	int mib[3] = {CTL_KERN, KERN_ARGMAX, 0};
+	int SysCtlData[3] = {CTL_KERN, KERN_ARGMAX, 0};
 	size_t ArgMaxSize = sizeof(size_t);
 	size_t KernMax = 0;
-	if (sysctl(mib, 2, &KernMax, &ArgMaxSize, nullptr, 0))
+	if (sysctl(SysCtlData, 2, &KernMax, &ArgMaxSize, nullptr, 0))
 		DMibError(NMib::NPlatform::fg_FormatErrno("sysctl (KERN_ARGMAX)", errno));
 
 	NContainer::TCMap<umint, NProcess::CProcessInfo *> OldInfo;
@@ -284,13 +284,13 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 
 		if (((_ToGet & NProcess::EProcessInfoFlag_FullPath) && !bGotFullPath) || (_ToGet & NProcess::EProcessInfoFlag_Args))
 		{
-			mib[1] = KERN_PROCARGS2;
-			mib[2] = (int)Process.kp_proc.p_pid;
+			SysCtlData[1] = KERN_PROCARGS2;
+			SysCtlData[2] = (int)Process.kp_proc.p_pid;
 
 			Data.f_SetAtLeastLen(KernMax);
 
 			size_t Size = KernMax;
-			if (!sysctl(mib, 3, Data.f_GetArray(), &Size, NULL, 0))
+			if (!sysctl(SysCtlData, 3, Data.f_GetArray(), &Size, NULL, 0))
 			{
 				// Format of KERN_PROCARGS2 data
 				// argc (int32)
@@ -363,10 +363,10 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 			}
 			else if ((_ToGet & NProcess::EProcessInfoFlag_FullPath) && !bGotFullPath)
 			{
-				mib[1] = KERN_PROCARGS;
-				mib[2] = (int)Process.kp_proc.p_pid;
+				SysCtlData[1] = KERN_PROCARGS;
+				SysCtlData[2] = (int)Process.kp_proc.p_pid;
 				Size = KernMax;
-				if (!sysctl(mib, 3, Data.f_GetArray(), &Size, NULL, 0))
+				if (!sysctl(SysCtlData, 3, Data.f_GetArray(), &Size, NULL, 0))
 					New.m_FullPath = NStr::CStr((ch8 const *)Data.f_GetArray());
 			}
 		}

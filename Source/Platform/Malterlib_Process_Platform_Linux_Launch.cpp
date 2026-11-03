@@ -488,13 +488,13 @@ bool NMib::NProcess::NPlatform::fg_Linux_RegisterURLHandler(NMib::NStr::CStr con
 
 		CDesktopFileParser Parser(NStr::CStr(), MimeAppsFile);
 
-		NMib::NContainer::TCVector<CDesktopFileParser::CDesktopGroup> lDesktopGroups;
-		Parser.f_Parse(lDesktopGroups);
+		NMib::NContainer::TCVector<CDesktopFileParser::CDesktopGroup> DesktopGroups;
+		Parser.f_Parse(DesktopGroups);
 
 		bool bSetAddedAssociations = false;
 		bool bSetDefaultApplications = false;
 
-		for (CDesktopFileParser::CDesktopGroup &Group : lDesktopGroups)
+		for (CDesktopFileParser::CDesktopGroup &Group : DesktopGroups)
 		{
 			if (Group.m_Name == "Added Associations" || Group.m_Name == "Default Applications")
 			{
@@ -506,12 +506,12 @@ bool NMib::NProcess::NPlatform::fg_Linux_RegisterURLHandler(NMib::NStr::CStr con
 
 		if (!bSetAddedAssociations && !bSetDefaultApplications)
 		{
-			CDesktopFileParser::CDesktopGroup &Group = lDesktopGroups.f_Insert();
+			CDesktopFileParser::CDesktopGroup &Group = DesktopGroups.f_Insert();
 			Group.m_Name = "Added Associations";
 			Group.m_KeyValueMap[_Protocol] = DesktopFile + ".desktop";
 		}
 
-		Parser.f_Write(lDesktopGroups, false);
+		Parser.f_Write(DesktopGroups, false);
 	}
 	else
 	{
@@ -541,10 +541,10 @@ bool NMib::NProcess::NPlatform::fg_Linux_DeRegisterURLHandler(NMib::NStr::CStr c
 
 		CDesktopFileParser Parser(NStr::CStr(), MimeAppsFile);
 
-		NMib::NContainer::TCVector<CDesktopFileParser::CDesktopGroup> lDesktopGroups;
-		Parser.f_Parse(lDesktopGroups);
+		NMib::NContainer::TCVector<CDesktopFileParser::CDesktopGroup> DesktopGroups;
+		Parser.f_Parse(DesktopGroups);
 
-		for (CDesktopFileParser::CDesktopGroup &Group : lDesktopGroups)
+		for (CDesktopFileParser::CDesktopGroup &Group : DesktopGroups)
 		{
 			if (Group.m_Name == "Added Associations" || Group.m_Name == "Default Applications")
 			{
@@ -553,7 +553,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_DeRegisterURLHandler(NMib::NStr::CStr c
 			}
 		}
 
-		Parser.f_Write(lDesktopGroups, false);
+		Parser.f_Write(DesktopGroups, false);
 	}
 
 	return true;

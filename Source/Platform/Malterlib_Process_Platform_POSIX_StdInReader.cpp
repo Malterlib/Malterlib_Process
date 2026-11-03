@@ -159,9 +159,9 @@ namespace NMib::NProcess::NPlatform
 			DMibFastCheck(_Write == -1);
 			int Pipes[2];
 #ifdef DPlatformFamily_Linux
-			if (NLocal::g_f_pipe2)
+			if (NLocal::g_fPipe2)
 			{
-				if (NLocal::g_f_pipe2(Pipes, O_CLOEXEC | O_NONBLOCK))
+				if (NLocal::g_fPipe2(Pipes, O_CLOEXEC | O_NONBLOCK))
 					return false;
 			}
 			else

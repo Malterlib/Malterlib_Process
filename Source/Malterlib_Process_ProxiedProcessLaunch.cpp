@@ -163,15 +163,15 @@ namespace NMib::NProcess::NPrivate
 	struct CProcessLaunch_Launch
 	{
 		CProcessLaunch_Launch(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags, uint64 _LaunchID)
-			: m_Params(_Params)
-			, m_DestructFlags(_DestructFlags)
-			, m_LaunchID(_LaunchID)
+			: mp_Params(_Params)
+			, mp_DestructFlags(_DestructFlags)
+			, mp_LaunchID(_LaunchID)
 		{
 		}
 
 		CProcessLaunch_Launch()
-			: m_DestructFlags(EProcessLaunchCloseFlag_None)
-			, m_LaunchID(0)
+			: mp_DestructFlags(EProcessLaunchCloseFlag_None)
+			, mp_LaunchID(0)
 		{
 		}
 
@@ -195,61 +195,61 @@ namespace NMib::NProcess::NPrivate
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const
 		{
-			_Stream << m_Params;
-			_Stream << m_DestructFlags;
-			_Stream << m_LaunchID;
+			_Stream << mp_Params;
+			_Stream << mp_DestructFlags;
+			_Stream << mp_LaunchID;
 		}
 
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream)
 		{
-			_Stream >> m_Params;
-			_Stream >> m_DestructFlags;
-			_Stream >> m_LaunchID;
+			_Stream >> mp_Params;
+			_Stream >> mp_DestructFlags;
+			_Stream >> mp_LaunchID;
 		}
 
 		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 
 	private:
-		CProcessLaunchParams m_Params;
-		EProcessLaunchCloseFlag m_DestructFlags;
-		uint64 m_LaunchID;
+		CProcessLaunchParams mp_Params;
+		EProcessLaunchCloseFlag mp_DestructFlags;
+		uint64 mp_LaunchID;
 	};
 
 	struct CProcessLaunch_StateChange
 	{
 		CProcessLaunch_StateChange(uint64 _LaunchID, CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-			: m_LaunchID(_LaunchID)
-			, m_TimeSinceStart(_TimeSinceStart)
-			, m_State("Invalid launch state")
+			: mp_LaunchID(_LaunchID)
+			, mp_TimeSinceStart(_TimeSinceStart)
+			, mp_State("Invalid launch state")
 		{
 			switch (_State.f_GetTypeID())
 			{
 			case EProcessLaunchState_Launched:
 				{
 					if (_State.f_Get<EProcessLaunchState_Launched>())
-						m_State = uint8(1);
+						mp_State = uint8(1);
 					else
-						m_State = uint8(0);
+						mp_State = uint8(0);
 				}
 				break;
 			case EProcessLaunchState_LaunchFailed:
 				{
-					m_State = _State.f_Get<EProcessLaunchState_LaunchFailed>();
+					mp_State = _State.f_Get<EProcessLaunchState_LaunchFailed>();
 				}
 				break;
 			case EProcessLaunchState_Exited:
 				{
-					m_State = _State.f_Get<EProcessLaunchState_Exited>();
+					mp_State = _State.f_Get<EProcessLaunchState_Exited>();
 				}
 				break;
 			}
 		}
 
 		CProcessLaunch_StateChange()
-			: m_LaunchID(0)
-			, m_TimeSinceStart(0.0)
+			: mp_LaunchID(0)
+			, mp_TimeSinceStart(0.0)
 		{
 		}
 
@@ -273,24 +273,24 @@ namespace NMib::NProcess::NPrivate
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const
 		{
-			_Stream << m_LaunchID;
-			_Stream << m_State;
-			_Stream << m_TimeSinceStart;
+			_Stream << mp_LaunchID;
+			_Stream << mp_State;
+			_Stream << mp_TimeSinceStart;
 		}
 
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream)
 		{
-			_Stream >> m_LaunchID;
-			_Stream >> m_State;
-			_Stream >> m_TimeSinceStart;
+			_Stream >> mp_LaunchID;
+			_Stream >> mp_State;
+			_Stream >> mp_TimeSinceStart;
 		}
 
 		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 
 	private:
-		uint64 m_LaunchID;
+		uint64 mp_LaunchID;
 		NStorage::TCStreamableVariant
 			<
 				EProcessLaunchState
@@ -298,22 +298,22 @@ namespace NMib::NProcess::NPrivate
 				, NStorage::TCMember<NMib::NStr::CStr, EProcessLaunchState_LaunchFailed>
 				, NStorage::TCMember<uint32, EProcessLaunchState_Exited>
 			>
-			m_State
+			mp_State
 		;
-		fp64 m_TimeSinceStart;
+		fp64 mp_TimeSinceStart;
 	};
 
 	struct CProcessLaunch_Output
 	{
 		CProcessLaunch_Output(uint64 _LaunchID, EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-			: m_LaunchID(_LaunchID)
-			, m_OutputType(_OutputType)
-			, m_Output(_Output)
+			: mp_LaunchID(_LaunchID)
+			, mp_OutputType(_OutputType)
+			, mp_Output(_Output)
 		{
 		}
 
 		CProcessLaunch_Output()
-			: m_LaunchID(0)
+			: mp_LaunchID(0)
 		{
 		}
 
@@ -337,38 +337,38 @@ namespace NMib::NProcess::NPrivate
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const
 		{
-			_Stream << m_LaunchID;
-			_Stream << m_OutputType;
-			_Stream << m_Output;
+			_Stream << mp_LaunchID;
+			_Stream << mp_OutputType;
+			_Stream << mp_Output;
 		}
 
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream)
 		{
-			_Stream >> m_LaunchID;
-			_Stream >> m_OutputType;
-			_Stream >> m_Output;
+			_Stream >> mp_LaunchID;
+			_Stream >> mp_OutputType;
+			_Stream >> mp_Output;
 		}
 
 		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 
 	private:
-		uint64 m_LaunchID;
-		EProcessLaunchOutputType m_OutputType;
-		NMib::NStr::CStr m_Output;
+		uint64 mp_LaunchID;
+		EProcessLaunchOutputType mp_OutputType;
+		NMib::NStr::CStr mp_Output;
 	};
 
 	struct CProcessLaunch_Input
 	{
 		CProcessLaunch_Input(uint64 _LaunchID, NMib::NStr::CStr const &_Input)
-			: m_LaunchID(_LaunchID)
-			, m_Input(_Input)
+			: mp_LaunchID(_LaunchID)
+			, mp_Input(_Input)
 		{
 		}
 
 		CProcessLaunch_Input()
-			: m_LaunchID(0)
+			: mp_LaunchID(0)
 		{
 		}
 
@@ -392,34 +392,34 @@ namespace NMib::NProcess::NPrivate
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const
 		{
-			_Stream << m_LaunchID;
-			_Stream << m_Input;
+			_Stream << mp_LaunchID;
+			_Stream << mp_Input;
 		}
 
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream)
 		{
-			_Stream >> m_LaunchID;
-			_Stream >> m_Input;
+			_Stream >> mp_LaunchID;
+			_Stream >> mp_Input;
 		}
 
 		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 
 	private:
-		uint64 m_LaunchID;
-		NMib::NStr::CStr m_Input;
+		uint64 mp_LaunchID;
+		NMib::NStr::CStr mp_Input;
 	};
 
 	struct CProcessLaunch_CloseInput
 	{
 		CProcessLaunch_CloseInput(uint64 _LaunchID)
-			: m_LaunchID(_LaunchID)
+			: mp_LaunchID(_LaunchID)
 		{
 		}
 
 		CProcessLaunch_CloseInput()
-			: m_LaunchID(0)
+			: mp_LaunchID(0)
 		{
 		}
 
@@ -443,33 +443,33 @@ namespace NMib::NProcess::NPrivate
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const
 		{
-			_Stream << m_LaunchID;
+			_Stream << mp_LaunchID;
 		}
 
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream)
 		{
-			_Stream >> m_LaunchID;
+			_Stream >> mp_LaunchID;
 		}
 
 		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 
 	private:
-		uint64 m_LaunchID;
+		uint64 mp_LaunchID;
 	};
 
 	struct CProcessLaunch_Close
 	{
 		CProcessLaunch_Close(uint64 _LaunchID, EProcessLaunchCloseFlag _CloseFlag)
-			: m_LaunchID(_LaunchID)
-			, m_CloseFlag(_CloseFlag)
+			: mp_LaunchID(_LaunchID)
+			, mp_CloseFlag(_CloseFlag)
 		{
 		}
 
 		CProcessLaunch_Close()
-			: m_LaunchID(0)
-			, m_CloseFlag(EProcessLaunchCloseFlag_None)
+			: mp_LaunchID(0)
+			, mp_CloseFlag(EProcessLaunchCloseFlag_None)
 		{
 		}
 
@@ -493,34 +493,34 @@ namespace NMib::NProcess::NPrivate
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const
 		{
-			_Stream << m_LaunchID;
-			_Stream << m_CloseFlag;
+			_Stream << mp_LaunchID;
+			_Stream << mp_CloseFlag;
 		}
 
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream)
 		{
-			_Stream >> m_LaunchID;
-			_Stream >> m_CloseFlag;
+			_Stream >> mp_LaunchID;
+			_Stream >> mp_CloseFlag;
 		}
 
 		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 
 	private:
-		uint64 m_LaunchID;
-		EProcessLaunchCloseFlag m_CloseFlag;
+		uint64 mp_LaunchID;
+		EProcessLaunchCloseFlag mp_CloseFlag;
 	};
 
 	struct CProcessLaunch_Stop
 	{
 		CProcessLaunch_Stop(uint64 _LaunchID)
-			: m_LaunchID(_LaunchID)
+			: mp_LaunchID(_LaunchID)
 		{
 		}
 
 		CProcessLaunch_Stop()
-			: m_LaunchID(0)
+			: mp_LaunchID(0)
 		{
 		}
 
@@ -544,20 +544,20 @@ namespace NMib::NProcess::NPrivate
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const
 		{
-			_Stream << m_LaunchID;
+			_Stream << mp_LaunchID;
 		}
 
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream)
 		{
-			_Stream >> m_LaunchID;
+			_Stream >> mp_LaunchID;
 		}
 
 		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
 
 	private:
-		uint64 m_LaunchID;
+		uint64 mp_LaunchID;
 	};
 
 	DProcessProxyProtocolType(CConnect, 0);
@@ -813,7 +813,7 @@ namespace NMib::NProcess
 		private:
 			friend struct CBuildServer;
 
-			NStorage::TCSharedPointer<CLaunchState> m_pState;
+			NStorage::TCSharedPointer<CLaunchState> mp_pState;
 		};
 
 		CInternal(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_OnError)
@@ -966,12 +966,12 @@ namespace NMib::NProcess
 
 	CProxiedLaunchClient::CProxiedLaunchClient(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_OnError)
 	{
-		m_pInternal = fg_Construct(_ServerLaunchParams, _OnError);
+		mp_pInternal = fg_Construct(_ServerLaunchParams, _OnError);
 	}
 
 	CProxiedLaunchClient::~CProxiedLaunchClient()
 	{
-		m_pInternal.f_Clear();
+		mp_pInternal.f_Clear();
 	}
 
 	FVirtualProcessLaunchFactory CProxiedLaunchClient::f_GetFactory()
@@ -981,7 +981,7 @@ namespace NMib::NProcess
 			{
 				CProcessLaunchParams Params = _Params;
 				Params.m_bThreaded = true;
-				return fg_Construct<CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client>(m_pInternal.f_Get(), Params, _DestructFlags);
+				return fg_Construct<CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client>(mp_pInternal.f_Get(), Params, _DestructFlags);
 			}
 		;
 	}
@@ -1048,8 +1048,6 @@ namespace NMib::NProcess
 		struct CLaunchState
 		{
 			NStorage::CIntrusiveRefCount m_RefCount;
-			mutable NMib::NThread::CMutualManyRead mp_ServerLock;
-			CProxiedLaunchServer::CInternal *mp_pServer;
 			void f_SetServer(CProxiedLaunchServer::CInternal *_pServer)
 			{
 				DMibLock(mp_ServerLock);
@@ -1060,13 +1058,13 @@ namespace NMib::NProcess
 			{
 				CServerReference(NMib::NThread::CMutualManyRead &_Lock, CProxiedLaunchServer::CInternal *_pServer)
 					: mp_pServer(_pServer)
-					, m_Lock(_Lock)
+					, mp_Lock(_Lock)
 				{
 				}
 
 				CServerReference(CServerReference &&_Ref)
 					: mp_pServer(_Ref.mp_pServer)
-					, m_Lock(fg_Move(_Ref.m_Lock))
+					, mp_Lock(fg_Move(_Ref.mp_Lock))
 				{
 					_Ref.mp_pServer = nullptr;
 				}
@@ -1077,7 +1075,7 @@ namespace NMib::NProcess
 				}
 
 			private:
-				NMib::NThread::TCMovableScopeLockRead<NMib::NThread::CMutualManyRead> m_Lock;
+				NMib::NThread::TCMovableScopeLockRead<NMib::NThread::CMutualManyRead> mp_Lock;
 				CProxiedLaunchServer::CInternal *mp_pServer;
 			};
 
@@ -1095,6 +1093,10 @@ namespace NMib::NProcess
 
 			void f_ReportLaunchFailed(NStr::CStr const &_Error) const;
 			void f_SendStdOutput(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
+
+		private:
+			mutable NMib::NThread::CMutualManyRead mp_ServerLock;
+			CProxiedLaunchServer::CInternal *mp_pServer;
 		};
 
 		NThread::CMutual m_LaunchStatesLock;
@@ -1213,15 +1215,15 @@ namespace NMib::NProcess
 
 	CProxiedLaunchServer::CProxiedLaunchServer()
 	{
-		m_pInternal = fg_Construct();
-		m_pInternal->f_Init();
+		mp_pInternal = fg_Construct();
+		mp_pInternal->f_Init();
 	}
 
 	CProxiedLaunchServer::~CProxiedLaunchServer()
 	{
-		m_pInternal->m_DisconnectEvent.f_Wait();
+		mp_pInternal->m_DisconnectEvent.f_Wait();
 
-		m_pInternal.f_Clear();
+		mp_pInternal.f_Clear();
 	}
 
 	namespace NPrivate
@@ -1256,11 +1258,11 @@ namespace NMib::NProcess
 
 		void CProcessLaunch_Launch::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
 		{
-			NStorage::TCSharedPointer<CProxiedLaunchServer::CInternal::CLaunchState> pState = fg_Construct(_pServer, m_LaunchID, m_DestructFlags);
+			NStorage::TCSharedPointer<CProxiedLaunchServer::CInternal::CLaunchState> pState = fg_Construct(_pServer, mp_LaunchID, mp_DestructFlags);
 
 			NStorage::TCSharedPointer<COnScopeExitShared> pCleanupLaunch = fg_Construct();
 
-			auto Params = m_Params;
+			auto Params = mp_Params;
 			Params.m_fOnStateChange = [pState, pCleanupLaunch](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 				{
 					CProcessLaunch_StateChange Message(pState->m_LaunchID, _State, _TimeSinceStart);
@@ -1335,14 +1337,14 @@ namespace NMib::NProcess
 
 		void CProcessLaunch_StateChange::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
 		{
-			auto pState = _pClient->f_GetLaunchState(m_LaunchID);
+			auto pState = _pClient->f_GetLaunchState(mp_LaunchID);
 
 			if (pState)
 			{
 				CProcessLaunchStateChangeVariant Variant;
 				bool bFinished = false;
 				bool bReportChange = true;
-				switch (m_State.f_GetTypeID())
+				switch (mp_State.f_GetTypeID())
 				{
 				case EProcessLaunchState_Launched:
 					{
@@ -1353,21 +1355,21 @@ namespace NMib::NProcess
 					{
 						bReportChange = pState->m_bIsRunning.f_Exchange(false);
 						bFinished = true;
-						Variant = m_State.f_Get<EProcessLaunchState_LaunchFailed>();
+						Variant = mp_State.f_Get<EProcessLaunchState_LaunchFailed>();
 					}
 					break;
 				case EProcessLaunchState_Exited:
 					{
 						bReportChange = pState->m_bIsRunning.f_Exchange(false);
 						bFinished = true;
-						Variant = m_State.f_Get<EProcessLaunchState_Exited>();
+						Variant = mp_State.f_Get<EProcessLaunchState_Exited>();
 					}
 					break;
 				}
 
 				if (bReportChange)
 				{
-					pState->f_ReportStateChange(pState, Variant, m_TimeSinceStart);
+					pState->f_ReportStateChange(pState, Variant, mp_TimeSinceStart);
 					if (bFinished)
 						pState->m_FinishedEvent.f_SetSignaled();
 				}
@@ -1383,10 +1385,10 @@ namespace NMib::NProcess
 
 		void CProcessLaunch_Output::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
 		{
-			auto pState = _pClient->f_GetLaunchState(m_LaunchID);
+			auto pState = _pClient->f_GetLaunchState(mp_LaunchID);
 
 			if (pState)
-				pState->f_ReportOutput(pState, m_OutputType, m_Output);
+				pState->f_ReportOutput(pState, mp_OutputType, mp_Output);
 
 			CResponse Reponse;
 			_OnResponse(Reponse);
@@ -1404,9 +1406,9 @@ namespace NMib::NProcess
 
 		void CProcessLaunch_Input::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
 		{
-			auto pState = _pServer->f_GetLaunchState(m_LaunchID);
+			auto pState = _pServer->f_GetLaunchState(mp_LaunchID);
 			if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
-				pState->m_pLaunch->f_SendStdIn(this->m_Input);
+				pState->m_pLaunch->f_SendStdIn(this->mp_Input);
 			CResponse Reponse;
 			_OnResponse(Reponse);
 		}
@@ -1418,7 +1420,7 @@ namespace NMib::NProcess
 
 		void CProcessLaunch_CloseInput::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
 		{
-			auto pState = _pServer->f_GetLaunchState(m_LaunchID);
+			auto pState = _pServer->f_GetLaunchState(mp_LaunchID);
 			if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
 				pState->m_pLaunch->f_CloseStdIn();
 			CResponse Reponse;
@@ -1432,9 +1434,9 @@ namespace NMib::NProcess
 
 		void CProcessLaunch_Close::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
 		{
-			auto pState = _pServer->f_GetLaunchState(m_LaunchID);
+			auto pState = _pServer->f_GetLaunchState(mp_LaunchID);
 			if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
-				pState->m_pLaunch->f_Close(this->m_CloseFlag);
+				pState->m_pLaunch->f_Close(this->mp_CloseFlag);
 			CResponse Reponse;
 			_OnResponse(Reponse);
 		}
@@ -1446,7 +1448,7 @@ namespace NMib::NProcess
 
 		void CProcessLaunch_Stop::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
 		{
-			auto pState = _pServer->f_GetLaunchState(m_LaunchID);
+			auto pState = _pServer->f_GetLaunchState(mp_LaunchID);
 			if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
 				pState->m_pLaunch->f_StopProcess();
 			CResponse Reponse;
@@ -1552,17 +1554,17 @@ namespace NMib::NProcess
 			, CProcessLaunchParams const &_Params
 			, EProcessLaunchCloseFlag _DestructFlags
 		)
-		: m_pState(fg_Construct(_pClient, _Params, _DestructFlags))
+		: mp_pState(fg_Construct(_pClient, _Params, _DestructFlags))
 	{
-		_pClient->f_AddLaunchState(m_pState->m_LaunchID, m_pState);
+		_pClient->f_AddLaunchState(mp_pState->m_LaunchID, mp_pState);
 
 		EProcessLaunchCloseFlag RemoteCloseFlags = _DestructFlags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree);
 
-		NStorage::TCSharedPointer<CLaunchState> pState = m_pState;
-		NPrivate::CProcessLaunch_Launch Launch(_Params, RemoteCloseFlags, m_pState->m_LaunchID);
-		m_pState->m_RunningTime.f_Start();
-		m_pState->m_bOpen.f_Exchange(true);
-		m_pState->m_bIsRunning.f_Exchange(true);
+		NStorage::TCSharedPointer<CLaunchState> pState = mp_pState;
+		NPrivate::CProcessLaunch_Launch Launch(_Params, RemoteCloseFlags, mp_pState->m_LaunchID);
+		mp_pState->m_RunningTime.f_Start();
+		mp_pState->m_bOpen.f_Exchange(true);
+		mp_pState->m_bIsRunning.f_Exchange(true);
 		_pClient->f_SendMessageAsync
 			(
 				Launch
@@ -1587,20 +1589,20 @@ namespace NMib::NProcess
 
 	CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::~CVirtualProcessLaunch_Client()
 	{
-		f_Close(m_pState->m_DestructFlags);
+		f_Close(mp_pState->m_DestructFlags);
 	}
 
 	EProcessLaunchCloseFlag CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_GetCloseFlags() const
 	{
-		return m_pState->m_DestructFlags;
+		return mp_pState->m_DestructFlags;
 	}
 
 	void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_StopProcess() const
 	{
-		if (!m_pState->m_bOpen.f_Load())
+		if (!mp_pState->m_bOpen.f_Load())
 			return;
 
-		NStorage::TCSharedPointer<CLaunchState> pState = m_pState;
+		NStorage::TCSharedPointer<CLaunchState> pState = mp_pState;
 
 		NPrivate::CProcessLaunch_Stop Message(pState->m_LaunchID);
 		pState->m_pClient->f_SendMessageAsync
@@ -1623,9 +1625,9 @@ namespace NMib::NProcess
 
 	void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_Close(EProcessLaunchCloseFlag _CloseFlags)
 	{
-		if (m_pState->m_bOpen.f_Exchange(false))
+		if (mp_pState->m_bOpen.f_Exchange(false))
 		{
-			NStorage::TCSharedPointer<CLaunchState> pState = m_pState;
+			NStorage::TCSharedPointer<CLaunchState> pState = mp_pState;
 
 			if (_CloseFlags & (EProcessLaunchCloseFlag_TerminateProcess | EProcessLaunchCloseFlag_TerminateProcessTree | EProcessLaunchCloseFlag_StopProcess))
 			{
@@ -1656,29 +1658,29 @@ namespace NMib::NProcess
 				;
 			}
 
-			m_pState->m_DestructFlags = _CloseFlags;
+			mp_pState->m_DestructFlags = _CloseFlags;
 
 			if (_CloseFlags & EProcessLaunchCloseFlag_BlockOnExit)
-				m_pState->m_FinishedEvent.f_Wait();
+				mp_pState->m_FinishedEvent.f_Wait();
 
 			if (!(_CloseFlags & EProcessLaunchCloseFlag_LingerUntilDone))
-				m_pState->m_pClient->f_RemoveLaunchState(m_pState->m_LaunchID);
+				mp_pState->m_pClient->f_RemoveLaunchState(mp_pState->m_LaunchID);
 		}
 	}
 
 	bool CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_IsOpen() const
 	{
-		return m_pState->m_bOpen.f_Load();
+		return mp_pState->m_bOpen.f_Load();
 	}
 
 	bool CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_IsRunning() const
 	{
-		return m_pState->m_bIsRunning.f_Load();
+		return mp_pState->m_bIsRunning.f_Load();
 	}
 
 	void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_SendStdIn(NMib::NStr::CStrIO const &_Data) const
 	{
-		NStorage::TCSharedPointer<CLaunchState> pState = m_pState;
+		NStorage::TCSharedPointer<CLaunchState> pState = mp_pState;
 		NPrivate::CProcessLaunch_Input Message(pState->m_LaunchID, _Data);
 		pState->m_pClient->f_SendMessageAsync
 			(
@@ -1700,7 +1702,7 @@ namespace NMib::NProcess
 
 	void CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_CloseStdIn() const
 	{
-		NStorage::TCSharedPointer<CLaunchState> pState = m_pState;
+		NStorage::TCSharedPointer<CLaunchState> pState = mp_pState;
 		NPrivate::CProcessLaunch_CloseInput Message(pState->m_LaunchID);
 		pState->m_pClient->f_SendMessageAsync
 			(
@@ -1722,7 +1724,7 @@ namespace NMib::NProcess
 
 	fp64 CProxiedLaunchClient::CInternal::CVirtualProcessLaunch_Client::f_GetRunningTime() const
 	{
-		return m_pState->f_GetRunningTime();
+		return mp_pState->f_GetRunningTime();
 	}
 
 	void CProxiedLaunchClient::CInternal::f_ReceivePacket(NStr::CStr const &_Packet)
@@ -2097,9 +2099,9 @@ namespace NMib::NProcess
 	}
 
 	CProxiedLaunchServer::CInternal::CLaunchState::CLaunchState(CProxiedLaunchServer::CInternal *_pServer, uint64 _LaunchID, EProcessLaunchCloseFlag _DestructFlags)
-		: mp_pServer(_pServer)
-		, m_LaunchID(_LaunchID)
+		: m_LaunchID(_LaunchID)
 		, m_DestructFlags(_DestructFlags)
+		, mp_pServer(_pServer)
 	{
 	}
 

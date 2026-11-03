@@ -23,44 +23,44 @@ namespace NMib::NProcess::NPlatform
 {
 	BOOL fg_ChangeAceToWindowStation(HWINSTA _WindowStation, PSID _pSid, bool _bRemove, bool &_bAdded)
 	{
-		ACCESS_ALLOWED_ACE *pace = NULL;
-		ACL_SIZE_INFORMATION aclSizeInfo;
+		ACCESS_ALLOWED_ACE *pAce = NULL;
+		ACL_SIZE_INFORMATION AclSizeInfo;
 		BOOL bDaclExist;
 		BOOL bDaclPresent;
 		BOOL bSuccess = FALSE;
-		DWORD dwNewAclSize;
-		DWORD dwSidSize = 0;
-		DWORD dwSdSizeNeeded;
-		PACL pacl;
+		DWORD NewAclSize;
+		DWORD SidSize = 0;
+		DWORD SdSizeNeeded;
+		PACL pAcl;
 		PACL pNewAcl = NULL;
-		PSECURITY_DESCRIPTOR psd = NULL;
-		PSECURITY_DESCRIPTOR psdNew = NULL;
+		PSECURITY_DESCRIPTOR pSecurityDescriptor = NULL;
+		PSECURITY_DESCRIPTOR pNewSecurityDescriptor = NULL;
 		PVOID pTempAce;
-		SECURITY_INFORMATION si = DACL_SECURITY_INFORMATION;
-		unsigned int i;
+		SECURITY_INFORMATION SecurityInformation = DACL_SECURITY_INFORMATION;
+		unsigned int iAce;
 		_bAdded = false;
 
 		__try
 		{
 			// Obtain the DACL for the window station.
 
-			if (!GetUserObjectSecurity(_WindowStation, &si, psd, dwSidSize, &dwSdSizeNeeded))
+			if (!GetUserObjectSecurity(_WindowStation, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
 			{
 				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 				{
-					psd = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSdSizeNeeded);
+					pSecurityDescriptor = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, SdSizeNeeded);
 
-					if (psd == NULL)
+					if (pSecurityDescriptor == NULL)
 						__leave;
 
-					psdNew = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSdSizeNeeded);
+					pNewSecurityDescriptor = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, SdSizeNeeded);
 
-					if (psdNew == NULL)
+					if (pNewSecurityDescriptor == NULL)
 						__leave;
 
-					dwSidSize = dwSdSizeNeeded;
+					SidSize = SdSizeNeeded;
 
-					if (!GetUserObjectSecurity(_WindowStation, &si, psd, dwSidSize, &dwSdSizeNeeded))
+					if (!GetUserObjectSecurity(_WindowStation, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
 						__leave;
 				}
 				else
@@ -69,42 +69,42 @@ namespace NMib::NProcess::NPlatform
 
 			// Create a new DACL.
 
-			if (!InitializeSecurityDescriptor(psdNew, SECURITY_DESCRIPTOR_REVISION))
+			if (!InitializeSecurityDescriptor(pNewSecurityDescriptor, SECURITY_DESCRIPTOR_REVISION))
 				__leave;
 
 			// Get the DACL from the security descriptor.
 
-			if (!GetSecurityDescriptorDacl(psd, &bDaclPresent, &pacl, &bDaclExist))
+			if (!GetSecurityDescriptorDacl(pSecurityDescriptor, &bDaclPresent, &pAcl, &bDaclExist))
 				__leave;
 
 			// Initialize the ACL.
 
-			ZeroMemory(&aclSizeInfo, sizeof(ACL_SIZE_INFORMATION));
-			aclSizeInfo.AclBytesInUse = sizeof(ACL);
+			ZeroMemory(&AclSizeInfo, sizeof(ACL_SIZE_INFORMATION));
+			AclSizeInfo.AclBytesInUse = sizeof(ACL);
 
 			// Call only if the DACL is not NULL.
 
-			if (pacl != NULL)
+			if (pAcl != NULL)
 			{
 				// get the file ACL size info
-				if (!GetAclInformation(pacl, (LPVOID)&aclSizeInfo, sizeof(ACL_SIZE_INFORMATION), AclSizeInformation))
+				if (!GetAclInformation(pAcl, (LPVOID)&AclSizeInfo, sizeof(ACL_SIZE_INFORMATION), AclSizeInformation))
 					__leave;
 			}
 
 			// Compute the size of the new ACL.
 
-			dwNewAclSize = aclSizeInfo.AclBytesInUse + (2 * sizeof(ACCESS_ALLOWED_ACE)) + (2 * GetLengthSid(_pSid)) - (2 * sizeof(DWORD));
+			NewAclSize = AclSizeInfo.AclBytesInUse + (2 * sizeof(ACCESS_ALLOWED_ACE)) + (2 * GetLengthSid(_pSid)) - (2 * sizeof(DWORD));
 
 			// Allocate memory for the new ACL.
 
-			pNewAcl = (PACL)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwNewAclSize);
+			pNewAcl = (PACL)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, NewAclSize);
 
 			if (pNewAcl == NULL)
 				__leave;
 
 			// Initialize the new DACL.
 
-			if (!InitializeAcl(pNewAcl, dwNewAclSize, ACL_REVISION))
+			if (!InitializeAcl(pNewAcl, NewAclSize, ACL_REVISION))
 				__leave;
 
 			// If DACL is present, copy it to a new DACL.
@@ -113,12 +113,12 @@ namespace NMib::NProcess::NPlatform
 			if (bDaclPresent)
 			{
 				// Copy the ACEs to the new ACL.
-				if (aclSizeInfo.AceCount)
+				if (AclSizeInfo.AceCount)
 				{
-					for (i = 0; i < aclSizeInfo.AceCount; i++)
+					for (iAce = 0; iAce < AclSizeInfo.AceCount; iAce++)
 					{
 						// Get an ACE.
-						if (!GetAce(pacl, i, &pTempAce))
+						if (!GetAce(pAcl, iAce, &pTempAce))
 							__leave;
 
 						ACCESS_ALLOWED_ACE &TempAce = *((ACCESS_ALLOWED_ACE *)pTempAce);
@@ -147,39 +147,39 @@ namespace NMib::NProcess::NPlatform
 
 			if (!_bRemove)
 			{
-				pace = (ACCESS_ALLOWED_ACE *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD));
+				pAce = (ACCESS_ALLOWED_ACE *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD));
 
-				if (pace == NULL)
+				if (pAce == NULL)
 					__leave;
 
-				pace->Header.AceType = ACCESS_ALLOWED_ACE_TYPE;
-				pace->Header.AceFlags = CONTAINER_INHERIT_ACE | INHERIT_ONLY_ACE | OBJECT_INHERIT_ACE;
-				pace->Header.AceSize = LOWORD(sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD));
-				pace->Mask = DGenericAccess;
+				pAce->Header.AceType = ACCESS_ALLOWED_ACE_TYPE;
+				pAce->Header.AceFlags = CONTAINER_INHERIT_ACE | INHERIT_ONLY_ACE | OBJECT_INHERIT_ACE;
+				pAce->Header.AceSize = LOWORD(sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD));
+				pAce->Mask = DGenericAccess;
 
-				if (!CopySid(GetLengthSid(_pSid), &pace->SidStart, _pSid))
+				if (!CopySid(GetLengthSid(_pSid), &pAce->SidStart, _pSid))
 					__leave;
 
-				if (!AddAce(pNewAcl, ACL_REVISION, MAXDWORD, (LPVOID)pace, pace->Header.AceSize))
+				if (!AddAce(pNewAcl, ACL_REVISION, MAXDWORD, (LPVOID)pAce, pAce->Header.AceSize))
 					__leave;
 
 				// Add the second ACE to the window station.
 
-				pace->Header.AceFlags = NO_PROPAGATE_INHERIT_ACE;
-				pace->Mask = DWinStaAll;
+				pAce->Header.AceFlags = NO_PROPAGATE_INHERIT_ACE;
+				pAce->Mask = DWinStaAll;
 
-				if (!AddAce(pNewAcl, ACL_REVISION, MAXDWORD, (LPVOID)pace, pace->Header.AceSize))
+				if (!AddAce(pNewAcl, ACL_REVISION, MAXDWORD, (LPVOID)pAce, pAce->Header.AceSize))
 					__leave;
 			}
 
 			// Set a new DACL for the security descriptor.
 
-			if (!SetSecurityDescriptorDacl(psdNew, TRUE, pNewAcl, FALSE))
+			if (!SetSecurityDescriptorDacl(pNewSecurityDescriptor, TRUE, pNewAcl, FALSE))
 				__leave;
 
 			// Set the new security descriptor for the window station.
 
-			if (!SetUserObjectSecurity(_WindowStation, &si, psdNew))
+			if (!SetUserObjectSecurity(_WindowStation, &SecurityInformation, pNewSecurityDescriptor))
 				__leave;
 
 			// Indicate success.
@@ -192,17 +192,17 @@ namespace NMib::NProcess::NPlatform
 
 			auto Error = GetLastError();
 
-			if (pace != NULL)
-				HeapFree(GetProcessHeap(), 0, (LPVOID)pace);
+			if (pAce != NULL)
+				HeapFree(GetProcessHeap(), 0, (LPVOID)pAce);
 
 			if (pNewAcl != NULL)
 				HeapFree(GetProcessHeap(), 0, (LPVOID)pNewAcl);
 
-			if (psd != NULL)
-				HeapFree(GetProcessHeap(), 0, (LPVOID)psd);
+			if (pSecurityDescriptor != NULL)
+				HeapFree(GetProcessHeap(), 0, (LPVOID)pSecurityDescriptor);
 
-			if (psdNew != NULL)
-				HeapFree(GetProcessHeap(), 0, (LPVOID)psdNew);
+			if (pNewSecurityDescriptor != NULL)
+				HeapFree(GetProcessHeap(), 0, (LPVOID)pNewSecurityDescriptor);
 
 			SetLastError(Error);
 		}
@@ -212,43 +212,43 @@ namespace NMib::NProcess::NPlatform
 
 	BOOL fg_ChangeAceToDesktop(HDESK _Desktop, PSID _pSid, bool _bRemove, bool &_bAdded)
 	{
-		ACL_SIZE_INFORMATION aclSizeInfo;
+		ACL_SIZE_INFORMATION AclSizeInfo;
 		BOOL bDaclExist;
 		BOOL bDaclPresent;
 		BOOL bSuccess = FALSE;
-		DWORD dwNewAclSize;
-		DWORD dwSidSize = 0;
-		DWORD dwSdSizeNeeded;
-		PACL pacl;
+		DWORD NewAclSize;
+		DWORD SidSize = 0;
+		DWORD SdSizeNeeded;
+		PACL pAcl;
 		PACL pNewAcl = NULL;
-		PSECURITY_DESCRIPTOR psd = NULL;
-		PSECURITY_DESCRIPTOR psdNew = NULL;
+		PSECURITY_DESCRIPTOR pSecurityDescriptor = NULL;
+		PSECURITY_DESCRIPTOR pNewSecurityDescriptor = NULL;
 		PVOID pTempAce;
-		SECURITY_INFORMATION si = DACL_SECURITY_INFORMATION;
-		unsigned int i;
+		SECURITY_INFORMATION SecurityInformation = DACL_SECURITY_INFORMATION;
+		unsigned int iAce;
 		_bAdded = false;
 
 		__try
 		{
 			// Obtain the security descriptor for the desktop object.
 
-			if (!GetUserObjectSecurity(_Desktop, &si, psd, dwSidSize, &dwSdSizeNeeded))
+			if (!GetUserObjectSecurity(_Desktop, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
 			{
 				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 				{
-					psd = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSdSizeNeeded);
+					pSecurityDescriptor = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, SdSizeNeeded);
 
-					if (psd == NULL)
+					if (pSecurityDescriptor == NULL)
 						__leave;
 
-					psdNew = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSdSizeNeeded);
+					pNewSecurityDescriptor = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, SdSizeNeeded);
 
-					if (psdNew == NULL)
+					if (pNewSecurityDescriptor == NULL)
 						__leave;
 
-					dwSidSize = dwSdSizeNeeded;
+					SidSize = SdSizeNeeded;
 
-					if (!GetUserObjectSecurity(_Desktop, &si, psd, dwSidSize, &dwSdSizeNeeded))
+					if (!GetUserObjectSecurity(_Desktop, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
 						__leave;
 				}
 				else
@@ -257,43 +257,43 @@ namespace NMib::NProcess::NPlatform
 
 			// Create a new security descriptor.
 
-			if (!InitializeSecurityDescriptor(psdNew, SECURITY_DESCRIPTOR_REVISION))
+			if (!InitializeSecurityDescriptor(pNewSecurityDescriptor, SECURITY_DESCRIPTOR_REVISION))
 				__leave;
 
 			// Obtain the DACL from the security descriptor.
 
-			if (!GetSecurityDescriptorDacl(psd, &bDaclPresent, &pacl, &bDaclExist))
+			if (!GetSecurityDescriptorDacl(pSecurityDescriptor, &bDaclPresent, &pAcl, &bDaclExist))
 				__leave;
 
 			// Initialize.
 
-			ZeroMemory(&aclSizeInfo, sizeof(ACL_SIZE_INFORMATION));
-			aclSizeInfo.AclBytesInUse = sizeof(ACL);
+			ZeroMemory(&AclSizeInfo, sizeof(ACL_SIZE_INFORMATION));
+			AclSizeInfo.AclBytesInUse = sizeof(ACL);
 
 			// Call only if NULL DACL.
 
-			if (pacl != NULL)
+			if (pAcl != NULL)
 			{
 				// Determine the size of the ACL information.
 
-				if (!GetAclInformation(pacl, (LPVOID)&aclSizeInfo, sizeof(ACL_SIZE_INFORMATION), AclSizeInformation))
+				if (!GetAclInformation(pAcl, (LPVOID)&AclSizeInfo, sizeof(ACL_SIZE_INFORMATION), AclSizeInformation))
 					__leave;
 			}
 
 			// Compute the size of the new ACL.
 
-			dwNewAclSize = aclSizeInfo.AclBytesInUse + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD);
+			NewAclSize = AclSizeInfo.AclBytesInUse + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(_pSid) - sizeof(DWORD);
 
 			// Allocate buffer for the new ACL.
 
-			pNewAcl = (PACL)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwNewAclSize);
+			pNewAcl = (PACL)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, NewAclSize);
 
 			if (pNewAcl == NULL)
 				__leave;
 
 			// Initialize the new ACL.
 
-			if (!InitializeAcl(pNewAcl, dwNewAclSize, ACL_REVISION))
+			if (!InitializeAcl(pNewAcl, NewAclSize, ACL_REVISION))
 				__leave;
 
 			// If DACL is present, copy it to a new DACL.
@@ -303,12 +303,12 @@ namespace NMib::NProcess::NPlatform
 			if (bDaclPresent)
 			{
 				// Copy the ACEs to the new ACL.
-				if (aclSizeInfo.AceCount)
+				if (AclSizeInfo.AceCount)
 				{
-					for (i = 0; i < aclSizeInfo.AceCount; i++)
+					for (iAce = 0; iAce < AclSizeInfo.AceCount; iAce++)
 					{
 						// Get an ACE.
-						if (!GetAce(pacl, i, &pTempAce))
+						if (!GetAce(pAcl, iAce, &pTempAce))
 							__leave;
 
 						ACCESS_ALLOWED_ACE &TempAce = *((ACCESS_ALLOWED_ACE *)pTempAce);
@@ -338,12 +338,12 @@ namespace NMib::NProcess::NPlatform
 
 			// Set new DACL to the new security descriptor.
 
-			if (!SetSecurityDescriptorDacl(psdNew, TRUE, pNewAcl, FALSE))
+			if (!SetSecurityDescriptorDacl(pNewSecurityDescriptor, TRUE, pNewAcl, FALSE))
 				__leave;
 
 			// Set the new security descriptor for the desktop object.
 
-			if (!SetUserObjectSecurity(_Desktop, &si, psdNew))
+			if (!SetUserObjectSecurity(_Desktop, &SecurityInformation, pNewSecurityDescriptor))
 				__leave;
 
 			// Indicate success.
@@ -359,11 +359,11 @@ namespace NMib::NProcess::NPlatform
 			if (pNewAcl != NULL)
 				HeapFree(GetProcessHeap(), 0, (LPVOID)pNewAcl);
 
-			if (psd != NULL)
-				HeapFree(GetProcessHeap(), 0, (LPVOID)psd);
+			if (pSecurityDescriptor != NULL)
+				HeapFree(GetProcessHeap(), 0, (LPVOID)pSecurityDescriptor);
 
-			if (psdNew != NULL)
-				HeapFree(GetProcessHeap(), 0, (LPVOID)psdNew);
+			if (pNewSecurityDescriptor != NULL)
+				HeapFree(GetProcessHeap(), 0, (LPVOID)pNewSecurityDescriptor);
 
 			SetLastError(Error);
 		}

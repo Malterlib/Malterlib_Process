@@ -9,35 +9,35 @@ namespace NMib::NProcess
 {
 	void CProcessLaunch::fp_CheckOpen() const
 	{
-		if (!m_pProcessLaunch)
+		if (!mp_pProcessLaunch)
 			DMibError("Process launch not open");
 	}
 
 	CProcessLaunch::CProcessLaunch(CProcessLaunch &&_Other)
-		: m_pProcessLaunch(_Other.m_pProcessLaunch)
-		, m_DestructFlags(_Other.m_DestructFlags)
+		: mp_pProcessLaunch(_Other.mp_pProcessLaunch)
+		, mp_DestructFlags(_Other.mp_DestructFlags)
 	{
-		_Other.m_pProcessLaunch = nullptr;
+		_Other.mp_pProcessLaunch = nullptr;
 	}
 
 	CProcessLaunch::CProcessLaunch(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags)
-		: m_pProcessLaunch(nullptr)
-		, m_DestructFlags(_DestructFlags & ~EProcessLaunchCloseFlag_CloseInProgress)
+		: mp_pProcessLaunch(nullptr)
+		, mp_DestructFlags(_DestructFlags & ~EProcessLaunchCloseFlag_CloseInProgress)
 	{
-		m_pProcessLaunch = NPlatform::fg_ProcessLaunch_Open(_Params);
+		mp_pProcessLaunch = NPlatform::fg_ProcessLaunch_Open(_Params);
 		if (_Params.m_bThreaded)
-			NPlatform::fg_ProcessLaunch_Start(m_pProcessLaunch, _DestructFlags);
+			NPlatform::fg_ProcessLaunch_Start(mp_pProcessLaunch, _DestructFlags);
 	}
 
 	CProcessLaunch::~CProcessLaunch()
 	{
-		if (m_pProcessLaunch)
-			f_Close(m_DestructFlags);
+		if (mp_pProcessLaunch)
+			f_Close(mp_DestructFlags);
 	}
 
 	void CProcessLaunch::f_Start()
 	{
-		NPlatform::fg_ProcessLaunch_Start(m_pProcessLaunch, m_DestructFlags);
+		NPlatform::fg_ProcessLaunch_Start(mp_pProcessLaunch, mp_DestructFlags);
 	}
 
 	EProcessElevation CProcessLaunch::fs_GetElevation()
@@ -210,19 +210,19 @@ namespace NMib::NProcess
 
 	void CProcessLaunch::f_Close(EProcessLaunchCloseFlag _CloseFlags)
 	{
-		if (m_pProcessLaunch && !(m_DestructFlags & EProcessLaunchCloseFlag_CloseInProgress))
+		if (mp_pProcessLaunch && !(mp_DestructFlags & EProcessLaunchCloseFlag_CloseInProgress))
 		{
-			m_DestructFlags = _CloseFlags;
-			m_DestructFlags |= EProcessLaunchCloseFlag_CloseInProgress;
+			mp_DestructFlags = _CloseFlags;
+			mp_DestructFlags |= EProcessLaunchCloseFlag_CloseInProgress;
 
 			auto Cleanup = g_OnScopeExit / [this]
 				{
-					m_DestructFlags = m_DestructFlags & ~EProcessLaunchCloseFlag_CloseInProgress;
+					mp_DestructFlags = mp_DestructFlags & ~EProcessLaunchCloseFlag_CloseInProgress;
 				}
 			;
 
-			NPlatform::fg_ProcessLaunch_Close(m_pProcessLaunch, _CloseFlags);
-			m_pProcessLaunch = nullptr;
+			NPlatform::fg_ProcessLaunch_Close(mp_pProcessLaunch, _CloseFlags);
+			mp_pProcessLaunch = nullptr;
 
 			Cleanup.f_Clear();
 		}
@@ -230,85 +230,85 @@ namespace NMib::NProcess
 
 	EProcessLaunchCloseFlag CProcessLaunch::f_GetCloseFlags() const
 	{
-		if (m_pProcessLaunch)
+		if (mp_pProcessLaunch)
 			DMibError("Process launch still open");
 
-		return m_DestructFlags;
+		return mp_DestructFlags;
 	}
 
 	bool CProcessLaunch::f_IsOpen() const
 	{
-		return m_pProcessLaunch != nullptr;
+		return mp_pProcessLaunch != nullptr;
 	}
 
 	bool CProcessLaunch::f_IsRunning() const
 	{
 		fp_CheckOpen();
-		return NPlatform::fg_ProcessLaunch_IsRunning(m_pProcessLaunch);
+		return NPlatform::fg_ProcessLaunch_IsRunning(mp_pProcessLaunch);
 	}
 
 	void CProcessLaunch::f_SendStdIn(NMib::NStr::CStrIO const &_Data) const
 	{
 		fp_CheckOpen();
-		NPlatform::fg_ProcessLaunch_SendStdIn(m_pProcessLaunch, _Data);
+		NPlatform::fg_ProcessLaunch_SendStdIn(mp_pProcessLaunch, _Data);
 	}
 
 	void CProcessLaunch::f_CloseStdIn() const
 	{
 		fp_CheckOpen();
-		NPlatform::fg_ProcessLaunch_CloseStdIn(m_pProcessLaunch);
+		NPlatform::fg_ProcessLaunch_CloseStdIn(mp_pProcessLaunch);
 	}
 
 	void CProcessLaunch::f_SendStdInBinary(NContainer::CIOByteVector const &_Data) const
 	{
 		fp_CheckOpen();
-		NPlatform::fg_ProcessLaunch_SendStdInBinary(m_pProcessLaunch, _Data);
+		NPlatform::fg_ProcessLaunch_SendStdInBinary(mp_pProcessLaunch, _Data);
 	}
 
 	fp64 CProcessLaunch::f_GetRunningTime() const
 	{
 		fp_CheckOpen();
-		return NPlatform::fg_ProcessLaunch_GetRunningTime(m_pProcessLaunch);
+		return NPlatform::fg_ProcessLaunch_GetRunningTime(mp_pProcessLaunch);
 	}
 
 	umint CProcessLaunch::f_GetProcessID() const
 	{
-		return NPlatform::fg_ProcessLaunch_GetID(m_pProcessLaunch);
+		return NPlatform::fg_ProcessLaunch_GetID(mp_pProcessLaunch);
 	}
 
 	void CProcessLaunch::f_StopProcess() const
 	{
-		NPlatform::fg_ProcessLaunch_Stop(m_pProcessLaunch);
+		NPlatform::fg_ProcessLaunch_Stop(mp_pProcessLaunch);
 	}
 
 	void CProcessLaunch::f_StopProcessGroup() const
 	{
-		NPlatform::fg_ProcessLaunch_StopGroup(m_pProcessLaunch);
+		NPlatform::fg_ProcessLaunch_StopGroup(mp_pProcessLaunch);
 	}
 
 	void CProcessLaunch::f_TerminateProcessTree() const
 	{
-		NPlatform::fg_ProcessLaunch_TerminateTree(m_pProcessLaunch);
+		NPlatform::fg_ProcessLaunch_TerminateTree(mp_pProcessLaunch);
 	}
 
 	CProcessStatistics CProcessLaunch::f_GetExecutionStatistics() const
 	{
-		return NPlatform::fg_ProcessLaunch_GetExecutionStatistics(m_pProcessLaunch);
+		return NPlatform::fg_ProcessLaunch_GetExecutionStatistics(mp_pProcessLaunch);
 	}
 
 	CProcessStatistics CProcessLaunch::f_GetMemoryStatistics() const
 	{
-		return NPlatform::fg_ProcessLaunch_GetMemoryStatistics(m_pProcessLaunch);
+		return NPlatform::fg_ProcessLaunch_GetMemoryStatistics(mp_pProcessLaunch);
 	}
 
 	CProcessStatistics CProcessLaunch::f_GetOverallExecutionStatistics() const
 	{
-		return NPlatform::fg_ProcessLaunch_GetOverallExecutionStatistics(m_pProcessLaunch);
+		return NPlatform::fg_ProcessLaunch_GetOverallExecutionStatistics(mp_pProcessLaunch);
 	}
 
 	CProcessStatistics CProcessLaunch::f_GetOverallMemoryStatistics() const
 	{
-		return NPlatform::fg_ProcessLaunch_GetOverallMemoryStatistics(m_pProcessLaunch);
+		return NPlatform::fg_ProcessLaunch_GetOverallMemoryStatistics(mp_pProcessLaunch);
 	}
 
 	// Parses fs_GetParamsUnix's direct-execution format, not shell syntax. Double quotes group text;
@@ -520,7 +520,7 @@ namespace NMib::NProcess
 					if (Char == '\"')
 					{
 						// 2N+1 backslashes + " ==> N backslashes + literal "
-						for (umint i = 0; i < nBackslashes * 2 + 1; ++i)
+						for (umint iBackslash = 0; iBackslash < nBackslashes * 2 + 1; ++iBackslash)
 							Params.f_AddChar('\\');
 						Params.f_AddChar('"');
 						nBackslashes = 0;
@@ -530,7 +530,7 @@ namespace NMib::NProcess
 					else
 					{
 						// N backslashes followed by a non-quote char are literal
-						for (umint i = 0; i < nBackslashes; ++i)
+						for (umint iBackslash = 0; iBackslash < nBackslashes; ++iBackslash)
 							Params.f_AddChar('\\');
 						nBackslashes = 0;
 						Params.f_AddChar(Char);
@@ -540,7 +540,7 @@ namespace NMib::NProcess
 
 				// Trailing backslashes before the closing quote must be doubled so they
 				// round-trip as N literal backslashes (2N backslashes + " ==> N + quote).
-				for (umint i = 0; i < nBackslashes * 2; ++i)
+				for (umint iBackslash = 0; iBackslash < nBackslashes * 2; ++iBackslash)
 					Params.f_AddChar('\\');
 
 				Params += "\"";

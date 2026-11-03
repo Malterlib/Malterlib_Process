@@ -321,10 +321,10 @@ namespace
 					return;
 				}
 				CStr RunAsPath = fg_TestGetCurrentPath();
-				for (umint i = 0; i < 4; ++i)
+				for (umint iVariant = 0; iVariant < 4; ++iVariant)
 				{
-					bool bForceFork = (i & 1) != 0;
-					bool bUserSession = (i & 2) != 0;
+					bool bForceFork = (iVariant & 1) != 0;
+					bool bUserSession = (iVariant & 2) != 0;
 
 					DMibTestPath(bForceFork ? "Fork" : "No Fork");
 					{

@@ -18,7 +18,7 @@ namespace
 			{
 				// A process can install termination handlers one after another, as each command of a command line client does
 				umint nInstalled = 0;
-				for (umint i = 0; i < 3; ++i)
+				for (umint iHandler = 0; iHandler < 3; ++iHandler)
 				{
 					auto Handler = NMib::NProcess::NPlatform::fg_Process_WaitForTermination
 						(

@@ -76,12 +76,12 @@ namespace
 						CStdInReader Reader0(fCreateParams());
 						CStdInReader Reader1(fCreateParams());
 					}
-					auto fl_CreateNormal = [&]
+					auto fCreateNormal = [&]
 						{
 							CStdInReader Reader1(fCreateParams());
 						}
 					;
-					auto fl_CreateExclusive = [&]
+					auto fCreateExclusive = [&]
 						{
 							CStdInReader Reader1(fCreateParams(true));
 						}
@@ -89,14 +89,14 @@ namespace
 					{
 						DMibTestPath("Shared");
 						CStdInReader Reader0(fCreateParams());
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
-						DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fl_CreateNormal()));
+						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
+						DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fCreateNormal()));
 					}
 					{
 						DMibTestPath("Exclusive");
 						CStdInReader Reader0(fCreateParams(true));
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateNormal()));
+						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
+						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateNormal()));
 					}
 
 					DMibTestCategory("Actor")
@@ -180,12 +180,12 @@ namespace
 						CStdInReader Reader0(fCreateParams());
 						CStdInReader Reader1(fCreateParams());
 					}
-					auto fl_CreateNormal = [&]
+					auto fCreateNormal = [&]
 						{
 							CStdInReader Reader1(fCreateParams());
 						}
 					;
-					auto fl_CreateExclusive = [&]
+					auto fCreateExclusive = [&]
 						{
 							CStdInReader Reader1(fCreateParams(true));
 						}
@@ -193,14 +193,14 @@ namespace
 					{
 						DMibTestPath("Shared");
 						CStdInReader Reader0(fCreateParams());
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
-						DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fl_CreateNormal()));
+						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
+						DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fCreateNormal()));
 					}
 					{
 						DMibTestPath("Exclusive");
 						CStdInReader Reader0(fCreateParams(true));
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateExclusive()));
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fl_CreateNormal()));
+						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
+						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateNormal()));
 					}
 				};
 

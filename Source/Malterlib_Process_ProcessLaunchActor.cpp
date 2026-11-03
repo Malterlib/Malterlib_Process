@@ -19,7 +19,7 @@
 
 namespace NMib::NProcess
 {
-	static NThread::CMutual g_StdOutLogLock;
+	static NThread::CMutual gs_StdOutLogLock;
 	struct CProcessLaunchActor::CInternal : public NConcurrency::CActorInternal
 	{
 		NStorage::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
@@ -207,7 +207,7 @@ namespace NMib::NProcess
 				{
 					if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 					{
-						DMibLock(g_StdOutLogLock);
+						DMibLock(gs_StdOutLogLock);
 						DMibConErrOut("{}: {}\n", LogName, _Error);
 					}
 
@@ -448,7 +448,7 @@ namespace NMib::NProcess
 								{
 									if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 									{
-										DMibLock(g_StdOutLogLock);
+										DMibLock(gs_StdOutLogLock);
 										DMibConErrOut("{}: {}\n", LogName, Output.f_TrimRight());
 									}
 #if (DMibSysLogSeverities) != 0
@@ -465,7 +465,7 @@ namespace NMib::NProcess
 								{
 									if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 									{
-										DMibLock(g_StdOutLogLock);
+										DMibLock(gs_StdOutLogLock);
 										if (ToLog & ELogFlag_AdditionallyOutputToStdErrDirectStdErr)
 											DMibConErrOut("{}", Output);
 										else
@@ -485,7 +485,7 @@ namespace NMib::NProcess
 								{
 									if (ToLog & ELogFlag_AdditionallyOutputToStdErr)
 									{
-										DMibLock(g_StdOutLogLock);
+										DMibLock(gs_StdOutLogLock);
 										DMibConErrOut("{}: {}\n", LogName, Output.f_TrimRight());
 									}
 #if (DMibSysLogSeverities) != 0

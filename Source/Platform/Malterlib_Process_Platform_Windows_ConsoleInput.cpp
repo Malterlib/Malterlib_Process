@@ -253,12 +253,12 @@ namespace NMib::NProcess::NPlatform
 		if (fg_IsCtrlPressed(_Mouse.dwControlKeyState))
 			Modifiers |= 16;
 
-		int32 X = int32(_Mouse.dwMousePosition.X) + 1;
-		int32 Y = int32(_Mouse.dwMousePosition.Y) + 1;
+		int32 Column = int32(_Mouse.dwMousePosition.X) + 1;
+		int32 Row = int32(_Mouse.dwMousePosition.Y) + 1;
 
 		auto fReport = [&](uint32 _Button, bool _bRelease)
 			{
-				fsp_Append(o_Text, CStr::CFormat("\x1B[<{};{};{}{}") << (_Button | Modifiers) << X << Y << (_bRelease ? "m" : "M"));
+				fsp_Append(o_Text, CStr::CFormat("\x1B[<{};{};{}{}") << (_Button | Modifiers) << Column << Row << (_bRelease ? "m" : "M"));
 			}
 		;
 

@@ -94,12 +94,12 @@ namespace NMib::NProcess::NPlatform
 
 	void CProcessEntry::f_KillTree(NStr::CStr &_Log, aint _Depth)
 	{
-		HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, false, m_Process);
-		if (hProcess)
+		HANDLE Process = OpenProcess(PROCESS_TERMINATE, false, m_Process);
+		if (Process)
 		{
 			_Log += NStr::CStr(NStr::CStr::CFormat("{sf ,sj*}Killed process id {}: {}" DMibNewLine) << "" << _Depth * 3 << m_Process << m_FileName);
-			TerminateProcess(hProcess, 255);
-			CloseHandle(hProcess);
+			TerminateProcess(Process, 255);
+			CloseHandle(Process);
 		}
 		auto Iter = m_Children.f_GetIterator();
 		while (Iter)
@@ -268,22 +268,22 @@ namespace NMib::NProcess::NPlatform
 			{
 				uint32 ProcessIDToKill = GetProcessId(_Process);
 				CProcessEntry RootProcess;
-				HANDLE hProcessSnap;
-				PROCESSENTRY32 pe32;
+				HANDLE ProcessSnapshot;
+				PROCESSENTRY32 ProcessEntry;
 
 				// Take a snapshot of all processes in the system.
-				hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-				if (hProcessSnap != INVALID_HANDLE_VALUE)
+				ProcessSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+				if (ProcessSnapshot != INVALID_HANDLE_VALUE)
 				{
-					pe32.dwSize = sizeof(PROCESSENTRY32);
+					ProcessEntry.dwSize = sizeof(PROCESSENTRY32);
 
-					if (Process32First(hProcessSnap, &pe32))
+					if (Process32First(ProcessSnapshot, &ProcessEntry))
 					{
 						do
 						{
 							uint32 ParentProcess = uint32(-1);
-							HANDLE pParentProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, pe32.th32ParentProcessID);
-							HANDLE pThisProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, pe32.th32ProcessID);
+							HANDLE pParentProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, ProcessEntry.th32ParentProcessID);
+							HANDLE pThisProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, ProcessEntry.th32ProcessID);
 
 							FILETIME CreateTime1;
 							FILETIME ExitTime1;
@@ -302,7 +302,7 @@ namespace NMib::NProcess::NPlatform
 							if (GetProcessTimes(pParentProcess, &CreateTime, &ExitTime, &KernelTime, &UserTime))
 							{
 								if ((uint64 &)CreateTime1 >= (uint64 &)CreateTime)
-									ParentProcess = pe32.th32ParentProcessID;
+									ParentProcess = ProcessEntry.th32ParentProcessID;
 							}
 
 							if (pParentProcess)
@@ -310,12 +310,12 @@ namespace NMib::NProcess::NPlatform
 							if (pThisProcess)
 								CloseHandle(pThisProcess);
 
-							RootProcess.f_MapProcess(pe32.th32ProcessID, ParentProcess, pe32.szExeFile, CreationTime);
+							RootProcess.f_MapProcess(ProcessEntry.th32ProcessID, ParentProcess, ProcessEntry.szExeFile, CreationTime);
 						}
-						while (Process32Next(hProcessSnap, &pe32));
+						while (Process32Next(ProcessSnapshot, &ProcessEntry));
 					}
 
-					CloseHandle(hProcessSnap);
+					CloseHandle(ProcessSnapshot);
 				}
 
 				//RootProcess.f_TraceTree(_Log);
@@ -340,12 +340,12 @@ namespace NMib::NProcess::NPlatform
 			DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 		private:
-			HANDLE mp_hEvent; // Win32 auto-reset event; waited together with the process handle
+			HANDLE mp_Event; // Win32 auto-reset event; waited together with the process handle
 
-			NTime::CStopwatch m_TimeSinceStart;
+			NTime::CStopwatch mp_TimeSinceStart;
 
-			NThread::CMutual m_ExitTimeLock;
-			fp64 m_ExitTime;
+			NThread::CMutual mp_ExitTimeLock;
+			fp64 mp_ExitTime;
 
 			static void WINAPI fsp_StdOutReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped);
 			static void WINAPI fsp_StdErrReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped);
@@ -360,15 +360,15 @@ namespace NMib::NProcess::NPlatform
 			};
 
 			NThread::CMutual mp_PipeLock;
-			NThread::CMutual mp_ChildProcessLock; // Closing mp_hChildProcess; f_TerminateTree cannot wait for mp_PipeLock, which a blocked stdin write holds
+			NThread::CMutual mp_ChildProcessLock; // Closing mp_ChildProcess; f_TerminateTree cannot wait for mp_PipeLock, which a blocked stdin write holds
 
-			HANDLE mp_hStdinWrite; // write end of child's stdin pipe
-			HANDLE mp_hStdoutRead; // read end of child's stdout pipe
-			HANDLE mp_hStderrRead; // read end of child's stderr pipe
-			HANDLE mp_hChildProcess;
+			HANDLE mp_StdinWrite; // write end of child's stdin pipe
+			HANDLE mp_StdoutRead; // read end of child's stdout pipe
+			HANDLE mp_StderrRead; // read end of child's stderr pipe
+			HANDLE mp_ChildProcess;
 
-			HANDLE mp_hSandboxJob;
-			HANDLE mp_hProcessGroupJob; // Holds the processes of a launch with its own process group, also after the launched process has exited
+			HANDLE mp_SandboxJob;
+			HANDLE mp_ProcessGroupJob; // Holds the processes of a launch with its own process group, also after the launched process has exited
 
 			OVERLAPPED mp_StdOutRead;
 			NContainer::CByteVector mp_StdOutReadBuffer;
@@ -426,7 +426,7 @@ namespace NMib::NProcess::NPlatform
 
 			HANDLE f_GetChildProcess() const
 			{
-				return mp_hChildProcess;
+				return mp_ChildProcess;
 			}
 
 		private:
@@ -444,20 +444,20 @@ namespace NMib::NProcess::NPlatform
 		\***************************************************************************************************/
 
 		CConsoleRedirector::CConsoleRedirector()
-			: mp_hEvent(CreateEventA(nullptr, false, false, nullptr))
-			, mp_hStdinWrite(nullptr)
+			: mp_Event(CreateEventA(nullptr, false, false, nullptr))
+			, mp_StdinWrite(nullptr)
 			, mp_bStarted(false)
 			, mp_NeedTermination(NMib::NProcess::EProcessLaunchCloseFlag_None)
 			, mp_bNeedWait(false)
-			, mp_hStdoutRead(nullptr)
-			, mp_hStderrRead(nullptr)
-			, mp_hChildProcess(nullptr)
-			, mp_hSandboxJob(nullptr)
-			, mp_hProcessGroupJob(nullptr)
+			, mp_StdoutRead(nullptr)
+			, mp_StderrRead(nullptr)
+			, mp_ChildProcess(nullptr)
+			, mp_SandboxJob(nullptr)
+			, mp_ProcessGroupJob(nullptr)
 			, mp_ProcessID(0)
-			, m_ExitTime(-1.0)
+			, mp_ExitTime(-1.0)
 		{
-			m_TimeSinceStart.f_Start();
+			mp_TimeSinceStart.f_Start();
 
 			auto &SubSystem = *g_SubSystem_Process_Platform_Windows_Launch;
 			{
@@ -468,12 +468,12 @@ namespace NMib::NProcess::NPlatform
 
 		void CConsoleRedirector::fp_TerminateSandbox(NStr::CStr &_Output)
 		{
-			if (mp_hSandboxJob)
+			if (mp_SandboxJob)
 			{
-				if (!TerminateJobObject(mp_hSandboxJob, 255))
+				if (!TerminateJobObject(mp_SandboxJob, 255))
 					_Output += NStr::CStr::CFormat("TerminateJobObject failed with: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
-				CloseHandle(mp_hSandboxJob);
-				mp_hSandboxJob = nullptr;
+				CloseHandle(mp_SandboxJob);
+				mp_SandboxJob = nullptr;
 			}
 		}
 
@@ -483,11 +483,11 @@ namespace NMib::NProcess::NPlatform
 		{
 			{
 				DMibLock(mp_ChildProcessLock);
-				if (mp_hChildProcess)
-					fg_TerminateProcessTree(mp_hChildProcess, o_Log);
+				if (mp_ChildProcess)
+					fg_TerminateProcessTree(mp_ChildProcess, o_Log);
 			}
 
-			if (mp_hProcessGroupJob && !TerminateJobObject(mp_hProcessGroupJob, 255))
+			if (mp_ProcessGroupJob && !TerminateJobObject(mp_ProcessGroupJob, 255))
 				o_Log += NStr::CStr::CFormat("TerminateJobObject failed with: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 		}
 
@@ -500,12 +500,12 @@ namespace NMib::NProcess::NPlatform
 		CConsoleRedirector::~CConsoleRedirector()
 		{
 			fp_Close();
-			fp_DestroyHandle(mp_hProcessGroupJob);
+			fp_DestroyHandle(mp_ProcessGroupJob);
 
-			if (mp_hEvent)
+			if (mp_Event)
 			{
-				::CloseHandle(mp_hEvent);
-				mp_hEvent = nullptr;
+				::CloseHandle(mp_Event);
+				mp_Event = nullptr;
 			}
 
 			auto &SubSystem = *g_SubSystem_Process_Platform_Windows_Launch;
@@ -568,9 +568,9 @@ namespace NMib::NProcess::NPlatform
 				fAddDirectory(NFile::CFile::fs_GetPath(FullPath) + "/");
 			else
 			{
-				for (umint i = 0; i < 2; ++i)
+				for (umint iSource = 0; iSource < 2; ++iSource)
 				{
-					NStr::CStr Paths = i == 0 ? _LocalPaths : fg_GetSys()->f_GetEnvironmentVariable("PATH");
+					NStr::CStr Paths = iSource == 0 ? _LocalPaths : fg_GetSys()->f_GetEnvironmentVariable("PATH");
 					for (auto const &Directory : Paths.f_Split<true>(";"))
 						fAddDirectory(Directory);
 				}
@@ -957,7 +957,7 @@ namespace NMib::NProcess::NPlatform
 							)
 						)
 						{
-							mp_hChildProcess = ProcessInfo.hProcess;
+							mp_ChildProcess = ProcessInfo.hProcess;
 							mp_ProcessID = ProcessInfo.dwProcessId;
 							// Close any unuseful handles
 							::CloseHandle(ProcessInfo.hThread);
@@ -1001,7 +1001,7 @@ namespace NMib::NProcess::NPlatform
 					{
 						if (ExecInfo.hProcess)
 						{
-							mp_hChildProcess = ExecInfo.hProcess;
+							mp_ChildProcess = ExecInfo.hProcess;
 							mp_ProcessID = GetProcessId(ExecInfo.hProcess);
 						}
 						else
@@ -1027,9 +1027,9 @@ namespace NMib::NProcess::NPlatform
 				// When stdio redirection is enabled, create named pipes and pass
 				// pipe base name to child via --OutputPID. The child connects its
 				// stdio to these pipes early in startup.
-				HANDLE hStdOutPipe = nullptr;
-				HANDLE hStdErrPipe = nullptr;
-				HANDLE hStdInPipe = nullptr;
+				HANDLE StdOutPipe = nullptr;
+				HANDLE StdErrPipe = nullptr;
+				HANDLE StdInPipe = nullptr;
 				NStr::CStr PipeBaseName;
 
 				if (mp_LastLaunchOptions.m_bEnableStdRedirection && mp_LastLaunchOptions.m_bStdOutPID)
@@ -1039,7 +1039,7 @@ namespace NMib::NProcess::NPlatform
 
 					// Create stdout pipe (parent reads, child writes)
 					NStr::CWStr StdOutPipeName = NStr::NPlatform::fg_StrToWindows(PipeBaseName + "_StdOut");
-					hStdOutPipe = CreateNamedPipeW
+					StdOutPipe = CreateNamedPipeW
 						(
 							StdOutPipeName.f_GetStr()
 							, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE
@@ -1052,9 +1052,9 @@ namespace NMib::NProcess::NPlatform
 						)
 					;
 
-					if (!hStdOutPipe || hStdOutPipe == INVALID_HANDLE_VALUE)
+					if (!StdOutPipe || StdOutPipe == INVALID_HANDLE_VALUE)
 					{
-						hStdOutPipe = nullptr;
+						StdOutPipe = nullptr;
 						_Errors += NStr::CStr::CFormat("CreateNamedPipe (StdOut) failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 						return false;
 					}
@@ -1063,7 +1063,7 @@ namespace NMib::NProcess::NPlatform
 					if (mp_LastLaunchOptions.m_bSeparateStdErr)
 					{
 						NStr::CWStr StdErrPipeName = NStr::NPlatform::fg_StrToWindows(PipeBaseName + "_StdErr");
-						hStdErrPipe = CreateNamedPipeW
+						StdErrPipe = CreateNamedPipeW
 							(
 								StdErrPipeName.f_GetStr()
 								, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE
@@ -1076,10 +1076,10 @@ namespace NMib::NProcess::NPlatform
 							)
 						;
 
-						if (!hStdErrPipe || hStdErrPipe == INVALID_HANDLE_VALUE)
+						if (!StdErrPipe || StdErrPipe == INVALID_HANDLE_VALUE)
 						{
-							hStdErrPipe = nullptr;
-							CloseHandle(hStdOutPipe);
+							StdErrPipe = nullptr;
+							CloseHandle(StdOutPipe);
 							_Errors += NStr::CStr::CFormat("CreateNamedPipe (StdErr) failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 							return false;
 						}
@@ -1088,7 +1088,7 @@ namespace NMib::NProcess::NPlatform
 					// Create stdin pipe (parent writes, child reads)
 					// FILE_FLAG_OVERLAPPED needed for ConnectNamedPipe with WaitForMultipleObjects
 					NStr::CWStr StdInPipeName = NStr::NPlatform::fg_StrToWindows(PipeBaseName + "_StdIn");
-					hStdInPipe = CreateNamedPipeW
+					StdInPipe = CreateNamedPipeW
 						(
 							StdInPipeName.f_GetStr()
 							, PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE
@@ -1101,12 +1101,12 @@ namespace NMib::NProcess::NPlatform
 						)
 					;
 
-					if (!hStdInPipe || hStdInPipe == INVALID_HANDLE_VALUE)
+					if (!StdInPipe || StdInPipe == INVALID_HANDLE_VALUE)
 					{
-						hStdInPipe = nullptr;
-						CloseHandle(hStdOutPipe);
-						if (hStdErrPipe)
-							CloseHandle(hStdErrPipe);
+						StdInPipe = nullptr;
+						CloseHandle(StdOutPipe);
+						if (StdErrPipe)
+							CloseHandle(StdErrPipe);
 						_Errors += NStr::CStr::CFormat("CreateNamedPipe (StdIn) failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 						return false;
 					}
@@ -1116,12 +1116,12 @@ namespace NMib::NProcess::NPlatform
 					(
 						[&]
 						{
-							if (hStdOutPipe)
-								CloseHandle(hStdOutPipe);
-							if (hStdErrPipe)
-								CloseHandle(hStdErrPipe);
-							if (hStdInPipe)
-								CloseHandle(hStdInPipe);
+							if (StdOutPipe)
+								CloseHandle(StdOutPipe);
+							if (StdErrPipe)
+								CloseHandle(StdErrPipe);
+							if (StdInPipe)
+								CloseHandle(StdInPipe);
 						}
 					)
 				;
@@ -1161,7 +1161,7 @@ namespace NMib::NProcess::NPlatform
 					return false;
 				}
 
-				mp_hChildProcess = ExecInfo.hProcess;
+				mp_ChildProcess = ExecInfo.hProcess;
 				mp_ProcessID = GetProcessId(ExecInfo.hProcess);
 
 				// Connect named pipes and verify client PID.
@@ -1195,7 +1195,7 @@ namespace NMib::NProcess::NPlatform
 								if (!bConnected && Error == ERROR_IO_PENDING)
 								{
 									// Wait for either pipe connection or child process exit
-									HANDLE WaitHandles[2] = {Overlapped.hEvent, mp_hChildProcess};
+									HANDLE WaitHandles[2] = {Overlapped.hEvent, mp_ChildProcess};
 									DWORD WaitResult = WaitForMultipleObjects(2, WaitHandles, FALSE, 120 * 1000);
 
 									if (WaitResult == WAIT_OBJECT_0 + 1)
@@ -1238,32 +1238,32 @@ namespace NMib::NProcess::NPlatform
 						}
 					;
 
-					if (!fConnectAndVerify(hStdOutPipe, "StdOut"))
+					if (!fConnectAndVerify(StdOutPipe, "StdOut"))
 						return false;
 
-					if (hStdErrPipe)
+					if (StdErrPipe)
 					{
-						if (!fConnectAndVerify(hStdErrPipe, "StdErr"))
+						if (!fConnectAndVerify(StdErrPipe, "StdErr"))
 							return false;
 					}
 
-					if (!fConnectAndVerify(hStdInPipe, "StdIn"))
+					if (!fConnectAndVerify(StdInPipe, "StdIn"))
 						return false;
 
 					// Transfer pipe ownership to member variables
-					mp_hStdoutRead = hStdOutPipe;
-					hStdOutPipe = nullptr;
+					mp_StdoutRead = StdOutPipe;
+					StdOutPipe = nullptr;
 
-					if (hStdErrPipe)
+					if (StdErrPipe)
 					{
-						mp_hStderrRead = hStdErrPipe;
-						hStdErrPipe = nullptr;
+						mp_StderrRead = StdErrPipe;
+						StdErrPipe = nullptr;
 					}
 
 					{
 						DMibLock(mp_PipeLock);
-						mp_hStdinWrite = hStdInPipe;
-						hStdInPipe = nullptr;
+						mp_StdinWrite = StdInPipe;
+						StdInPipe = nullptr;
 					}
 				}
 
@@ -1272,7 +1272,7 @@ namespace NMib::NProcess::NPlatform
 			}
 			else
 			{
-				HANDLE hToken = nullptr;
+				HANDLE Token = nullptr;
 
 				COnScopeExitShared pCleanupToken;
 
@@ -1317,49 +1317,49 @@ namespace NMib::NProcess::NPlatform
 					}
 					uint32 ActiveSessionID = fg_GetActiveSessionID();
 					CProcessEntry RootProcess;
-					HANDLE hProcessSnap;
-					PROCESSENTRY32 pe32;
+					HANDLE ProcessSnapshot;
+					PROCESSENTRY32 ProcessEntry;
 
-					HANDLE hSessionToken = nullptr;
-					if (WTSQueryUserToken(ActiveSessionID, &hSessionToken) == 0)
+					HANDLE SessionToken = nullptr;
+					if (WTSQueryUserToken(ActiveSessionID, &SessionToken) == 0)
 					{
 						uint32 Error = GetLastError();
 						_Errors += NStr::CStr::CFormat("{}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(Error);
 					}
 
-					if (hSessionToken != nullptr)
+					if (SessionToken != nullptr)
 					{
-						if (DuplicateTokenEx(hSessionToken, MAXIMUM_ALLOWED, NULL, SecurityImpersonation, TokenPrimary, &hToken) == 0)
+						if (DuplicateTokenEx(SessionToken, MAXIMUM_ALLOWED, NULL, SecurityImpersonation, TokenPrimary, &Token) == 0)
 						{
 							uint32 Error = GetLastError();
 							_Errors += NStr::CStr::CFormat("{}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(Error);
 						}
 
-						CloseHandle(hSessionToken);
+						CloseHandle(SessionToken);
 					}
 
-					if (hToken == nullptr)
+					if (Token == nullptr)
 					{
-						for (int i = 0; i < 3 && hToken == nullptr; ++i)
+						for (int iPass = 0; iPass < 3 && Token == nullptr; ++iPass)
 						{
 							// Take a snapshot of all processes in the system.
-							hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-							if (hProcessSnap != INVALID_HANDLE_VALUE)
+							ProcessSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+							if (ProcessSnapshot != INVALID_HANDLE_VALUE)
 							{
-								pe32.dwSize = sizeof(PROCESSENTRY32);
+								ProcessEntry.dwSize = sizeof(PROCESSENTRY32);
 
-								if (Process32First(hProcessSnap, &pe32))
+								if (Process32First(ProcessSnapshot, &ProcessEntry))
 								{
 									HANDLE pThisProcess = nullptr;
 									do
 									{
 										uint32 SessionID = 0xFFFFffff;
-										ProcessIdToSessionId(pe32.th32ProcessID, &SessionID);
+										ProcessIdToSessionId(ProcessEntry.th32ProcessID, &SessionID);
 
 										if (SessionID != ActiveSessionID)
 											continue;
 
-										pThisProcess = OpenProcess(MAXIMUM_ALLOWED, false, pe32.th32ProcessID);
+										pThisProcess = OpenProcess(MAXIMUM_ALLOWED, false, ProcessEntry.th32ProcessID);
 										if (!pThisProcess)
 											continue;
 
@@ -1367,43 +1367,43 @@ namespace NMib::NProcess::NPlatform
 										if (Elevation != NMib::NProcess::EProcessElevation_IsNotElevated)
 											continue;
 										NStr::CStr Name = fg_GetProcessName(pThisProcess);
-										if ((i == 0 && Name.f_CmpNoCase("explorer.exe") == 0) || (i == 1 && Name.f_CmpNoCase("LogonUI.exe") == 0) || (i == 2 && Name != ""))
+										if ((iPass == 0 && Name.f_CmpNoCase("explorer.exe") == 0) || (iPass == 1 && Name.f_CmpNoCase("LogonUI.exe") == 0) || (iPass == 2 && Name != ""))
 										{
-											HANDLE hProcessToken;
-											if (OpenProcessToken(pThisProcess, TOKEN_DUPLICATE, &hProcessToken))
+											HANDLE ProcessToken;
+											if (OpenProcessToken(pThisProcess, TOKEN_DUPLICATE, &ProcessToken))
 											{
-												hToken = nullptr;
+												Token = nullptr;
 
-												if (!DuplicateTokenEx(hProcessToken, MAXIMUM_ALLOWED, NULL, SecurityImpersonation, TokenPrimary, &hToken))
+												if (!DuplicateTokenEx(ProcessToken, MAXIMUM_ALLOWED, NULL, SecurityImpersonation, TokenPrimary, &Token))
 												{
 													// DMibDTrace("DuplicateTokenEx failed with {}" DMibNewLine, NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
 												}
-												CloseHandle(hProcessToken);
+												CloseHandle(ProcessToken);
 											}
-											if (hToken)
+											if (Token)
 												break;
 										}
 										CloseHandle(pThisProcess);
 									}
-									while (Process32Next(hProcessSnap, &pe32));
+									while (Process32Next(ProcessSnapshot, &ProcessEntry));
 									if (pThisProcess != nullptr)
 										CloseHandle(pThisProcess);
 								}
-								CloseHandle(hProcessSnap);
+								CloseHandle(ProcessSnapshot);
 							}
 						}
 					}
 
-					if (!hToken)
+					if (!Token)
 					{
 						_Errors += "When de-elevating, found no process to copy security token from." DMibNewLine;
 						return false;
 					}
 
-					pCleanupToken = g_OnScopeExitShared / [hToken]
+					pCleanupToken = g_OnScopeExitShared / [Token]
 						{
-							if (hToken)
-								CloseHandle(hToken);
+							if (Token)
+								CloseHandle(Token);
 						}
 					;
 				}
@@ -1417,16 +1417,16 @@ namespace NMib::NProcess::NPlatform
 					CWStrSecure Password = mp_LastLaunchOptions.m_RunAsUserPassword;
 					//HANDLE hLogonToken;
 					PSID pLogonSid = nullptr;
-					if (!LogonUserExW(UserName.f_GetStr(), L".", Password.f_GetStr(), LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT, &hToken, &pLogonSid, nullptr, nullptr, nullptr))
+					if (!LogonUserExW(UserName.f_GetStr(), L".", Password.f_GetStr(), LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT, &Token, &pLogonSid, nullptr, nullptr, nullptr))
 					{
 						_Errors += "When launching as user, failed to login as user '{}': {}{\n}"_f << UserName << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
 					}
 
-					pCleanupToken = g_OnScopeExitShared / [hToken]
+					pCleanupToken = g_OnScopeExitShared / [Token]
 						{
-							if (hToken)
-								CloseHandle(hToken);
+							if (Token)
+								CloseHandle(Token);
 						}
 					;
 
@@ -1442,7 +1442,7 @@ namespace NMib::NProcess::NPlatform
 					ProfileInfo.dwSize = sizeof(ProfileInfo);
 					ProfileInfo.dwFlags = PI_NOUI;
 					ProfileInfo.lpUserName = UserName.f_GetStrWritable();
-					if (!LoadUserProfileW(hToken, &ProfileInfo))
+					if (!LoadUserProfileW(Token, &ProfileInfo))
 					{
 						_Errors += "When launching as user, failed to load user profile: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
@@ -1450,9 +1450,9 @@ namespace NMib::NProcess::NPlatform
 
 					CleanupUserProfiles.f_Insert
 						(
-							g_OnScopeExitShared / [hToken, hProfile = ProfileInfo.hProfile, pCleanupToken]
+							g_OnScopeExitShared / [Token, Profile = ProfileInfo.hProfile, pCleanupToken]
 							{
-								if (!UnloadUserProfile(hToken, hProfile))
+								if (!UnloadUserProfile(Token, Profile))
 									DMibDTrace("When launching as user, failed to unload user profile: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
 							}
 						)
@@ -1461,7 +1461,7 @@ namespace NMib::NProcess::NPlatform
 					//DuplicateTokenEx(hLogonToken, );
 
 					void *pEnvironmentVoid;
-					if (!CreateEnvironmentBlock(&pEnvironmentVoid, hToken, false))
+					if (!CreateEnvironmentBlock(&pEnvironmentVoid, Token, false))
 					{
 						_Errors += "When launching as user, failed to create environment block: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
@@ -1482,30 +1482,30 @@ namespace NMib::NProcess::NPlatform
 						pEnvironment += LineLength + 1;
 					}
 
-					HWINSTA hCurrentWindowStation = GetProcessWindowStation();
-					if (!hCurrentWindowStation)
+					HWINSTA CurrentWindowStation = GetProcessWindowStation();
+					if (!CurrentWindowStation)
 					{
 						_Errors += "When launching as user, failed to get current window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
 					}
 
-					HWINSTA hWindowStation = OpenWindowStationW(L"winsta0", false, READ_CONTROL | WRITE_DAC);
+					HWINSTA WindowStation = OpenWindowStationW(L"winsta0", false, READ_CONTROL | WRITE_DAC);
 
-					if (!hWindowStation)
+					if (!WindowStation)
 					{
 						_Errors += "When launching as user, failed to open window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
 					}
 
-					auto pCleanupWindowStation = g_OnScopeExitShared / [hWindowStation]
+					auto pCleanupWindowStation = g_OnScopeExitShared / [WindowStation]
 						{
-							CloseWindowStation(hWindowStation);
+							CloseWindowStation(WindowStation);
 						}
 					;
 
-					HDESK hDesktop;
+					HDESK Desktop;
 					{
-						if (!SetProcessWindowStation(hWindowStation))
+						if (!SetProcessWindowStation(WindowStation))
 						{
 							_Errors += "When launching as user, failed to temporarily set window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 							return false;
@@ -1513,28 +1513,28 @@ namespace NMib::NProcess::NPlatform
 
 						auto CleanupWindowStation = g_OnScopeExit / [&]
 							{
-								if (!SetProcessWindowStation(hCurrentWindowStation))
+								if (!SetProcessWindowStation(CurrentWindowStation))
 									DMibDTrace("When launching as user, failed to restore window station: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
 							}
 						;
 
-						hDesktop = OpenDesktopW(L"default", 0, FALSE, READ_CONTROL | WRITE_DAC | DESKTOP_WRITEOBJECTS | DESKTOP_READOBJECTS);
+						Desktop = OpenDesktopW(L"default", 0, FALSE, READ_CONTROL | WRITE_DAC | DESKTOP_WRITEOBJECTS | DESKTOP_READOBJECTS);
 					}
 
-					if (!hDesktop)
+					if (!Desktop)
 					{
 						_Errors += "When launching as user, failed to open desktop: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
 					}
 
-					auto pCleanupDesktop = g_OnScopeExitShared / [hDesktop]
+					auto pCleanupDesktop = g_OnScopeExitShared / [Desktop]
 						{
-							CloseDesktop(hDesktop);
+							CloseDesktop(Desktop);
 						}
 					;
 
 					bool bAddedToWindowStation = false;
-					if (!fg_ChangeAceToWindowStation(hWindowStation, pLogonSid, false, bAddedToWindowStation))
+					if (!fg_ChangeAceToWindowStation(WindowStation, pLogonSid, false, bAddedToWindowStation))
 					{
 						_Errors += "When launching as user, failed to add access to window station: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
@@ -1544,10 +1544,10 @@ namespace NMib::NProcess::NPlatform
 					{
 						CleanupUserProfiles.f_Insert
 							(
-								g_OnScopeExitShared / [pCleanupWindowStation, pCleanupLogonSid, hWindowStation, pLogonSid]
+								g_OnScopeExitShared / [pCleanupWindowStation, pCleanupLogonSid, WindowStation, pLogonSid]
 								{
 									bool bAdded;
-									if (!fg_ChangeAceToWindowStation(hWindowStation, pLogonSid, true, bAdded))
+									if (!fg_ChangeAceToWindowStation(WindowStation, pLogonSid, true, bAdded))
 										DMibDTrace("When launching as user, failed to remove access from window station: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
 								}
 							)
@@ -1556,7 +1556,7 @@ namespace NMib::NProcess::NPlatform
 
 					bool bAddedToDesktop = false;
 
-					if (!fg_ChangeAceToDesktop(hDesktop, pLogonSid, false, bAddedToDesktop))
+					if (!fg_ChangeAceToDesktop(Desktop, pLogonSid, false, bAddedToDesktop))
 					{
 						_Errors += "When launching as user, failed to add access to desktop: {}{\n}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr();
 						return false;
@@ -1566,10 +1566,10 @@ namespace NMib::NProcess::NPlatform
 					{
 						CleanupUserProfiles.f_Insert
 							(
-								g_OnScopeExitShared / [pCleanupDesktop, pCleanupLogonSid, hDesktop, pLogonSid]
+								g_OnScopeExitShared / [pCleanupDesktop, pCleanupLogonSid, Desktop, pLogonSid]
 								{
 									bool bAdded;
-									if (!fg_ChangeAceToDesktop(hDesktop, pLogonSid, true, bAdded))
+									if (!fg_ChangeAceToDesktop(Desktop, pLogonSid, true, bAdded))
 										DMibDTrace("When launching as user, failed to remove access from desktop: {}{\n}", NMib::NPlatform::fg_Win32_GetLastErrorStr());
 								}
 							)
@@ -1666,10 +1666,10 @@ namespace NMib::NProcess::NPlatform
 				}
 
 				mp_ProcessID = 0;
-				PROCESS_INFORMATION pi;
-				STARTUPINFOW si;
+				PROCESS_INFORMATION ProcessInfo;
+				STARTUPINFOW StartupInfo;
 
-				DMibSafeCheck(mp_hChildProcess == nullptr, "Error");
+				DMibSafeCheck(mp_ChildProcess == nullptr, "Error");
 
 				NContainer::TCVector<ch16> NewEnvStrs;
 
@@ -1707,26 +1707,26 @@ namespace NMib::NProcess::NPlatform
 				NewEnvStrs.f_Insert(ch16(0));
 
 				// Set up the start up info struct.
-				NMemory::fg_MemClear(si);
-				si.cb = sizeof(STARTUPINFOW);
-				si.hStdOutput = _StdOut;
-				si.hStdInput = _StdIn;
-				si.hStdError = _StdErr;
-				si.wShowWindow = mp_LastLaunchOptions.m_bShowLaunched ? SW_SHOWNORMAL : SW_HIDE;
-				si.dwFlags = STARTF_USESHOWWINDOW;
+				NMemory::fg_MemClear(StartupInfo);
+				StartupInfo.cb = sizeof(STARTUPINFOW);
+				StartupInfo.hStdOutput = _StdOut;
+				StartupInfo.hStdInput = _StdIn;
+				StartupInfo.hStdError = _StdErr;
+				StartupInfo.wShowWindow = mp_LastLaunchOptions.m_bShowLaunched ? SW_SHOWNORMAL : SW_HIDE;
+				StartupInfo.dwFlags = STARTF_USESHOWWINDOW;
 				if (bRunAsUser)
 				{
-					si.lpDesktop = fg_AutoConstCast(L"winsta0\\default");
+					StartupInfo.lpDesktop = fg_AutoConstCast(L"winsta0\\default");
 					CreateProcessFlags |= CREATE_NEW_CONSOLE;
 				}
 
 				if (mp_LastLaunchOptions.m_bDisplayBusyCursor)
-					si.dwFlags |= STARTF_FORCEONFEEDBACK;
+					StartupInfo.dwFlags |= STARTF_FORCEONFEEDBACK;
 				else
-					si.dwFlags |= STARTF_FORCEOFFFEEDBACK;
+					StartupInfo.dwFlags |= STARTF_FORCEOFFFEEDBACK;
 
 				if (mp_LastLaunchOptions.m_bEnableStdRedirection)
-					si.dwFlags |= STARTF_USESTDHANDLES;
+					StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
 				// Note that dwFlags must include STARTF_USESHOWWINDOW if we
 				// use the wShowWindow flags. This also assumes that the
@@ -1735,15 +1735,15 @@ namespace NMib::NProcess::NPlatform
 				// Launch the child process.
 
 				NStr::CWStr Params = NStr::NPlatform::fg_StrToWindows(ProgramPathFull.f_EscapeStr().f_Replace("\\\\", "\\") + " " + mp_LastLaunchOptions.m_Parameters);
-				if (hToken)
+				if (Token)
 				{
 					if (NLocal::g_OptionalFunctions.m_fCreateProcessWithTokenW)
 					{
 						if (!bRunAsUser)
 						{
-							HANDLE hThreadToken = NULL;
+							HANDLE ThreadToken = NULL;
 							ImpersonateSelf(SecurityImpersonation);
-							if (!OpenThreadToken(GetCurrentThread(), MAXIMUM_ALLOWED, false, &hThreadToken))
+							if (!OpenThreadToken(GetCurrentThread(), MAXIMUM_ALLOWED, false, &ThreadToken))
 							{
 								NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 								_Errors += NStr::CStr::CFormat("OpenThreadToken failed with : {}" DMibNewLine) << Error;
@@ -1752,14 +1752,14 @@ namespace NMib::NProcess::NPlatform
 							}
 							else
 							{
-								TOKEN_PRIVILEGES tkp;
-								tkp.PrivilegeCount = 1;
-								LookupPrivilegeValueW(NULL, SE_INCREASE_QUOTA_NAME, &tkp.Privileges[0].Luid);
-								tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-								AdjustTokenPrivileges(hThreadToken, FALSE, &tkp, 0, NULL, NULL);
-								HRESULT dwLastErr = GetLastError();
-								CloseHandle(hThreadToken);
-								if (dwLastErr != ERROR_SUCCESS)
+								TOKEN_PRIVILEGES TokenPrivileges;
+								TokenPrivileges.PrivilegeCount = 1;
+								LookupPrivilegeValueW(NULL, SE_INCREASE_QUOTA_NAME, &TokenPrivileges.Privileges[0].Luid);
+								TokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+								AdjustTokenPrivileges(ThreadToken, FALSE, &TokenPrivileges, 0, NULL, NULL);
+								HRESULT LastError = GetLastError();
+								CloseHandle(ThreadToken);
+								if (LastError != ERROR_SUCCESS)
 								{
 									NStr::CStr Error = NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError());
 									_Errors += NStr::CStr::CFormat("AdjustTokenPrivileges failed with : {}" DMibNewLine) << Error;
@@ -1775,15 +1775,15 @@ namespace NMib::NProcess::NPlatform
 						(
 							!NLocal::g_OptionalFunctions.m_fCreateProcessWithTokenW
 							(
-								hToken
+								Token
 								, 0
 								, ProgramPathFull
 								, Params.f_GetStrUniqueWritable()
 								, CREATE_UNICODE_ENVIRONMENT | fg_Win32_TranslateProcessPriority(mp_LastLaunchOptions.m_LaunchPriority) | CreateProcessFlags
 								, !NewEnvStrs.f_IsEmpty() ? NewEnvStrs.f_GetArray() : nullptr
 								, !WorkingDir.f_IsEmpty() ? WorkingDir.f_GetStr() : nullptr
-								, &si
-								, &pi
+								, &StartupInfo
+								, &ProcessInfo
 							)
 						)
 						{
@@ -1802,7 +1802,7 @@ namespace NMib::NProcess::NPlatform
 						(
 							!::CreateProcessAsUserW
 							(
-								hToken
+								Token
 								, ProgramPathFull
 								, Params.f_GetStrUniqueWritable()
 								, nullptr
@@ -1813,8 +1813,8 @@ namespace NMib::NProcess::NPlatform
 								, !mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty()
 								? NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_WorkingDirectory, true).f_GetStr()
 								: nullptr
-								, &si
-								, &pi
+								, &StartupInfo
+								, &ProcessInfo
 							)
 						)
 						{
@@ -1844,8 +1844,8 @@ namespace NMib::NProcess::NPlatform
 							, !mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty()
 							? NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_WorkingDirectory, true).f_GetStr()
 							: nullptr
-							, &si
-							, &pi
+							, &StartupInfo
+							, &ProcessInfo
 						)
 					)
 					{
@@ -1870,8 +1870,8 @@ namespace NMib::NProcess::NPlatform
 							, !mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty()
 							? NFile::NPlatform::fg_ConvertToWindowsPath(mp_LastLaunchOptions.m_WorkingDirectory, true).f_GetStr()
 							: nullptr
-							, &si
-							, &pi
+							, &StartupInfo
+							, &ProcessInfo
 						)
 					)
 					{
@@ -1888,27 +1888,27 @@ namespace NMib::NProcess::NPlatform
 					if (!bFailedLaunch)
 					{
 						bool bSetOnParent = false;
-						HANDLE hParent = nullptr;
+						HANDLE ParentJob = nullptr;
 						auto JobCleanupParent = fg_OnScopeExit
 							(
 								[&]()
 								{
-									if (hParent)
-										CloseHandle(hParent);
+									if (ParentJob)
+										CloseHandle(ParentJob);
 								}
 							)
 						;
 						if (bIsWin8 && !mp_LastLaunchOptions.m_ProcessGroup.f_IsEmpty())
 						{
 							NStr::CWStr JobName = mp_LastLaunchOptions.m_ProcessGroup;
-							hParent = CreateJobObjectW(nullptr, JobName);
-							if (hParent)
+							ParentJob = CreateJobObjectW(nullptr, JobName);
+							if (ParentJob)
 							{
 								bool bFailed = false;
 								if (GetLastError() != ERROR_ALREADY_EXISTS)
 								{
 									NStr::CStr Errors;
-									if (fg_SetLimitsOnJob(mp_LastLaunchOptions, hParent, Errors))
+									if (fg_SetLimitsOnJob(mp_LastLaunchOptions, ParentJob, Errors))
 										bFailed = true;
 								}
 								if (!bFailed)
@@ -1937,15 +1937,15 @@ namespace NMib::NProcess::NPlatform
 
 						if (Job != NULL)
 						{
-							if (hParent)
+							if (ParentJob)
 							{
-								if (!AssignProcessToJobObject(hParent, pi.hProcess))
+								if (!AssignProcessToJobObject(ParentJob, ProcessInfo.hProcess))
 								{
 									[[maybe_unused]] HRESULT Error = GetLastError();
 									DMibDTrace("AssignProcessToJobObject: {}" DMibNewLine, NMib::NPlatform::fg_Win32_GetLastErrorStr(Error));
 								}
 							}
-							if (AssignProcessToJobObject(Job, pi.hProcess))
+							if (AssignProcessToJobObject(Job, ProcessInfo.hProcess))
 							{
 								if (!bSetOnParent)
 								{
@@ -1973,7 +1973,7 @@ namespace NMib::NProcess::NPlatform
 
 								if (mp_LastLaunchOptions.m_bSandboxed)
 								{
-									mp_hSandboxJob = Job;
+									mp_SandboxJob = Job;
 									JobCleanup.f_Clear();
 								}
 							}
@@ -2014,13 +2014,20 @@ namespace NMib::NProcess::NPlatform
 					if
 					(
 						!NLocal::g_OptionalFunctions.m_fSetProcessInformation
-						|| !NLocal::g_OptionalFunctions.m_fSetProcessInformation(pi.hProcess, ProcessMemoryPriority, &MemoryPrio, sizeof(MemoryPrio))
+						|| !NLocal::g_OptionalFunctions.m_fSetProcessInformation(ProcessInfo.hProcess, ProcessMemoryPriority, &MemoryPrio, sizeof(MemoryPrio))
 					)
 					{
 						DMibTrace("Failed to set memory priority {}\n", NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
 						if (NLocal::g_OptionalFunctions.m_fNtSetInformationProcess)
 						{
-							auto Result = NLocal::g_OptionalFunctions.m_fNtSetInformationProcess(pi.hProcess, (PROCESSINFOCLASS)ProcessPagePriority, &MemoryPrio, sizeof(MemoryPrio));
+							auto Result = NLocal::g_OptionalFunctions.m_fNtSetInformationProcess
+								(
+									ProcessInfo.hProcess
+									, (PROCESSINFOCLASS)ProcessPagePriority
+									, &MemoryPrio
+									, sizeof(MemoryPrio)
+								)
+							;
 							if (!NT_SUCCESS(Result))
 								DMibTrace("Failed to set memory priority {}\n", NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
 						}
@@ -2029,7 +2036,7 @@ namespace NMib::NProcess::NPlatform
 					if (NLocal::g_OptionalFunctions.m_fNtSetInformationProcess)
 					{
 						ULONG IoPrio = 0;
-						auto Result = NLocal::g_OptionalFunctions.m_fNtSetInformationProcess(pi.hProcess, (PROCESSINFOCLASS)ProcessIoPriority, &IoPrio, sizeof(IoPrio));
+						auto Result = NLocal::g_OptionalFunctions.m_fNtSetInformationProcess(ProcessInfo.hProcess, (PROCESSINFOCLASS)ProcessIoPriority, &IoPrio, sizeof(IoPrio));
 						if (!NT_SUCCESS(Result))
 							DMibTrace("Failed to set IO priority {}\n", NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
 					}
@@ -2051,7 +2058,7 @@ namespace NMib::NProcess::NPlatform
 					if (BinaryType == NeededType)
 					{
 						NStr::CWStr WindowsDllName = NFile::NPlatform::fg_ConvertToWindowsPath(SandboxFullPath, false);
-						if (!NMib::NPlatform::fg_InjectDLL(pi.hProcess, pi.hThread, WindowsDllName, Errors))
+						if (!NMib::NPlatform::fg_InjectDLL(ProcessInfo.hProcess, ProcessInfo.hThread, WindowsDllName, Errors))
 						{
 							_Errors += Errors;
 							bFailedLaunch = true;
@@ -2066,7 +2073,7 @@ namespace NMib::NProcess::NPlatform
 						CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutableRawParams
 							(
 								SandboxInjecter
-								, NStr::CStr::CFormat("0x{nfh} {}") << pi.dwProcessId << pi.dwThreadId
+								, NStr::CStr::CFormat("0x{nfh} {}") << ProcessInfo.dwProcessId << ProcessInfo.dwThreadId
 								, NFile::CFile::fs_GetCurrentDirectory()
 								, [&](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
 								{
@@ -2118,26 +2125,30 @@ namespace NMib::NProcess::NPlatform
 				// Without the job the tree is terminated through the parents of the processes, which works as long as they are alive
 				if (!bFailedLaunch && mp_LastLaunchOptions.m_bCreateNewProcessGroup && !mp_LastLaunchOptions.m_bSandboxed)
 				{
-					HANDLE hJob = CreateJobObjectW(nullptr, nullptr);
-					if (hJob)
+					HANDLE ProcessGroupJob = CreateJobObjectW(nullptr, nullptr);
+					if (ProcessGroupJob)
 					{
 						// Processes that ask to leave the job can, as they would fail to start otherwise
 						JOBOBJECT_EXTENDED_LIMIT_INFORMATION LimitInfo;
 						NMemory::fg_MemClear(LimitInfo);
 						LimitInfo.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_BREAKAWAY_OK;
 
-						if (SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &LimitInfo, sizeof(LimitInfo)) && AssignProcessToJobObject(hJob, pi.hProcess))
+						if
+						(
+							SetInformationJobObject(ProcessGroupJob, JobObjectExtendedLimitInformation, &LimitInfo, sizeof(LimitInfo))
+							&& AssignProcessToJobObject(ProcessGroupJob, ProcessInfo.hProcess)
+						)
 						{
-							fp_DestroyHandle(mp_hProcessGroupJob);
-							mp_hProcessGroupJob = hJob;
+							fp_DestroyHandle(mp_ProcessGroupJob);
+							mp_ProcessGroupJob = ProcessGroupJob;
 						}
 						else
-							CloseHandle(hJob);
+							CloseHandle(ProcessGroupJob);
 					}
 				}
 
 				if (!bFailedLaunch && (CreateProcessFlags & CREATE_SUSPENDED))
-					ResumeThread(pi.hThread);
+					ResumeThread(ProcessInfo.hThread);
 
 				if (!bFailedLaunch)
 				{
@@ -2146,18 +2157,18 @@ namespace NMib::NProcess::NPlatform
 						NMib::NPlatform::fg_EnsureEndSessionReporting();
 
 					mp_CleanupLoadedProfiles = fg_Move(CleanupUserProfiles);
-					mp_hChildProcess = pi.hProcess;
-					mp_ProcessID = pi.dwProcessId;
+					mp_ChildProcess = ProcessInfo.hProcess;
+					mp_ProcessID = ProcessInfo.dwProcessId;
 				}
 				else
 				{
-					TerminateProcess(pi.hProcess, 255);
-					::CloseHandle(pi.hProcess);
-					::CloseHandle(pi.hThread);
+					TerminateProcess(ProcessInfo.hProcess, 255);
+					::CloseHandle(ProcessInfo.hProcess);
+					::CloseHandle(ProcessInfo.hThread);
 					return false;
 				}
 				// Close any unuseful handles
-				::CloseHandle(pi.hThread);
+				::CloseHandle(ProcessInfo.hThread);
 				return true;
 			}
 			return false;
@@ -2185,7 +2196,7 @@ namespace NMib::NProcess::NPlatform
 				pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stdout pipe error: {}" DMibNewLine) << Error);
 			}
 
-			if (::ReadFileEx(pThis->mp_hStdoutRead, pThis->mp_StdOutReadBuffer.f_GetArray(), 4096, &pThis->mp_StdOutRead, &CConsoleRedirector::fsp_StdOutReadFinished))
+			if (::ReadFileEx(pThis->mp_StdoutRead, pThis->mp_StdOutReadBuffer.f_GetArray(), 4096, &pThis->mp_StdOutRead, &CConsoleRedirector::fsp_StdOutReadFinished))
 				return;
 
 			_ErrorCode = GetLastError();
@@ -2225,7 +2236,7 @@ namespace NMib::NProcess::NPlatform
 				pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stderr pipe error: {}" DMibNewLine) << Error);
 			}
 
-			if (::ReadFileEx(pThis->mp_hStderrRead, pThis->mp_StdErrReadBuffer.f_GetArray(), 4096, &pThis->mp_StdErrRead, &CConsoleRedirector::fsp_StdErrReadFinished))
+			if (::ReadFileEx(pThis->mp_StderrRead, pThis->mp_StdErrReadBuffer.f_GetArray(), 4096, &pThis->mp_StdErrRead, &CConsoleRedirector::fsp_StdErrReadFinished))
 				return;
 
 			_ErrorCode = GetLastError();
@@ -2245,7 +2256,7 @@ namespace NMib::NProcess::NPlatform
 
 		int CConsoleRedirector::fp_RedirectStdout()
 		{
-			DMibSafeCheck(mp_hStdoutRead != nullptr, "");
+			DMibSafeCheck(mp_StdoutRead != nullptr, "");
 
 			if (mp_StdOutReadBuffer.f_IsEmpty())
 			{
@@ -2262,7 +2273,7 @@ namespace NMib::NProcess::NPlatform
 
 		int CConsoleRedirector::fp_RedirectStderr()
 		{
-			DMibSafeCheck(mp_hStderrRead != nullptr, "");
+			DMibSafeCheck(mp_StderrRead != nullptr, "");
 
 			if (mp_StdErrReadBuffer.f_IsEmpty())
 			{
@@ -2291,21 +2302,21 @@ namespace NMib::NProcess::NPlatform
 			NStr::CStr Errors;
 			if (!fp_DoStart(Errors))
 			{
-				fp_OnLaunched(Errors, mp_hChildProcess, false);
+				fp_OnLaunched(Errors, mp_ChildProcess, false);
 				return 0;
 			}
-			fp_OnLaunched(Errors, mp_hChildProcess, true);
+			fp_OnLaunched(Errors, mp_ChildProcess, true);
 
 			HANDLE WaitForHandles[4];
-			WaitForHandles[0] = mp_hChildProcess;
-			WaitForHandles[1] = mp_hEvent;
+			WaitForHandles[0] = mp_ChildProcess;
+			WaitForHandles[1] = mp_Event;
 
 			bool bExited = false;
 
 			// Kickstart IO
-			if (mp_hStdoutRead)
+			if (mp_StdoutRead)
 				fp_RedirectStdout();
-			if (mp_hStderrRead)
+			if (mp_StderrRead)
 				fp_RedirectStderr();
 
 			while (true)
@@ -2315,7 +2326,7 @@ namespace NMib::NProcess::NPlatform
 				if (Object == WAIT_IO_COMPLETION)
 				{
 				}
-				else if (Object == WAIT_OBJECT_0 || mp_hChildProcess == nullptr)
+				else if (Object == WAIT_OBJECT_0 || mp_ChildProcess == nullptr)
 				{
 					bExited = true;
 					if (!mp_CleanupLoadedProfiles.f_IsEmpty())
@@ -2393,9 +2404,9 @@ namespace NMib::NProcess::NPlatform
 				;
 
 			// Cancel IO
-			CancelIo(mp_hStdoutRead);
-			if (mp_hStderrRead)
-				CancelIo(mp_hStderrRead);
+			CancelIo(mp_StdoutRead);
+			if (mp_StderrRead)
+				CancelIo(mp_StderrRead);
 
 			// Wait for cancellation
 			while (SleepEx(0, true) == WAIT_IO_COMPLETION)
@@ -2407,8 +2418,8 @@ namespace NMib::NProcess::NPlatform
 				if (mp_LastLaunchOptions.m_fOnStateChange)
 				{
 					DWORD ExitCode = 255;
-					if (mp_hChildProcess)
-						GetExitCodeProcess(mp_hChildProcess, &ExitCode);
+					if (mp_ChildProcess)
+						GetExitCodeProcess(mp_ChildProcess, &ExitCode);
 					fp_OnExit(ExitCode);
 				}
 			}
@@ -2424,10 +2435,10 @@ namespace NMib::NProcess::NPlatform
 		{
 			fp64 TimeSinceStart;
 			{
-				DMibLock(m_ExitTimeLock);
-				TimeSinceStart = m_TimeSinceStart.f_GetTime();
+				DMibLock(mp_ExitTimeLock);
+				TimeSinceStart = mp_TimeSinceStart.f_GetTime();
 				if (!_pProcess)
-					m_ExitTime = TimeSinceStart;
+					mp_ExitTime = TimeSinceStart;
 			}
 			if (mp_LastLaunchOptions.m_bAllowLaunchedInForeground && _pProcess)
 				AllowSetForegroundWindow(GetProcessId(_pProcess));
@@ -2511,9 +2522,9 @@ namespace NMib::NProcess::NPlatform
 		{
 			fp64 TimeSinceStart;
 			{
-				DMibLock(m_ExitTimeLock);
-				TimeSinceStart = m_TimeSinceStart.f_GetTime();
-				m_ExitTime = TimeSinceStart;
+				DMibLock(mp_ExitTimeLock);
+				TimeSinceStart = mp_TimeSinceStart.f_GetTime();
+				mp_ExitTime = TimeSinceStart;
 			}
 
 			if (mp_LastLaunchOptions.m_fOnStateChange)
@@ -2592,7 +2603,7 @@ namespace NMib::NProcess::NPlatform
 
 		{
 			HANDLE ReadPipeHandle, WritePipeHandle;
-			DWORD dwError;
+			DWORD ErrorCode;
 
 			//
 			// Only one valid OpenMode flag - FILE_FLAG_OVERLAPPED
@@ -2695,8 +2706,8 @@ namespace NMib::NProcess::NPlatform
 
 			if (!WritePipeHandle || INVALID_HANDLE_VALUE == WritePipeHandle)
 			{
-				dwError = GetLastError();
-				if (dwError == ERROR_PIPE_BUSY)
+				ErrorCode = GetLastError();
+				if (ErrorCode == ERROR_PIPE_BUSY)
 				{
 					if (bRetry2)
 					{
@@ -2724,7 +2735,7 @@ namespace NMib::NProcess::NPlatform
 					_ExtendedError = "No more retries creating pipe";
 				}
 
-				SetLastError(dwError);
+				SetLastError(ErrorCode);
 				return FALSE;
 			}
 
@@ -2736,26 +2747,26 @@ namespace NMib::NProcess::NPlatform
 
 		bool CConsoleRedirector::fp_DoStart(NStr::CStr &_Errors)
 		{
-			HANDLE hStdoutReadTmp; // parent stdout read handle
-			HANDLE hStdoutWrite; // child stdout write handle
-			HANDLE hStderrReadTmp; // parent stdout read handle
-			HANDLE hStderrWrite; // child stdout write handle
-			HANDLE hStdinWriteTmp; // parent stdin write handle
-			HANDLE hStdinRead; // child stdin read handle
+			HANDLE StdoutReadTemp; // parent stdout read handle
+			HANDLE StdoutWrite; // child stdout write handle
+			HANDLE StderrReadTemp; // parent stdout read handle
+			HANDLE StderrWrite; // child stdout write handle
+			HANDLE StdinWriteTemp; // parent stdin write handle
+			HANDLE StdinRead; // child stdin read handle
 
 			fp_Close();
-			hStdoutReadTmp = nullptr;
-			hStdoutWrite = nullptr;
-			hStderrReadTmp = nullptr;
-			hStderrWrite = nullptr;
-			hStdinWriteTmp = nullptr;
-			hStdinRead = nullptr;
+			StdoutReadTemp = nullptr;
+			StdoutWrite = nullptr;
+			StderrReadTemp = nullptr;
+			StderrWrite = nullptr;
+			StdinWriteTemp = nullptr;
+			StdinRead = nullptr;
 
 			// Set up the security attributes struct.
-			SECURITY_ATTRIBUTES sa;
-			sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-			sa.lpSecurityDescriptor = nullptr;
-			sa.bInheritHandle = TRUE;
+			SECURITY_ATTRIBUTES SecurityAttributes;
+			SecurityAttributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+			SecurityAttributes.lpSecurityDescriptor = nullptr;
+			SecurityAttributes.bInheritHandle = TRUE;
 
 			// For elevated launches with stdio redirection, named pipes are created
 			// in fp_LaunchChild instead of anonymous pipes here, because
@@ -2772,28 +2783,28 @@ namespace NMib::NProcess::NPlatform
 					if (mp_LastLaunchOptions.m_bEnableStdRedirection && !bElevatedStdio)
 					{
 						NStr::CStr ExtendedError;
-						if (!fsg_CreatePipeEx(&hStdoutReadTmp, &hStdoutWrite, &sa, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
+						if (!fsg_CreatePipeEx(&StdoutReadTemp, &StdoutWrite, &SecurityAttributes, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
 						{
-							DWORD dwOsErr = ::GetLastError();
-							_Errors += NStr::CStr::CFormat("CreatePipe (StdOut) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr) << ExtendedError;
+							DWORD OsError = ::GetLastError();
+							_Errors += NStr::CStr::CFormat("CreatePipe (StdOut) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(OsError) << ExtendedError;
 							break;
 						}
 
 						if (mp_LastLaunchOptions.m_bSeparateStdErr)
 						{
-							if (!fsg_CreatePipeEx(&hStderrReadTmp, &hStderrWrite, &sa, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
+							if (!fsg_CreatePipeEx(&StderrReadTemp, &StderrWrite, &SecurityAttributes, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
 							{
-								DWORD dwOsErr = ::GetLastError();
-								_Errors += NStr::CStr::CFormat("CreatePipe (StdErr) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr) << ExtendedError;
+								DWORD OsError = ::GetLastError();
+								_Errors += NStr::CStr::CFormat("CreatePipe (StdErr) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(OsError) << ExtendedError;
 								break;
 							}
 						}
 
 						// Create a child stdin pipe.
-						if (!fsg_CreatePipeEx(&hStdinRead, &hStdinWriteTmp, &sa, 0, 0, 0, ExtendedError))
+						if (!fsg_CreatePipeEx(&StdinRead, &StdinWriteTemp, &SecurityAttributes, 0, 0, 0, ExtendedError))
 						{
-							DWORD dwOsErr = ::GetLastError();
-							_Errors += NStr::CStr::CFormat("CreatePipe (StdIn) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr) << ExtendedError;
+							DWORD OsError = ::GetLastError();
+							_Errors += NStr::CStr::CFormat("CreatePipe (StdIn) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(OsError) << ExtendedError;
 							break;
 						}
 
@@ -2806,17 +2817,17 @@ namespace NMib::NProcess::NPlatform
 							!::DuplicateHandle
 							(
 								::GetCurrentProcess()
-								, hStdoutReadTmp
+								, StdoutReadTemp
 								, ::GetCurrentProcess()
-								, &mp_hStdoutRead
+								, &mp_StdoutRead
 								, 0
 								, FALSE // make it uninheritable.
 								, DUPLICATE_SAME_ACCESS
 							)
 						)
 						{
-							DWORD dwOsErr = ::GetLastError();
-							_Errors += NStr::CStr::CFormat("DuplicateHandle failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr);
+							DWORD OsError = ::GetLastError();
+							_Errors += NStr::CStr::CFormat("DuplicateHandle failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(OsError);
 							break;
 						}
 
@@ -2827,17 +2838,17 @@ namespace NMib::NProcess::NPlatform
 								!::DuplicateHandle
 								(
 									::GetCurrentProcess()
-									, hStderrReadTmp
+									, StderrReadTemp
 									, ::GetCurrentProcess()
-									, &mp_hStderrRead
+									, &mp_StderrRead
 									, 0
 									, FALSE // make it uninheritable.
 									, DUPLICATE_SAME_ACCESS
 								)
 							)
 							{
-								DWORD dwOsErr = ::GetLastError();
-								_Errors += NStr::CStr::CFormat("DuplicateHandle failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr);
+								DWORD OsError = ::GetLastError();
+								_Errors += NStr::CStr::CFormat("DuplicateHandle failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(OsError);
 								break;
 							}
 						}
@@ -2850,31 +2861,31 @@ namespace NMib::NProcess::NPlatform
 								!::DuplicateHandle
 								(
 									::GetCurrentProcess()
-									, hStdinWriteTmp
+									, StdinWriteTemp
 									, ::GetCurrentProcess()
-									, &mp_hStdinWrite
+									, &mp_StdinWrite
 									, 0
 									, FALSE // make it uninheritable.
 									, DUPLICATE_SAME_ACCESS
 								)
 							)
 							{
-								DWORD dwOsErr = ::GetLastError();
-								_Errors += NStr::CStr::CFormat("DuplicateHandle failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr);
+								DWORD OsError = ::GetLastError();
+								_Errors += NStr::CStr::CFormat("DuplicateHandle failed: {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(OsError);
 								break;
 							}
 						}
 
 						// Close inheritable copies of the handles we do not want to
 						// be inherited.
-						fp_DestroyHandle(hStdoutReadTmp);
-						fp_DestroyHandle(hStderrReadTmp);
-						fp_DestroyHandle(hStdinWriteTmp);
+						fp_DestroyHandle(StdoutReadTemp);
+						fp_DestroyHandle(StderrReadTemp);
+						fp_DestroyHandle(StdinWriteTemp);
 					}
 				}
 
 				// launch the child process
-				if (!fp_LaunchChild(hStdoutWrite, hStdinRead, mp_LastLaunchOptions.m_bSeparateStdErr ? hStderrWrite : hStdoutWrite, _Errors))
+				if (!fp_LaunchChild(StdoutWrite, StdinRead, mp_LastLaunchOptions.m_bSeparateStdErr ? StderrWrite : StdoutWrite, _Errors))
 					break;
 
 				// Child is launched. Close the parents copy of those pipe
@@ -2882,9 +2893,9 @@ namespace NMib::NProcess::NPlatform
 				// Make sure that no handles to the write end of the stdout pipe
 				// are maintained in this process or else the pipe will not
 				// close when the child process exits and ReadFile will hang.
-				fp_DestroyHandle(hStdoutWrite);
-				fp_DestroyHandle(hStderrWrite);
-				fp_DestroyHandle(hStdinRead);
+				fp_DestroyHandle(StdoutWrite);
+				fp_DestroyHandle(StderrWrite);
+				fp_DestroyHandle(StdinRead);
 
 				bOK = TRUE;
 			}
@@ -2892,12 +2903,12 @@ namespace NMib::NProcess::NPlatform
 
 			if (!bOK)
 			{
-				fp_DestroyHandle(hStdoutReadTmp);
-				fp_DestroyHandle(hStdoutWrite);
-				fp_DestroyHandle(hStderrReadTmp);
-				fp_DestroyHandle(hStderrWrite);
-				fp_DestroyHandle(hStdinWriteTmp);
-				fp_DestroyHandle(hStdinRead);
+				fp_DestroyHandle(StdoutReadTemp);
+				fp_DestroyHandle(StdoutWrite);
+				fp_DestroyHandle(StderrReadTemp);
+				fp_DestroyHandle(StderrWrite);
+				fp_DestroyHandle(StdinWriteTemp);
+				fp_DestroyHandle(StdinRead);
 				fp_Close();
 			}
 
@@ -2949,7 +2960,7 @@ namespace NMib::NProcess::NPlatform
 						mp_bNeedWait = true;
 				}
 
-				SetEvent(mp_hEvent);
+				SetEvent(mp_Event);
 
 				f_Main();
 			}
@@ -2961,12 +2972,12 @@ namespace NMib::NProcess::NPlatform
 			DMibLock(mp_PipeLock);
 			{
 				DMibLock(mp_ChildProcessLock);
-				fp_DestroyHandle(mp_hChildProcess);
+				fp_DestroyHandle(mp_ChildProcess);
 			}
-			fp_DestroyHandle(mp_hStdinWrite);
-			fp_DestroyHandle(mp_hStdoutRead);
-			fp_DestroyHandle(mp_hStderrRead);
-			fp_DestroyHandle(mp_hSandboxJob);
+			fp_DestroyHandle(mp_StdinWrite);
+			fp_DestroyHandle(mp_StdoutRead);
+			fp_DestroyHandle(mp_StderrRead);
+			fp_DestroyHandle(mp_SandboxJob);
 		}
 
 		NMib::NProcess::CProcessStatistics CConsoleRedirector::f_GetOverallExecutionStatistics()
@@ -3019,12 +3030,12 @@ namespace NMib::NProcess::NPlatform
 		{
 			DMibLock(mp_OverallLock);
 
-			if (!mp_hChildProcess)
+			if (!mp_ChildProcess)
 				return;
 
 			{
 				COverallExecution OverallExecution;
-				if (GetProcessTimes(mp_hChildProcess, &OverallExecution.m_CreateTime, &OverallExecution.m_ExitTime, &OverallExecution.m_KernelTime, &OverallExecution.m_UserTime))
+				if (GetProcessTimes(mp_ChildProcess, &OverallExecution.m_CreateTime, &OverallExecution.m_ExitTime, &OverallExecution.m_KernelTime, &OverallExecution.m_UserTime))
 					mp_OverallStats_Execution = OverallExecution;
 			}
 
@@ -3032,7 +3043,7 @@ namespace NMib::NProcess::NPlatform
 				PROCESS_MEMORY_COUNTERS_EX MemoryInfo;
 				NMemory::fg_MemClear(MemoryInfo);
 
-				if (GetProcessMemoryInfo(mp_hChildProcess, (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
+				if (GetProcessMemoryInfo(mp_ChildProcess, (PROCESS_MEMORY_COUNTERS *)&MemoryInfo, sizeof(MemoryInfo)))
 					mp_OverallStats_Memory = MemoryInfo;
 			}
 		}
@@ -3053,16 +3064,16 @@ namespace NMib::NProcess::NPlatform
 				DMibLock(mp_NeedTerminationLock);
 				mp_bNeedWait = false;
 			}
-			SetEvent(mp_hEvent);
+			SetEvent(mp_Event);
 		}
 
 		fp64 CConsoleRedirector::f_GetRunningTime()
 		{
-			DMibLock(m_ExitTimeLock);
+			DMibLock(mp_ExitTimeLock);
 			if (f_IsRunning())
-				return m_TimeSinceStart.f_GetTime();
+				return mp_TimeSinceStart.f_GetTime();
 			else
-				return m_ExitTime;
+				return mp_ExitTime;
 		}
 
 		umint CConsoleRedirector::f_GetID() const
@@ -3089,12 +3100,12 @@ namespace NMib::NProcess::NPlatform
 						mp_bNeedWait = true;
 					bNeedWait = mp_bNeedWait;
 				}
-				SetEvent(mp_hEvent);
+				SetEvent(mp_Event);
 			}
 
 			// The launch thread can be done with a process that has exited while descendants live on in its job
-			if ((_Flags & NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree) && mp_hProcessGroupJob)
-				TerminateJobObject(mp_hProcessGroupJob, 255);
+			if ((_Flags & NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcessTree) && mp_ProcessGroupJob)
+				TerminateJobObject(mp_ProcessGroupJob, 255);
 
 			if (_Flags & NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit || !bNeedWait)
 				f_Stop(true);
@@ -3108,39 +3119,39 @@ namespace NMib::NProcess::NPlatform
 		bool CConsoleRedirector::f_SendText(NStr::CStrIO const &_Data)
 		{
 			DMibLock(mp_PipeLock);
-			if (!mp_hStdinWrite)
+			if (!mp_StdinWrite)
 				return FALSE;
 
-			if (::GetFileType(mp_hStdinWrite) == FILE_TYPE_CHAR)
+			if (::GetFileType(mp_StdinWrite) == FILE_TYPE_CHAR)
 			{
-				DWORD dwWritten;
+				DWORD nWritten;
 				NStr::CWStrIO Output = _Data;
-				return ::WriteConsoleW(mp_hStdinWrite, Output.f_GetStr(), Output.f_GetLen(), &dwWritten, nullptr);
+				return ::WriteConsoleW(mp_StdinWrite, Output.f_GetStr(), Output.f_GetLen(), &nWritten, nullptr);
 			}
 			else
 			{
-				DWORD dwWritten;
+				DWORD nWritten;
 				NStr::CStrIO Output = _Data;
-				return ::WriteFile(mp_hStdinWrite, Output.f_GetStr(), Output.f_GetLen(), &dwWritten, nullptr);
+				return ::WriteFile(mp_StdinWrite, Output.f_GetStr(), Output.f_GetLen(), &nWritten, nullptr);
 			}
 		}
 
 		void CConsoleRedirector::f_CloseStdIn()
 		{
 			DMibLock(mp_PipeLock);
-			if (!mp_hStdinWrite)
+			if (!mp_StdinWrite)
 				return;
 
-			fp_DestroyHandle(mp_hStdinWrite);
+			fp_DestroyHandle(mp_StdinWrite);
 		}
 
 		void CConsoleRedirector::f_SendBinary(NContainer::CIOByteVector const &_Data)
 		{
 			DMibLock(mp_PipeLock);
-			if (!mp_hStdinWrite)
+			if (!mp_StdinWrite)
 				return;
-			DWORD dwWritten;
-			::WriteFile(mp_hStdinWrite, _Data.f_GetArray(), _Data.f_GetLen(), &dwWritten, nullptr);
+			DWORD nWritten;
+			::WriteFile(mp_StdinWrite, _Data.f_GetArray(), _Data.f_GetLen(), &nWritten, nullptr);
 		}
 
 		NMib::NProcess::EProcessElevation fg_Process_GetElevation(void *_pProcess)
@@ -3149,24 +3160,24 @@ namespace NMib::NProcess::NPlatform
 			if (!NMib::NPlatform::fg_IsVista())
 				return NMib::NProcess::EProcessElevation_None;
 
-			HANDLE hToken = nullptr;
+			HANDLE Token = nullptr;
 
-			if (!::OpenProcessToken(_pProcess, TOKEN_QUERY, &hToken))
+			if (!::OpenProcessToken(_pProcess, TOKEN_QUERY, &Token))
 				return NMib::NProcess::EProcessElevation_None;
 
 			auto TokenCleanup = g_OnScopeExit / [&]
 				{
-					::CloseHandle(hToken);
+					::CloseHandle(Token);
 				}
 			;
 
-			DWORD dwReturnLength = 0;
+			DWORD ReturnLength = 0;
 
 			TOKEN_ELEVATION_TYPE ElevationType;
-			if (!::GetTokenInformation(hToken, TokenElevationType, &ElevationType, sizeof(ElevationType), &dwReturnLength))
+			if (!::GetTokenInformation(Token, TokenElevationType, &ElevationType, sizeof(ElevationType), &ReturnLength))
 				ElevationType = (TOKEN_ELEVATION_TYPE)0;
 			else
-				DMibCheck(dwReturnLength == sizeof(ElevationType));
+				DMibCheck(ReturnLength == sizeof(ElevationType));
 
 			switch (ElevationType)
 			{
@@ -3178,7 +3189,7 @@ namespace NMib::NProcess::NPlatform
 					// determine if the token is actually elevated. Return _IsRoot
 					// since there is no limited token to de-elevate to.
 					TOKEN_ELEVATION Elevation = {};
-					if (::GetTokenInformation(hToken, TokenElevation, &Elevation, sizeof(Elevation), &dwReturnLength) && Elevation.TokenIsElevated)
+					if (::GetTokenInformation(Token, TokenElevation, &Elevation, sizeof(Elevation), &ReturnLength) && Elevation.TokenIsElevated)
 						return NMib::NProcess::EProcessElevation_IsRoot;
 
 					return NMib::NProcess::EProcessElevation_IsNotElevated;
@@ -3401,8 +3412,8 @@ void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr co
 {
 	NMib::NPlatform::CWin32_Registry Registry(NMib::NPlatform::CWin32_Registry::ERegRoot_CurrentUser, "Software\\Microsoft\\Windows\\CurrentVersion\\Run");
 
-	NContainer::TCVector<NStr::CStr> lValues;
-	Registry.f_EnumValues("", lValues);
+	NContainer::TCVector<NStr::CStr> Values;
+	Registry.f_EnumValues("", Values);
 
 	NStr::CStr Name = _Name;
 	if (Name.f_IsEmpty())
@@ -3411,7 +3422,7 @@ void NMib::NProcess::NPlatform::fg_Process_RegisterAtStartup(NMib::NStr::CStr co
 	NStr::CStr NamePrefix = Name + "_";
 	NStr::CStr CommandLine = _ExePath.f_ReplaceChar('/', '\\') + " " + _Params;
 
-	for (auto VIter = lValues.f_GetIterator(); VIter; ++VIter)
+	for (auto VIter = Values.f_GetIterator(); VIter; ++VIter)
 	{
 		if (VIter->f_CmpNoCase(Name) == 0 || VIter->f_StartsWith(NamePrefix))
 		{
@@ -3440,8 +3451,8 @@ void NMib::NProcess::NPlatform::fg_Process_DeRegisterAtStartup(NMib::NStr::CStr 
 {
 	NMib::NPlatform::CWin32_Registry Registry(NMib::NPlatform::CWin32_Registry::ERegRoot_CurrentUser, "Software\\Microsoft\\Windows\\CurrentVersion\\Run");
 
-	NContainer::TCVector<NStr::CStr> lValues;
-	Registry.f_EnumValues("", lValues);
+	NContainer::TCVector<NStr::CStr> Values;
+	Registry.f_EnumValues("", Values);
 
 	NStr::CStr Name = _Name;
 	if (Name.f_IsEmpty())
@@ -3449,7 +3460,7 @@ void NMib::NProcess::NPlatform::fg_Process_DeRegisterAtStartup(NMib::NStr::CStr 
 	NStr::CStr NamePrefix = Name + "_";
 	NStr::CStr CommandLine = _ExePath.f_ReplaceChar('/', '\\') + " " + _Params;
 
-	for (auto VIter = lValues.f_GetIterator(); VIter; ++VIter)
+	for (auto VIter = Values.f_GetIterator(); VIter; ++VIter)
 	{
 		if (VIter->f_CmpNoCase(Name) == 0 || VIter->f_StartsWith(NamePrefix))
 		{

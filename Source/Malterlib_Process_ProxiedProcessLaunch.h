@@ -17,7 +17,7 @@ namespace NMib::NProcess
 		struct CInternal;
 
 	private:
-		NStorage::TCUniquePointer<CInternal> m_pInternal;
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 
 	public:
 		FVirtualProcessLaunchFactory f_GetFactory();
@@ -31,7 +31,7 @@ namespace NMib::NProcess
 		struct CInternal;
 
 	private:
-		NStorage::TCUniquePointer<CInternal> m_pInternal;
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 
 	public:
 		CProxiedLaunchServer();

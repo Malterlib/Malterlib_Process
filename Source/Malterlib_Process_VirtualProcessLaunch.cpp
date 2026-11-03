@@ -18,64 +18,64 @@ namespace NMib::NProcess
 
 	bool CProcessLaunchHandler::CLaunchInfo::fp_Lingering() const
 	{
-		if (m_pProcessLaunch)
+		if (mp_pProcessLaunch)
 		{
-			if (m_pProcessLaunch->f_IsOpen())
+			if (mp_pProcessLaunch->f_IsOpen())
 				return true;
-			return (m_pProcessLaunch->f_GetCloseFlags() & EProcessLaunchCloseFlag_LingerUntilDone) != 0;
+			return (mp_pProcessLaunch->f_GetCloseFlags() & EProcessLaunchCloseFlag_LingerUntilDone) != 0;
 		}
 		return false;
 	}
 
 	CProcessLaunchHandler::CLaunchInfo::CLaunchInfo(CProcessLaunchParams const &_Params, FVirtualProcessLaunchFactory const &_Factory)
-		: m_LaunchParams(_Params)
-		, m_Completion(ECompletion::mc_Running)
-		, m_Factory(_Factory)
+		: mp_LaunchParams(_Params)
+		, mp_Completion(ECompletion::mc_Running)
+		, mp_Factory(_Factory)
 	{
 	}
 
 	CVirtualProcessLaunch *CProcessLaunchHandler::CLaunchInfo::f_GetProcessLaunch() const
 	{
-		return m_pProcessLaunch.f_Get();
+		return mp_pProcessLaunch.f_Get();
 	}
 
 	CProcessLaunchHandler::CProcessLaunchHandler()
 	{
-		m_pDestroyedNotification = fg_Construct();
+		mp_pDestroyedNotification = fg_Construct();
 	}
 
 	CProcessLaunchHandler::~CProcessLaunchHandler()
 	{
 		{
-			DMibLock(m_pDestroyedNotification->m_DestroyLock);
-			m_pDestroyedNotification->m_Destroyed.f_Exchange(1);
+			DMibLock(mp_pDestroyedNotification->m_DestroyLock);
+			mp_pDestroyedNotification->m_Destroyed.f_Exchange(1);
 		}
-		m_pDestroyedNotification = nullptr;
-		for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
+		mp_pDestroyedNotification = nullptr;
+		for (auto Iter = mp_Launches.f_GetIterator(); Iter; ++Iter)
 		{
-			if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
+			if (Iter->mp_pProcessLaunch && Iter->mp_pProcessLaunch->f_IsOpen())
 			{
-				Iter->m_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
-				Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_None);
+				Iter->mp_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
+				Iter->mp_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_None);
 			}
 		}
 	}
 
 	void CProcessLaunchHandler::CLaunchInfo::fp_Clear()
 	{
-		m_LaunchParams.m_fDispatcher.f_Clear();
-		m_LaunchParams.m_fOnOutput.f_Clear();
-		m_LaunchParams.m_fOnOutputBinary.f_Clear();
-		m_LaunchParams.m_fOnStateChange.f_Clear();
+		mp_LaunchParams.m_fDispatcher.f_Clear();
+		mp_LaunchParams.m_fOnOutput.f_Clear();
+		mp_LaunchParams.m_fOnOutputBinary.f_Clear();
+		mp_LaunchParams.m_fOnStateChange.f_Clear();
 	}
 
 	CProcessLaunchHandler::CLaunchInfo *CProcessLaunchHandler::f_AddLaunch(CProcessLaunchParams const &_Params, bool _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory)
 	{
-		auto pInfo = &m_Launches.f_Insert(fg_Construct(_Params, _LaunchFactory));
+		auto pInfo = &mp_Launches.f_Insert(fg_Construct(_Params, _LaunchFactory));
 
 		CProcessLaunchParams Params = _Params;
 
-		NStorage::TCSharedPointer<CDestroyed> pDestroyedNotification = m_pDestroyedNotification;
+		NStorage::TCSharedPointer<CDestroyed> pDestroyedNotification = mp_pDestroyedNotification;
 
 		Params.m_fOnStateChange = [_bDelayOutput, pDestroyedNotification, this, pInfo](CProcessLaunchStateChangeVariant const &_StateChange, fp64 _TimeSinceLaunch)
 			{
@@ -90,27 +90,27 @@ namespace NMib::NProcess
 					{
 						if (_bDelayOutput)
 						{
-							DMibLock(pInfo->m_DelayedOutputLock);
-							for (auto &Delayed : pInfo->m_DelayedOutput)
+							DMibLock(pInfo->mp_DelayedOutputLock);
+							for (auto &Delayed : pInfo->mp_DelayedOutput)
 							{
 								if (Delayed.m_bBinary)
-									pInfo->m_LaunchParams.m_fOnOutputBinary(Delayed.m_Type, Delayed.m_BinaryOutput);
+									pInfo->mp_LaunchParams.m_fOnOutputBinary(Delayed.m_Type, Delayed.m_BinaryOutput);
 								else
-									pInfo->m_LaunchParams.m_fOnOutput(Delayed.m_Type, Delayed.m_Output);
+									pInfo->mp_LaunchParams.m_fOnOutput(Delayed.m_Type, Delayed.m_Output);
 							}
 						}
 					}
 
-					fOnStateChange = pInfo->m_LaunchParams.m_fOnStateChange;
+					fOnStateChange = pInfo->mp_LaunchParams.m_fOnStateChange;
 
 					if (_StateChange.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
 					{
-						pInfo->m_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
+						pInfo->mp_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
 						pInfo->fp_Clear();
 					}
 					else if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited)
 					{
-						pInfo->m_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
+						pInfo->mp_Completion.f_Store(CLaunchInfo::ECompletion::mc_Reported);
 						pInfo->fp_Clear();
 					}
 				}
@@ -118,9 +118,9 @@ namespace NMib::NProcess
 					fOnStateChange(_StateChange, _TimeSinceLaunch);
 
 				if (_StateChange.f_GetTypeID() == EProcessLaunchState_Exited || _StateChange.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
-					pInfo->m_Completion.f_Store(CLaunchInfo::ECompletion::mc_CallbackFinished);
+					pInfo->mp_Completion.f_Store(CLaunchInfo::ECompletion::mc_CallbackFinished);
 
-				m_LaunchChanged.f_Signal();
+				mp_LaunchChanged.f_Signal();
 			}
 		;
 
@@ -133,8 +133,8 @@ namespace NMib::NProcess
 						return; // No longer valid
 
 					{
-						DMibLock(pInfo->m_DelayedOutputLock);
-						auto &Output = pInfo->m_DelayedOutput.f_Insert();
+						DMibLock(pInfo->mp_DelayedOutputLock);
+						auto &Output = pInfo->mp_DelayedOutput.f_Insert();
 						Output.m_Type = _OutputType;
 						Output.m_Output = _Output;
 					}
@@ -151,8 +151,8 @@ namespace NMib::NProcess
 						return; // No longer valid
 
 					{
-						DMibLock(pInfo->m_DelayedOutputLock);
-						auto &Output = pInfo->m_DelayedOutput.f_Insert();
+						DMibLock(pInfo->mp_DelayedOutputLock);
+						auto &Output = pInfo->mp_DelayedOutput.f_Insert();
 						Output.m_Type = _OutputType;
 						Output.m_BinaryOutput = _Output;
 						Output.m_bBinary = true;
@@ -161,10 +161,10 @@ namespace NMib::NProcess
 			;
 		}
 
-		if (pInfo->m_Factory)
-			pInfo->m_pProcessLaunch = pInfo->m_Factory(Params, EProcessLaunchCloseFlag_None);
+		if (pInfo->mp_Factory)
+			pInfo->mp_pProcessLaunch = pInfo->mp_Factory(Params, EProcessLaunchCloseFlag_None);
 		else
-			pInfo->m_pProcessLaunch = fg_Construct<CVirtualProcessLaunch_Default>(Params, EProcessLaunchCloseFlag_None);
+			pInfo->mp_pProcessLaunch = fg_Construct<CVirtualProcessLaunch_Default>(Params, EProcessLaunchCloseFlag_None);
 
 		return pInfo;
 	}
@@ -172,14 +172,14 @@ namespace NMib::NProcess
 	// _Termination is EProcessLaunchCloseFlag_TerminateProcess or EProcessLaunchCloseFlag_TerminateProcessTree
 	void CProcessLaunchHandler::f_TerminateAll(bool _bBlock, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats, EProcessLaunchCloseFlag _Termination)
 	{
-		for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
+		for (auto Iter = mp_Launches.f_GetIterator(); Iter; ++Iter)
 		{
-			if (Iter->m_pProcessLaunch && Iter->m_pProcessLaunch->f_IsOpen())
+			if (Iter->mp_pProcessLaunch && Iter->mp_pProcessLaunch->f_IsOpen())
 			{
 				if (o_pMemoryStats)
-					o_pMemoryStats->f_Insert(Iter->m_pProcessLaunch->f_GetOverallMemoryStatistics());
+					o_pMemoryStats->f_Insert(Iter->mp_pProcessLaunch->f_GetOverallMemoryStatistics());
 
-				Iter->m_pProcessLaunch->f_Close(_Termination | (_bBlock ? EProcessLaunchCloseFlag_BlockOnExit : EProcessLaunchCloseFlag_LingerUntilDone));
+				Iter->mp_pProcessLaunch->f_Close(_Termination | (_bBlock ? EProcessLaunchCloseFlag_BlockOnExit : EProcessLaunchCloseFlag_LingerUntilDone));
 			}
 		}
 	}
@@ -188,16 +188,16 @@ namespace NMib::NProcess
 	void CProcessLaunchHandler::f_StopAll(bool _bProcessGroups)
 	{
 		NException::CDisableExceptionTraceScope DisableExceptionTrace;
-		for (auto &Launch : m_Launches)
+		for (auto &Launch : mp_Launches)
 		{
-			if (!Launch.m_pProcessLaunch || !Launch.m_pProcessLaunch->f_IsOpen())
+			if (!Launch.mp_pProcessLaunch || !Launch.mp_pProcessLaunch->f_IsOpen())
 				continue;
 			try
 			{
 				if (_bProcessGroups)
-					Launch.m_pProcessLaunch->f_StopProcessGroup();
+					Launch.mp_pProcessLaunch->f_StopProcessGroup();
 				else
-					Launch.m_pProcessLaunch->f_StopProcess();
+					Launch.mp_pProcessLaunch->f_StopProcess();
 			}
 			catch (NException::CException const &)
 			{
@@ -210,18 +210,18 @@ namespace NMib::NProcess
 	// Removing a launch invalidates its CLaunchInfo and CVirtualProcessLaunch pointers.
 	void CProcessLaunchHandler::f_ReapCompleted()
 	{
-		for (auto Iter = m_Launches.f_GetIterator(); Iter;)
+		for (auto Iter = mp_Launches.f_GetIterator(); Iter;)
 		{
 			auto *pInfo = &*Iter;
 			++Iter;
 
-			if (pInfo->m_Completion.f_Load() != CLaunchInfo::ECompletion::mc_CallbackFinished)
+			if (pInfo->mp_Completion.f_Load() != CLaunchInfo::ECompletion::mc_CallbackFinished)
 				continue;
 
-			if (pInfo->m_pProcessLaunch && pInfo->m_pProcessLaunch->f_IsOpen())
-				pInfo->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_BlockOnExit);
+			if (pInfo->mp_pProcessLaunch && pInfo->mp_pProcessLaunch->f_IsOpen())
+				pInfo->mp_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_BlockOnExit);
 
-			m_Launches.f_Remove(*pInfo);
+			mp_Launches.f_Remove(*pInfo);
 		}
 	}
 
@@ -229,11 +229,11 @@ namespace NMib::NProcess
 	{
 		if (_Timeout == 0.0)
 		{
-			m_LaunchChanged.f_Wait();
+			mp_LaunchChanged.f_Wait();
 			return false;
 		}
 		else
-			return m_LaunchChanged.f_WaitTimeout(_Timeout);
+			return mp_LaunchChanged.f_WaitTimeout(_Timeout);
 	}
 
 	bool CProcessLaunchHandler::f_BlockOnExit(fp32 _Timeout, umint _nMaxRunning, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats)
@@ -243,9 +243,9 @@ namespace NMib::NProcess
 		while (1)
 		{
 			umint nRunning = 0;
-			for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
+			for (auto Iter = mp_Launches.f_GetIterator(); Iter; ++Iter)
 			{
-				if (Iter->m_Completion.f_Load() == CLaunchInfo::ECompletion::mc_Running && Iter->fp_Lingering())
+				if (Iter->mp_Completion.f_Load() == CLaunchInfo::ECompletion::mc_Running && Iter->fp_Lingering())
 				{
 					++nRunning;
 					if (nRunning > _nMaxRunning)
@@ -254,16 +254,16 @@ namespace NMib::NProcess
 			}
 			if (nRunning <= _nMaxRunning)
 			{
-				for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
+				for (auto Iter = mp_Launches.f_GetIterator(); Iter; ++Iter)
 				{
-					if (Iter->m_Completion.f_Load() != CLaunchInfo::ECompletion::mc_Running || !Iter->fp_Lingering())
+					if (Iter->mp_Completion.f_Load() != CLaunchInfo::ECompletion::mc_Running || !Iter->fp_Lingering())
 					{
-						if (Iter->m_pProcessLaunch->f_IsOpen())
+						if (Iter->mp_pProcessLaunch->f_IsOpen())
 						{
 							if (o_pMemoryStats)
-								o_pMemoryStats->f_Insert(Iter->m_pProcessLaunch->f_GetOverallMemoryStatistics());
+								o_pMemoryStats->f_Insert(Iter->mp_pProcessLaunch->f_GetOverallMemoryStatistics());
 
-							Iter->m_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_BlockOnExit);
+							Iter->mp_pProcessLaunch->f_Close(EProcessLaunchCloseFlag_BlockOnExit);
 						}
 					}
 				}
@@ -272,23 +272,23 @@ namespace NMib::NProcess
 			if (_Timeout != 0.0 && BlockTime.f_GetTime() > _Timeout)
 				return false;
 
-			m_LaunchChanged.f_WaitTimeout(_Timeout != 0.0 ? _Timeout / 10.0 : 10.0);
+			mp_LaunchChanged.f_WaitTimeout(_Timeout != 0.0 ? _Timeout / 10.0 : 10.0);
 		}
 	}
 
 	CProcessLaunchHandler::CLaunchInfo *CProcessLaunchHandler::f_GetFirstNotDone()
 	{
-		for (auto Iter = m_Launches.f_GetIterator(); Iter; ++Iter)
+		for (auto Iter = mp_Launches.f_GetIterator(); Iter; ++Iter)
 		{
-			if (Iter->m_Completion.f_Load() == CLaunchInfo::ECompletion::mc_Running && Iter->fp_Lingering())
+			if (Iter->mp_Completion.f_Load() == CLaunchInfo::ECompletion::mc_Running && Iter->fp_Lingering())
 				return Iter;
 		}
 		return nullptr;
 	}
 
 	CVirtualProcessLaunch_Default::CVirtualProcessLaunch_Default(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags)
-		: m_Launch(_Params, _DestructFlags)
-		, m_bCreatedProcessGroup(_Params.m_bCreateNewProcessGroup)
+		: mp_Launch(_Params, _DestructFlags)
+		, mp_bCreatedProcessGroup(_Params.m_bCreateNewProcessGroup)
 	{
 	}
 
@@ -297,81 +297,81 @@ namespace NMib::NProcess
 	}
 
 	CVirtualProcessLaunch_Default::CVirtualProcessLaunch_Default(CVirtualProcessLaunch_Default &&_Other)
-		: m_Launch(fg_Move(_Other.m_Launch))
-		, m_bCreatedProcessGroup(_Other.m_bCreatedProcessGroup)
+		: mp_Launch(fg_Move(_Other.mp_Launch))
+		, mp_bCreatedProcessGroup(_Other.mp_bCreatedProcessGroup)
 	{
 	}
 
 	EProcessLaunchCloseFlag CVirtualProcessLaunch_Default::f_GetCloseFlags() const
 	{
-		return m_Launch.f_GetCloseFlags();
+		return mp_Launch.f_GetCloseFlags();
 	}
 
 	void CVirtualProcessLaunch_Default::f_Close(EProcessLaunchCloseFlag _CloseFlags)
 	{
-		return m_Launch.f_Close(_CloseFlags);
+		return mp_Launch.f_Close(_CloseFlags);
 	}
 
 	void CVirtualProcessLaunch_Default::f_StopProcess() const
 	{
-		return m_Launch.f_StopProcess();
+		return mp_Launch.f_StopProcess();
 	}
 
 	void CVirtualProcessLaunch_Default::f_StopProcessGroup() const
 	{
-		if (!m_bCreatedProcessGroup)
-			return m_Launch.f_StopProcess();
+		if (!mp_bCreatedProcessGroup)
+			return mp_Launch.f_StopProcess();
 
-		return m_Launch.f_StopProcessGroup();
+		return mp_Launch.f_StopProcessGroup();
 	}
 
 	bool CVirtualProcessLaunch_Default::f_IsOpen() const
 	{
-		return m_Launch.f_IsOpen();
+		return mp_Launch.f_IsOpen();
 	}
 
 	bool CVirtualProcessLaunch_Default::f_IsRunning() const
 	{
-		return m_Launch.f_IsRunning();
+		return mp_Launch.f_IsRunning();
 	}
 
 	void CVirtualProcessLaunch_Default::f_SendStdIn(NMib::NStr::CStrIO const &_Data) const
 	{
-		return m_Launch.f_SendStdIn(_Data);
+		return mp_Launch.f_SendStdIn(_Data);
 	}
 
 	void CVirtualProcessLaunch_Default::f_CloseStdIn() const
 	{
-		return m_Launch.f_CloseStdIn();
+		return mp_Launch.f_CloseStdIn();
 	}
 
 	fp64 CVirtualProcessLaunch_Default::f_GetRunningTime() const
 	{
-		return m_Launch.f_GetRunningTime();
+		return mp_Launch.f_GetRunningTime();
 	}
 
 	umint CVirtualProcessLaunch_Default::f_GetProcessID() const
 	{
-		return m_Launch.f_GetProcessID();
+		return mp_Launch.f_GetProcessID();
 	}
 
 	CProcessStatistics CVirtualProcessLaunch_Default::f_GetExecutionStatistics() const
 	{
-		return m_Launch.f_GetExecutionStatistics();
+		return mp_Launch.f_GetExecutionStatistics();
 	}
 
 	CProcessStatistics CVirtualProcessLaunch_Default::f_GetMemoryStatistics() const
 	{
-		return m_Launch.f_GetMemoryStatistics();
+		return mp_Launch.f_GetMemoryStatistics();
 	}
 
 	CProcessStatistics CVirtualProcessLaunch_Default::f_GetOverallExecutionStatistics() const
 	{
-		return m_Launch.f_GetOverallExecutionStatistics();
+		return mp_Launch.f_GetOverallExecutionStatistics();
 	}
 
 	CProcessStatistics CVirtualProcessLaunch_Default::f_GetOverallMemoryStatistics() const
 	{
-		return m_Launch.f_GetOverallMemoryStatistics();
+		return mp_Launch.f_GetOverallMemoryStatistics();
 	}
 }

@@ -13,35 +13,35 @@ namespace NMib::NProcess
 			(
 				[this](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
 				{
-					DMibLock(m_Lock);
+					DMibLock(mp_Lock);
 					if (_Type == EStdInReaderOutputType_StdIn)
-						m_Buffer += _Input;
+						mp_Buffer += _Input;
 					else
-						m_Errors += _Input;
-					m_Event.f_Signal();
+						mp_Errors += _Input;
+					mp_Event.f_Signal();
 				}
 				, EStdInReaderFlag_Exclusive
 			)
 		;
 
-		m_pStdInReader = fg_Construct(fg_Move(Params));
+		mp_pStdInReader = fg_Construct(fg_Move(Params));
 	}
 
 	CBlockingStdInReader::~CBlockingStdInReader()
 	{
-		m_pStdInReader.f_Clear();
+		mp_pStdInReader.f_Clear();
 	}
 
 	NStr::CStr CBlockingStdInReader::f_TryReadLine()
 	{
 		{
-			DMibLock(m_Lock);
-			if (!m_Errors.f_IsEmpty())
-				DMibError(m_Errors);
+			DMibLock(mp_Lock);
+			if (!mp_Errors.f_IsEmpty())
+				DMibError(mp_Errors);
 
-			aint iNewLine = m_Buffer.f_FindChar('\n');
+			aint iNewLine = mp_Buffer.f_FindChar('\n');
 			if (iNewLine >= 0)
-				return NStr::fg_GetStrLineSep(m_Buffer);
+				return NStr::fg_GetStrLineSep(mp_Buffer);
 		}
 		return NStr::CStr();
 	}
@@ -51,16 +51,16 @@ namespace NMib::NProcess
 		while (true)
 		{
 			{
-				DMibLock(m_Lock);
+				DMibLock(mp_Lock);
 
-				if (!m_Errors.f_IsEmpty())
-					DMibError(m_Errors);
+				if (!mp_Errors.f_IsEmpty())
+					DMibError(mp_Errors);
 
-				aint iNewLine = m_Buffer.f_FindChar('\n');
+				aint iNewLine = mp_Buffer.f_FindChar('\n');
 				if (iNewLine >= 0)
-					return NStr::fg_GetStrLineSep(m_Buffer);
+					return NStr::fg_GetStrLineSep(mp_Buffer);
 			}
-			m_Event.f_Wait();
+			mp_Event.f_Wait();
 		}
 		return NStr::CStr();
 	}
@@ -77,14 +77,14 @@ namespace NMib::NProcess
 		while (!bCompleted && !bAborted)
 		{
 			{
-				DMibLock(m_Lock);
+				DMibLock(mp_Lock);
 
-				if (!m_Errors.f_IsEmpty())
-					DMibError(m_Errors);
+				if (!mp_Errors.f_IsEmpty())
+					DMibError(mp_Errors);
 
-				if (!m_Buffer.f_IsEmpty())
+				if (!mp_Buffer.f_IsEmpty())
 				{
-					auto iUTFChar = m_Buffer.f_GetUnicodeIterator();
+					auto iUTFChar = mp_Buffer.f_GetUnicodeIterator();
 
 					while (iUTFChar && iUTFChar.f_IsWholeCodePoint())
 					{
@@ -124,11 +124,11 @@ namespace NMib::NProcess
 						}
 					}
 
-					m_Buffer = m_Buffer.f_Extract(iUTFChar.f_GetLastWholeCodePointPos());
+					mp_Buffer = mp_Buffer.f_Extract(iUTFChar.f_GetLastWholeCodePointPos());
 				}
 			}
 			if (!bCompleted && !bAborted)
-				m_Event.f_Wait();
+				mp_Event.f_Wait();
 		}
 
 		if (!_Params.m_Prompt.f_IsEmpty())
@@ -149,21 +149,21 @@ namespace NMib::NProcess
 	}
 
 	CStdInReader::CStdInReader(CStdInReaderParams &&_Params)
-		: m_pStdInReader(nullptr)
+		: mp_pStdInReader(nullptr)
 	{
-		m_pStdInReader = NPlatform::fg_Process_StdInReader_Open(fg_Move(_Params));
+		mp_pStdInReader = NPlatform::fg_Process_StdInReader_Open(fg_Move(_Params));
 	}
 
 	CStdInReader::~CStdInReader()
 	{
-		if (m_pStdInReader)
-			NPlatform::fg_Process_StdInReader_Close(m_pStdInReader);
+		if (mp_pStdInReader)
+			NPlatform::fg_Process_StdInReader_Close(mp_pStdInReader);
 	}
 
 	CStdInReader::CStdInReader(CStdInReader &&_Other)
-		: m_pStdInReader(_Other.m_pStdInReader)
+		: mp_pStdInReader(_Other.mp_pStdInReader)
 	{
-		_Other.m_pStdInReader = nullptr;
+		_Other.mp_pStdInReader = nullptr;
 	}
 
 	auto CStdInReaderParams::fs_Create

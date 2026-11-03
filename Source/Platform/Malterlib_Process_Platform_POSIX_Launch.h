@@ -93,9 +93,9 @@ namespace NMib::NProcess::NPlatform
 			)
 		;
 
-		NThread::CMutual m_ExitTimeLock;
-		fp64 m_ExitTime;
-		NTime::CStopwatch m_TimeSinceStart;
+		NThread::CMutual mp_ExitTimeLock;
+		fp64 mp_ExitTime;
+		NTime::CStopwatch mp_TimeSinceStart;
 
 		NMib::NProcess::CProcessLaunchParams mp_LastLaunchOptions;
 		NAtomic::TCAtomic<pid_t> mp_ProcessID;
@@ -117,9 +117,9 @@ namespace NMib::NProcess::NPlatform
 #endif
 		NThread::CMutual mp_PipeLock;
 
-		int mp_hStdinWrite; // write end of child's stdin pipe
-		int mp_hStdoutRead; // read end of child's stdout pipe
-		int mp_hStderrRead; // read end of child's stderr pipe
+		int mp_StdinWrite; // write end of child's stdin pipe
+		int mp_StdoutRead; // read end of child's stdout pipe
+		int mp_StderrRead; // read end of child's stderr pipe
 
 		int mp_WakeupPipeRead;
 		int mp_WakeupPipeWrite;

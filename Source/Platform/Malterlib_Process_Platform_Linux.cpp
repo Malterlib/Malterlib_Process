@@ -32,16 +32,16 @@ bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
 		Data.f_SetConstPtr(FileData.f_GetArray(), FileData.f_GetLen());
 
 		aint nParsed;
-		int32 pid = 0;
-		NMib::NStr::CStr comm;
-		NMib::NStr::CStr state;
+		int32 ProcessID = 0;
+		NMib::NStr::CStr Command;
+		NMib::NStr::CStr State;
 
-		(NMib::NStr::CStrPtr::CParse("{} ({}) {} ") >> pid >> comm >> state).f_Parse(Data, nParsed);
+		(NMib::NStr::CStrPtr::CParse("{} ({}) {} ") >> ProcessID >> Command >> State).f_Parse(Data, nParsed);
 
 		if (nParsed != 3)
 			return false;
 
-		if (state == "Z")
+		if (State == "Z")
 			return false;
 		return true;
 	}
@@ -110,63 +110,63 @@ namespace
 					Data.f_SetConstPtr(FileData.f_GetArray(), FileData.f_GetLen());
 
 					aint nParsed;
-					int32 pid = 0;
-					NMib::NStr::CStr comm;
-					NMib::NStr::CStr state;
-					int32 ppid = 0;
-					int32 pgrp = 0;
-					int32 session = 0;
-					int32 tty_nr = 0;
-					int32 tpgid = 0;
-					uint32 flags = 0;
-					uint64 minflt = 0;
-					uint64 cminflt = 0;
-					uint64 majflt = 0;
-					uint64 cmajflt = 0;
-					uint64 utime = 0;
-					uint64 stime = 0;
-					int64 cutime = 0;
-					int64 cstime = 0;
-					int64 priority = 0;
-					int64 nice = 0;
-					int64 num_threads = 0;
-					int64 itrealvalue = 0;
-					uint64 starttime = 0;
+					int32 ParsedProcessID = 0;
+					NMib::NStr::CStr Command;
+					NMib::NStr::CStr State;
+					int32 ParentProcessID = 0;
+					int32 ProcessGroupID = 0;
+					int32 SessionID = 0;
+					int32 TerminalNumber = 0;
+					int32 TerminalProcessGroupID = 0;
+					uint32 Flags = 0;
+					uint64 nMinorFaults = 0;
+					uint64 nChildMinorFaults = 0;
+					uint64 nMajorFaults = 0;
+					uint64 nChildMajorFaults = 0;
+					uint64 UserTime = 0;
+					uint64 SystemTime = 0;
+					int64 ChildUserTime = 0;
+					int64 ChildSystemTime = 0;
+					int64 Priority = 0;
+					int64 Nice = 0;
+					int64 nThreads = 0;
+					int64 IntervalTimerValue = 0;
+					uint64 StartTime = 0;
 
 					(
 						NMib::NStr::CStrPtr::CParse("{} ({}) {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} ")
-						>> pid
-						>> comm
-						>> state
-						>> ppid
-						>> pgrp
-						>> session
-						>> tty_nr
-						>> tpgid
-						>> flags
-						>> minflt
-						>> cminflt
-						>> majflt
-						>> cmajflt
-						>> utime
-						>> stime
-						>> cutime
-						>> cstime
-						>> priority
-						>> nice
-						>> num_threads
-						>> itrealvalue
-						>> starttime
+						>> ParsedProcessID
+						>> Command
+						>> State
+						>> ParentProcessID
+						>> ProcessGroupID
+						>> SessionID
+						>> TerminalNumber
+						>> TerminalProcessGroupID
+						>> Flags
+						>> nMinorFaults
+						>> nChildMinorFaults
+						>> nMajorFaults
+						>> nChildMajorFaults
+						>> UserTime
+						>> SystemTime
+						>> ChildUserTime
+						>> ChildSystemTime
+						>> Priority
+						>> Nice
+						>> nThreads
+						>> IntervalTimerValue
+						>> StartTime
 					)
 					.f_Parse(Data, nParsed);
 
 					if (nParsed == 22)
 					{
 						auto &New = Return.f_Insert();
-						New.m_ProcessID = pid;
-						New.m_ParentProcessID = ppid;
-						New.m_StartTime = starttime;
-						New.m_Name = NMib::fg_Move(comm);
+						New.m_ProcessID = ParsedProcessID;
+						New.m_ParentProcessID = ParentProcessID;
+						New.m_StartTime = StartTime;
+						New.m_Name = NMib::fg_Move(Command);
 					}
 				}
 				catch (NMib::NException::CException const &)

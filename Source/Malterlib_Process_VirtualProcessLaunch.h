@@ -67,8 +67,8 @@ namespace NMib::NProcess
 		umint f_GetProcessID() const;
 
 	private:
-		CProcessLaunch m_Launch;
-		bool m_bCreatedProcessGroup;
+		CProcessLaunch mp_Launch;
+		bool mp_bCreatedProcessGroup;
 	};
 
 	using FVirtualProcessLaunchFactory = NFunction::TCFunction
@@ -95,15 +95,15 @@ namespace NMib::NProcess
 				, mc_CallbackFinished
 			};
 
-			CProcessLaunchParams m_LaunchParams;
-			NStorage::TCUniquePointer<CVirtualProcessLaunch> m_pProcessLaunch;
-			NAtomic::TCAtomic<ECompletion> m_Completion;
+			CProcessLaunchParams mp_LaunchParams;
+			NStorage::TCUniquePointer<CVirtualProcessLaunch> mp_pProcessLaunch;
+			NAtomic::TCAtomic<ECompletion> mp_Completion;
 
-			FVirtualProcessLaunchFactory m_Factory;
+			FVirtualProcessLaunchFactory mp_Factory;
 
 			bool fp_Lingering() const;
 
-			NThread::CMutual m_DelayedOutputLock;
+			NThread::CMutual mp_DelayedOutputLock;
 			struct CDelayedOutput
 			{
 				NContainer::CIOByteVector m_BinaryOutput;
@@ -112,14 +112,14 @@ namespace NMib::NProcess
 				bool m_bBinary = false;
 			};
 
-			NContainer::TCLinkedList<CDelayedOutput> m_DelayedOutput;
+			NContainer::TCLinkedList<CDelayedOutput> mp_DelayedOutput;
 			void fp_Clear();
 		};
 
 	private:
-		NThread::CEventAutoReset m_LaunchChanged;
+		NThread::CEventAutoReset mp_LaunchChanged;
 
-		NContainer::TCLinkedList<CLaunchInfo> m_Launches;
+		NContainer::TCLinkedList<CLaunchInfo> mp_Launches;
 
 		struct CDestroyed
 		{
@@ -133,7 +133,7 @@ namespace NMib::NProcess
 			}
 		};
 
-		NStorage::TCSharedPointer<CDestroyed> m_pDestroyedNotification;
+		NStorage::TCSharedPointer<CDestroyed> mp_pDestroyedNotification;
 
 	public:
 		CProcessLaunchHandler();

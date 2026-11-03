@@ -371,7 +371,7 @@ namespace
 					DllPath = NMib::NFile::CFile::fs_AppendPath(NMib::NFile::CFile::fs_GetProgramDirectory(), DllPath);
 #	endif
 
-					for (umint i = 0; i < 10; ++i)
+					for (umint iLoad = 0; iLoad < 10; ++iLoad)
 					{
 						void *pDll = NMib::NSys::fg_LoadLibrary(DllPath);
 
@@ -449,10 +449,10 @@ namespace
 				umint nTests = 256 + 1;
 				umint nLoops = 1;
 
-				for (umint j = 0; j < nTests; ++j)
+				for (umint iTest = 0; iTest < nTests; ++iTest)
 				{
 					MalterlibTime.f_Start();
-					for (umint i = 0; i < nLoops; ++i)
+					for (umint iLoop = 0; iLoop < nLoops; ++iLoop)
 					{
 						Exited = EExitResult_None;
 						ExitCode = 66;
@@ -1356,7 +1356,7 @@ namespace
 					{
 						umint nLaunches = NMib::fg_Min(nCores * 16, 64u);
 						NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<tf_ProxyType>::CType>> Launches;
-						for (umint i = 0; i < nLaunches; ++i)
+						for (umint iLaunch = 0; iLaunch < nLaunches; ++iLaunch)
 							Launches.f_Insert(f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit));
 					}
 
@@ -1377,9 +1377,9 @@ namespace
 			NMib::NStr::CStr Ret;
 
 			NMib::NMisc::CRandomShiftRNG Random;
-			for (auto i = 0; i < 1024 * 1024; ++i)
+			for (auto iValue = 0; iValue < 1024 * 1024; ++iValue)
 			{
-				if (i % 1024 == 0 && i != 0)
+				if (iValue % 1024 == 0 && iValue != 0)
 					Ret += "\n";
 				Ret += NMib::NStr::CStr::CFormat("{nfh,sj1,sf0}") << Random.f_GetValue<uint32>();
 			}
@@ -1469,8 +1469,8 @@ namespace
 			NMib::NContainer::CIOByteVector Output;
 			if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 			{
-				for (umint i = 0; i < 256; ++i)
-					Output.f_Insert(uint8(i));
+				for (umint iByte = 0; iByte < 256; ++iByte)
+					Output.f_Insert(uint8(iByte));
 			}
 			else
 				Output.f_Insert((uint8 const *)"\0err\xff", 5);
@@ -1581,7 +1581,7 @@ namespace
 
 				NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<tf_ProxyType>::CType>> Launches;
 				umint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
-				for (umint i = 0; i < nCores * 2; ++i)
+				for (umint iLaunch = 0; iLaunch < nCores * 2; ++iLaunch)
 					Launches.f_Insert(f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone));
 
 				Launches.f_Clear();
@@ -1894,15 +1894,15 @@ namespace
 			{
 				DMibTestCategory("KillSandbox")
 				{
-					for (umint i = 0; i < 10; ++i)
+					for (umint iSuite = 0; iSuite < 10; ++iSuite)
 					{
-						NMib::NStr::CStr Suite = NMib::NStr::CStr::fs_ToStr(i);
+						NMib::NStr::CStr Suite = NMib::NStr::CStr::fs_ToStr(iSuite);
 						DMibTestSuite(Suite)
 						{
 							NMib::NStr::CStr FileToOpen = NMib::fg_GetSys()->f_GetEnvironmentVariable("LockFileDir");
 							NMib::NFile::CFile::fs_CreateDirectory(FileToOpen);
 							auto FileDir = FileToOpen;
-							FileToOpen += NMib::NStr::CStr::CFormat("/{}.FileOpen") << i;
+							FileToOpen += NMib::NStr::CStr::CFormat("/{}.FileOpen") << iSuite;
 
 							NMib::NFile::CFile File;
 							File.f_Open(FileToOpen, NMib::NFile::EFileOpen_Write);
@@ -1926,12 +1926,12 @@ namespace
 							NMib::NFile::CFile::fs_SetGroup(FileDir, Group);
 #endif
 
-							if (i == 0)
+							if (iSuite == 0)
 							{
 								while (true)
 									NMib::NSys::fg_Thread_Sleep(1.0);
 							}
-							NMib::NStr::CStr NextPath = fs_GetTestPath(NMib::NFile::CFile::fs_GetPath(fg_TestGetCurrentPath()), NMib::NStr::CStr::fs_ToStr(i - 1), "Null");
+							NMib::NStr::CStr NextPath = fs_GetTestPath(NMib::NFile::CFile::fs_GetPath(fg_TestGetCurrentPath()), NMib::NStr::CStr::fs_ToStr(iSuite - 1), "Null");
 							NMib::NStr::CStr StdOut;
 							NMib::NStr::CStr StdErr;
 							uint32 ExitCode;
@@ -2011,9 +2011,9 @@ namespace
 						while (bTimedOutCreated && Stopwatch.f_GetTime() < 100.0)
 						{
 							bTimedOutCreated = false;
-							for (int i = 0; i < 10; ++i)
+							for (int iFile = 0; iFile < 10; ++iFile)
 							{
-								NMib::NStr::CStr FileToOpen = TempDirectory + NMib::NStr::CStr(NMib::NStr::CStr::CFormat("/{}.FileOpen") << i);
+								NMib::NStr::CStr FileToOpen = TempDirectory + NMib::NStr::CStr(NMib::NStr::CStr::CFormat("/{}.FileOpen") << iFile);
 
 								if (!NMib::NFile::CFile::fs_FileExists(FileToOpen))
 								{
@@ -2036,9 +2036,9 @@ namespace
 						while (bTimedOutTerminate && Stopwatch.f_GetTime() < 100.0)
 						{
 							bTimedOutTerminate = false;
-							for (int i = 0; i < 10; ++i)
+							for (int iFile = 0; iFile < 10; ++iFile)
 							{
-								NMib::NStr::CStr FileToOpen = TempDirectory + NMib::NStr::CStr(NMib::NStr::CStr::CFormat("/{}.FileOpen") << i);
+								NMib::NStr::CStr FileToOpen = TempDirectory + NMib::NStr::CStr(NMib::NStr::CStr::CFormat("/{}.FileOpen") << iFile);
 
 								if (NMib::NFile::CFile::fs_FileExists(FileToOpen))
 								{

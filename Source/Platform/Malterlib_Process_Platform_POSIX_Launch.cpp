@@ -62,7 +62,7 @@ extern "C"
 #ifdef DPlatformFamily_Linux
 namespace NLocal
 {
-	extern int (*g_f_posix_spawn_file_actions_addchdir_np)(posix_spawn_file_actions_t * __restrict _pFileActions, char const * __restrict _pPath) __THROW __nonnull((1, 2));
+	extern int (*g_fPosixSpawnFileActionsAddchdirNP)(posix_spawn_file_actions_t * __restrict _pFileActions, char const * __restrict _pPath) __THROW __nonnull((1, 2));
 }
 #endif
 
@@ -133,10 +133,10 @@ namespace NMib::NProcess::NPlatform
 #ifdef DPlatformFamily_macOS
 			if (_pProcInfo && _pProcInfo->pbsd.pbi_start_tvsec)
 			{
-				static NTime::CTime EpochStart = NTime::CTimeConvert::fs_CreateTime(1970, 1, 1);
+				static constexpr NTime::CTime c_EpochStart = NTime::CTimeConvert::fs_CreateTimeConstExpr(1970, 1, 1);
 				int64 Seconds = _pProcInfo->pbsd.pbi_start_tvsec;
 				fp64 Fraction = fp64(_pProcInfo->pbsd.pbi_start_tvusec) / fp64(1000000);
-				NTime::CTime StartTime = EpochStart + NTime::CTimeSpanConvert_BabylonianCommon::fs_CreateSpan(0, 0, 0, 0, Seconds, Fraction);
+				NTime::CTime StartTime = c_EpochStart + NTime::CTimeSpanConvert_BabylonianCommon::fs_CreateSpan(0, 0, 0, 0, Seconds, Fraction);
 
 				RunTime = (NTime::CTime::fs_NowUTC() - StartTime).f_GetSecondsFraction();
 			}
@@ -169,10 +169,10 @@ namespace NMib::NProcess::NPlatform
 			fp64 RunTime = 0.0;
 			if (_ProcInfo.pbsd.pbi_start_tvsec)
 			{
-				static NTime::CTime EpochStart = NTime::CTimeConvert::fs_CreateTime(1970, 1, 1);
+				static constexpr NTime::CTime c_EpochStart = NTime::CTimeConvert::fs_CreateTimeConstExpr(1970, 1, 1);
 				int64 Seconds = _ProcInfo.pbsd.pbi_start_tvsec;
 				fp64 Fraction = fp64(_ProcInfo.pbsd.pbi_start_tvusec) / fp64(1000000);
-				NTime::CTime StartTime = EpochStart + NTime::CTimeSpanConvert_BabylonianCommon::fs_CreateSpan(0, 0, 0, 0, Seconds, Fraction);
+				NTime::CTime StartTime = c_EpochStart + NTime::CTimeSpanConvert_BabylonianCommon::fs_CreateSpan(0, 0, 0, 0, Seconds, Fraction);
 
 				RunTime = (NTime::CTime::fs_NowUTC() - StartTime).f_GetSecondsFraction();
 			}
@@ -245,10 +245,10 @@ namespace NMib::NProcess::NPlatform
 		if (!_bAllowLocate)
 			return _Path;
 
-		for (umint i = 0; i < 2; ++i)
+		for (umint iSearch = 0; iSearch < 2; ++iSearch)
 		{
 			NStr::CStr Path;
-			if (i == 0)
+			if (iSearch == 0)
 				Path = _LocalPaths;
 			else
 				Path = fg_GetSys()->f_GetEnvironmentVariable("PATH");
@@ -287,14 +287,14 @@ namespace NMib::NProcess::NPlatform
 		, mp_bNeedWait(false)
 		, mp_ProcessID(-1)
 		, mp_bReaped(0)
-		, m_ExitTime(-1.0)
-		, mp_hStdinWrite(-1)
-		, mp_hStdoutRead(-1)
-		, mp_hStderrRead(-1)
+		, mp_ExitTime(-1.0)
+		, mp_StdinWrite(-1)
+		, mp_StdoutRead(-1)
+		, mp_StderrRead(-1)
 		, mp_WakeupPipeRead(-1)
 		, mp_WakeupPipeWrite(-1)
 	{
-		m_TimeSinceStart.f_Start();
+		mp_TimeSinceStart.f_Start();
 
 		auto &SubSystem = *g_SubSystem_Process_Platform_POSIX_Launch;
 		{
@@ -351,15 +351,15 @@ namespace NMib::NProcess::NPlatform
 
 	bool CPOSIXLaunchContext::f_RedirectStdInWrite(int &_Pipe, NMib::NStr::CStr &_Errors)
 	{
-		if (mp_hStdinWrite != -1)
-			fp_DestroyPipe(mp_hStdinWrite);
+		if (mp_StdinWrite != -1)
+			fp_DestroyPipe(mp_StdinWrite);
 		{
 			DMibLock(mp_PipeLock);
-			mp_hStdinWrite = dup(_Pipe);
+			mp_StdinWrite = dup(_Pipe);
 		}
 		fp_DestroyPipe(_Pipe);
 
-		if (mp_hStdinWrite == -1)
+		if (mp_StdinWrite == -1)
 		{
 			_Errors += NMib::NPlatform::fg_FormatErrno("dup2 (launch process stdin pipe)", errno);
 			return false;
@@ -472,8 +472,8 @@ namespace NMib::NProcess::NPlatform
 			if (bRetVal)
 			{
 				DMibLock(mp_PipeLock);
-				mp_hStdinWrite = _StdInWrite;
-				mp_hStdoutRead = _StdOutRead;
+				mp_StdinWrite = _StdInWrite;
+				mp_StdoutRead = _StdOutRead;
 				_StdInWrite = -1;
 				_StdOutRead = -1;
 				fp_DestroyPipe(_StdInRead);
@@ -588,7 +588,7 @@ namespace NMib::NProcess::NPlatform
 
 			NStr::CStr Chroot;
 
-			auto fl_ConvertChrootPath = [&](NStr::CStr const &_Path) -> NStr::CStr
+			auto fConvertChrootPath = [&](NStr::CStr const &_Path) -> NStr::CStr
 				{
 					NStr::CStr CanonicalPath = _Path;
 					if (Chroot.f_IsEmpty())
@@ -613,7 +613,7 @@ namespace NMib::NProcess::NPlatform
 					Chroot = *pRoot;
 			}
 
-			NStr::CStr ProgramToLaunch = fl_ConvertChrootPath(Program);
+			NStr::CStr ProgramToLaunch = fConvertChrootPath(Program);
 			NStr::CStr ProgramToLaunchNoHelper = ProgramToLaunch;
 
 			bool bCanSpawnChdir = false;
@@ -621,7 +621,7 @@ namespace NMib::NProcess::NPlatform
 			bool bCanSpawnGID = false;
 
 #ifdef DPlatformFamily_Linux
-			if (NLocal::g_f_posix_spawn_file_actions_addchdir_np)
+			if (NLocal::g_fPosixSpawnFileActionsAddchdirNP)
 				bCanSpawnChdir = true;
 #elifdef DPlatformFamily_macOS
 			if (__builtin_available(macOS 10.15, *))
@@ -693,9 +693,9 @@ namespace NMib::NProcess::NPlatform
 				}
 
 				if (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty())
-					WorkingDirectory = fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
+					WorkingDirectory = fConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
 				else
-					WorkingDirectory = fl_ConvertChrootPath(NMib::NFile::CFile::fs_GetCurrentDirectory());
+					WorkingDirectory = fConvertChrootPath(NMib::NFile::CFile::fs_GetCurrentDirectory());
 
 				ParametersList.f_Insert(ChrootLaunchHelper.f_GetStrUniqueWritable());
 				if (bNeedsTwoPhaseSpawn)
@@ -714,7 +714,7 @@ namespace NMib::NProcess::NPlatform
 			else
 			{
 				if (!mp_LastLaunchOptions.m_WorkingDirectory.f_IsEmpty())
-					WorkingDirectory = fl_ConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
+					WorkingDirectory = fConvertChrootPath(mp_LastLaunchOptions.m_WorkingDirectory);
 
 				if (bNeedsTwoPhaseSpawn)
 					ProgramToLaunch = SpawnHelperExecutable;
@@ -904,7 +904,7 @@ namespace NMib::NProcess::NPlatform
 #ifdef DPlatformFamily_Linux
 						fCallPosixSpawnApi
 							(
-								*NLocal::g_f_posix_spawn_file_actions_addchdir_np
+								*NLocal::g_fPosixSpawnFileActionsAddchdirNP
 								, "posix_spawn_file_actions_addchdir_np"
 								, WorkingDirectory.f_GetStr()
 								, &SpawnFileActions
@@ -1015,9 +1015,9 @@ namespace NMib::NProcess::NPlatform
 
 					{
 						DMibLock(mp_PipeLock);
-						mp_hStdinWrite = _StdInWrite;
-						mp_hStdoutRead = _StdOutRead;
-						mp_hStderrRead = _StdErrRead;
+						mp_StdinWrite = _StdInWrite;
+						mp_StdoutRead = _StdOutRead;
+						mp_StderrRead = _StdErrRead;
 						_StdInWrite = -1;
 						_StdOutRead = -1;
 						_StdErrRead = -1;
@@ -1208,9 +1208,9 @@ namespace NMib::NProcess::NPlatform
 				else
 				{
 					DMibLock(mp_PipeLock);
-					mp_hStdinWrite = _StdInWrite;
-					mp_hStdoutRead = _StdOutRead;
-					mp_hStderrRead = _StdErrRead;
+					mp_StdinWrite = _StdInWrite;
+					mp_StdoutRead = _StdOutRead;
+					mp_StderrRead = _StdErrRead;
 					_StdInWrite = -1;
 					_StdOutRead = -1;
 					_StdErrRead = -1;
@@ -1229,9 +1229,9 @@ namespace NMib::NProcess::NPlatform
 	void CPOSIXLaunchContext::fp_Close()
 	{
 		DMibLock(mp_PipeLock);
-		fp_DestroyPipe(mp_hStdinWrite);
-		fp_DestroyPipe(mp_hStdoutRead);
-		fp_DestroyPipe(mp_hStderrRead);
+		fp_DestroyPipe(mp_StdinWrite);
+		fp_DestroyPipe(mp_StdoutRead);
+		fp_DestroyPipe(mp_StderrRead);
 	}
 
 	bool fg_CreatePipe(int &_Read, int &_Write)
@@ -1240,9 +1240,9 @@ namespace NMib::NProcess::NPlatform
 		DMibFastCheck(_Write == -1);
 		int Pipes[2];
 #ifndef DPlatformFamily_macOS
-		if (NLocal::g_f_pipe2)
+		if (NLocal::g_fPipe2)
 		{
-			if (NLocal::g_f_pipe2(Pipes, O_CLOEXEC))
+			if (NLocal::g_fPipe2(Pipes, O_CLOEXEC))
 				return false;
 		}
 		else
@@ -1272,26 +1272,26 @@ namespace NMib::NProcess::NPlatform
 		fp_Close();
 		bool bOK = false;
 
-		int hStdoutRead; // parent stdout read int
-		int hStdoutWrite; // child stdout write int
-		int hStderrRead; // parent stdout read int
-		int hStderrWrite; // child stdout write int
-		int hStdinWrite; // parent stdin write int
-		int hStdinRead; // child stdin read int
+		int StdoutRead; // parent stdout read int
+		int StdoutWrite; // child stdout write int
+		int StderrRead; // parent stdout read int
+		int StderrWrite; // child stdout write int
+		int StdinWrite; // parent stdin write int
+		int StdinRead; // child stdin read int
 
-		hStdoutRead = -1;
-		hStdoutWrite = -1;
-		hStderrRead = -1;
-		hStderrWrite = -1;
-		hStdinWrite = -1;
-		hStdinRead = -1;
+		StdoutRead = -1;
+		StdoutWrite = -1;
+		StderrRead = -1;
+		StderrWrite = -1;
+		StdinWrite = -1;
+		StdinRead = -1;
 
 		do
 		{
 			// Create a child stdout pipe.
 			if (mp_LastLaunchOptions.m_bEnableStdRedirection)
 			{
-				if (!fg_CreatePipe(hStdoutRead, hStdoutWrite))
+				if (!fg_CreatePipe(StdoutRead, StdoutWrite))
 				{
 					int ErrNo = errno;
 					_Errors += NMib::NPlatform::fg_FormatErrno("pipe (launch process stdout)", ErrNo);
@@ -1301,7 +1301,7 @@ namespace NMib::NProcess::NPlatform
 
 				if (mp_LastLaunchOptions.m_bSeparateStdErr)
 				{
-					if (!fg_CreatePipe(hStderrRead, hStderrWrite))
+					if (!fg_CreatePipe(StderrRead, StderrWrite))
 					{
 						int ErrNo = errno;
 						_Errors += NMib::NPlatform::fg_FormatErrno("pipe (launch process stderr)", ErrNo);
@@ -1311,7 +1311,7 @@ namespace NMib::NProcess::NPlatform
 				}
 
 				// Create a child stdin pipe.
-				if (!fg_CreatePipe(hStdinRead, hStdinWrite))
+				if (!fg_CreatePipe(StdinRead, StdinWrite))
 				{
 					int ErrNo = errno;
 					_Errors += NMib::NPlatform::fg_FormatErrno("pipe (launch process stdin)", ErrNo);
@@ -1322,7 +1322,7 @@ namespace NMib::NProcess::NPlatform
 			else
 			{
 				// We need this redirection for checking for process exit
-				if (!fg_CreatePipe(hStdoutRead, hStdoutWrite))
+				if (!fg_CreatePipe(StdoutRead, StdoutWrite))
 				{
 					int ErrNo = errno;
 					_Errors += NMib::NPlatform::fg_FormatErrno("pipe (launch process check exit, stdout)", ErrNo);
@@ -1331,13 +1331,13 @@ namespace NMib::NProcess::NPlatform
 				}
 			}
 
-			if (hStdoutRead != -1)
-				fcntl(hStdoutRead, F_SETFL, fcntl(hStdoutRead, F_GETFL) | O_NONBLOCK);
-			if (hStderrRead != -1)
-				fcntl(hStderrRead, F_SETFL, fcntl(hStderrRead, F_GETFL) | O_NONBLOCK);
+			if (StdoutRead != -1)
+				fcntl(StdoutRead, F_SETFL, fcntl(StdoutRead, F_GETFL) | O_NONBLOCK);
+			if (StderrRead != -1)
+				fcntl(StderrRead, F_SETFL, fcntl(StderrRead, F_GETFL) | O_NONBLOCK);
 
 			// launch the child process
-			if (!fp_LaunchChild(hStdoutRead, hStdoutWrite, hStdinRead, hStdinWrite, hStderrRead, hStderrWrite, _Errors))
+			if (!fp_LaunchChild(StdoutRead, StdoutWrite, StdinRead, StdinWrite, StderrRead, StderrWrite, _Errors))
 				break;
 
 			// Child is launched. Close the parents copy of those pipe
@@ -1350,13 +1350,13 @@ namespace NMib::NProcess::NPlatform
 		}
 		while (0);
 
-		fp_DestroyPipe(hStdoutRead);
-		fp_DestroyPipe(hStdoutWrite);
-		fp_DestroyPipe(hStderrRead);
+		fp_DestroyPipe(StdoutRead);
+		fp_DestroyPipe(StdoutWrite);
+		fp_DestroyPipe(StderrRead);
 
-		fp_DestroyPipe(hStderrWrite);
-		fp_DestroyPipe(hStdinWrite);
-		fp_DestroyPipe(hStdinRead);
+		fp_DestroyPipe(StderrWrite);
+		fp_DestroyPipe(StdinWrite);
+		fp_DestroyPipe(StdinRead);
 
 		if (!bOK)
 			fp_Close();
@@ -1367,7 +1367,7 @@ namespace NMib::NProcess::NPlatform
 	void CPOSIXLaunchContext::fp_RedirectOutput(bool _bWaitForEOF)
 	{
 		// DMibScopeConOutTimeMeasure("fp_RedirectOutput");
-		auto fl_Read = [&](int _FileDes, EProcessLaunchOutputType _OutputType) -> bool
+		auto fRead = [&](int _FileDes, EProcessLaunchOutputType _OutputType) -> bool
 			{
 				bool bEndOfFile = false;
 				while (1)
@@ -1416,21 +1416,21 @@ namespace NMib::NProcess::NPlatform
 		if (_bWaitForEOF)
 		{
 			pollfd ToPoll[2] = {0};
-			bool bStdOutEof = mp_hStdoutRead == -1;
-			bool bStdErrEof = mp_hStderrRead == -1;
+			bool bStdOutEof = mp_StdoutRead == -1;
+			bool bStdErrEof = mp_StderrRead == -1;
 			while (!bStdOutEof || !bStdErrEof)
 			{
 				int nPoll = 0;
 				if (!bStdOutEof)
 				{
-					ToPoll[nPoll].fd = mp_hStdoutRead;
+					ToPoll[nPoll].fd = mp_StdoutRead;
 					ToPoll[nPoll].events = POLLRDNORM;
 					ToPoll[nPoll].revents = 0;
 					++nPoll;
 				}
 				if (!bStdErrEof)
 				{
-					ToPoll[nPoll].fd = mp_hStderrRead;
+					ToPoll[nPoll].fd = mp_StderrRead;
 					ToPoll[nPoll].events = POLLRDNORM;
 					ToPoll[nPoll].revents = 0;
 					++nPoll;
@@ -1466,27 +1466,27 @@ namespace NMib::NProcess::NPlatform
 				}
 				if (!bStdOutEof)
 				{
-					if (fl_Read(mp_hStdoutRead, EProcessLaunchOutputType_StdOut))
+					if (fRead(mp_StdoutRead, EProcessLaunchOutputType_StdOut))
 						bStdOutEof = true;
 				}
 				if (!bStdErrEof)
 				{
-					if (fl_Read(mp_hStderrRead, EProcessLaunchOutputType_StdErr))
+					if (fRead(mp_StderrRead, EProcessLaunchOutputType_StdErr))
 						bStdErrEof = true;
 				}
 			}
 		}
 		else
 		{
-			if (mp_hStdoutRead != -1)
+			if (mp_StdoutRead != -1)
 			{
-				if (fl_Read(mp_hStdoutRead, EProcessLaunchOutputType_StdOut))
-					fp_DestroyPipe(mp_hStdoutRead); // End of file reached
+				if (fRead(mp_StdoutRead, EProcessLaunchOutputType_StdOut))
+					fp_DestroyPipe(mp_StdoutRead); // End of file reached
 			}
-			if (mp_hStderrRead != -1)
+			if (mp_StderrRead != -1)
 			{
-				if (fl_Read(mp_hStderrRead, EProcessLaunchOutputType_StdErr))
-					fp_DestroyPipe(mp_hStderrRead); // End of file reached
+				if (fRead(mp_StderrRead, EProcessLaunchOutputType_StdErr))
+					fp_DestroyPipe(mp_StderrRead); // End of file reached
 			}
 		}
 	}
@@ -1595,10 +1595,10 @@ namespace NMib::NProcess::NPlatform
 #endif
 
 			// Make sure we are non-blocking
-			if (mp_hStdoutRead != -1)
-				fcntl(mp_hStdoutRead, F_SETFL, fcntl(mp_hStdoutRead, F_GETFL) | O_NONBLOCK);
-			if (mp_hStderrRead != -1)
-				fcntl(mp_hStderrRead, F_SETFL, fcntl(mp_hStderrRead, F_GETFL) | O_NONBLOCK);
+			if (mp_StdoutRead != -1)
+				fcntl(mp_StdoutRead, F_SETFL, fcntl(mp_StdoutRead, F_GETFL) | O_NONBLOCK);
+			if (mp_StderrRead != -1)
+				fcntl(mp_StderrRead, F_SETFL, fcntl(mp_StderrRead, F_GETFL) | O_NONBLOCK);
 
 			pollfd ToPoll[3] = {0};
 
@@ -1610,16 +1610,16 @@ namespace NMib::NProcess::NPlatform
 				ToPoll[nPoll].events = POLLRDNORM;
 				ToPoll[nPoll].revents = 0;
 				++nPoll;
-				if (mp_hStdoutRead != -1)
+				if (mp_StdoutRead != -1)
 				{
-					ToPoll[nPoll].fd = mp_hStdoutRead;
+					ToPoll[nPoll].fd = mp_StdoutRead;
 					ToPoll[nPoll].events = POLLRDNORM;
 					ToPoll[nPoll].revents = 0;
 					++nPoll;
 				}
-				if (mp_hStderrRead != -1)
+				if (mp_StderrRead != -1)
 				{
-					ToPoll[nPoll].fd = mp_hStderrRead;
+					ToPoll[nPoll].fd = mp_StderrRead;
 					ToPoll[nPoll].events = POLLRDNORM;
 					ToPoll[nPoll].revents = 0;
 					++nPoll;
@@ -1798,10 +1798,10 @@ namespace NMib::NProcess::NPlatform
 		}
 
 		/*
-				if (mp_hStdoutRead != -1)
-			fcntl(mp_hStdoutRead, F_SETFL, 0);
-		if (mp_hStderrRead != -1)
-			fcntl(mp_hStderrRead, F_SETFL, 0);*/
+				if (mp_StdoutRead != -1)
+			fcntl(mp_StdoutRead, F_SETFL, 0);
+		if (mp_StderrRead != -1)
+			fcntl(mp_StderrRead, F_SETFL, 0);*/
 		fp_RedirectOutput(bExited);
 
 		if (bExited)
@@ -1817,10 +1817,10 @@ namespace NMib::NProcess::NPlatform
 	{
 		fp64 TimeSinceStart;
 		{
-			DMibLock(m_ExitTimeLock);
-			TimeSinceStart = m_TimeSinceStart.f_GetTime();
+			DMibLock(mp_ExitTimeLock);
+			TimeSinceStart = mp_TimeSinceStart.f_GetTime();
 			if (!_pProcess)
-				m_ExitTime = TimeSinceStart;
+				mp_ExitTime = TimeSinceStart;
 		}
 		// if (mp_LastLaunchOptions.m_bAllowLaunchedInForeground && _pProcess)
 		// 	AllowSetForegroundWindow(GetProcessId(_pProcess));
@@ -1894,9 +1894,9 @@ namespace NMib::NProcess::NPlatform
 	{
 		fp64 TimeSinceStart;
 		{
-			DMibLock(m_ExitTimeLock);
-			TimeSinceStart = m_TimeSinceStart.f_GetTime();
-			m_ExitTime = TimeSinceStart;
+			DMibLock(mp_ExitTimeLock);
+			TimeSinceStart = mp_TimeSinceStart.f_GetTime();
+			mp_ExitTime = TimeSinceStart;
 		}
 
 		if (mp_LastLaunchOptions.m_fOnStateChange)
@@ -2000,37 +2000,37 @@ namespace NMib::NProcess::NPlatform
 	void CPOSIXLaunchContext::f_SendText(NStr::CStrIO const &_Text)
 	{
 		DMibLock(mp_PipeLock);
-		if (mp_hStdinWrite == -1)
+		if (mp_StdinWrite == -1)
 			return;
 
-		write(mp_hStdinWrite, _Text.f_GetStr(), _Text.f_GetLen());
+		write(mp_StdinWrite, _Text.f_GetStr(), _Text.f_GetLen());
 	}
 
 	void CPOSIXLaunchContext::f_CloseStdIn()
 	{
 		DMibLock(mp_PipeLock);
-		if (mp_hStdinWrite == -1)
+		if (mp_StdinWrite == -1)
 			return;
 
-		fp_DestroyPipe(mp_hStdinWrite);
+		fp_DestroyPipe(mp_StdinWrite);
 	}
 
 	void CPOSIXLaunchContext::f_SendBinary(NContainer::CIOByteVector const &_Data)
 	{
 		DMibLock(mp_PipeLock);
-		if (mp_hStdinWrite == -1)
+		if (mp_StdinWrite == -1)
 			return;
 
-		write(mp_hStdinWrite, _Data.f_GetArray(), _Data.f_GetLen());
+		write(mp_StdinWrite, _Data.f_GetArray(), _Data.f_GetLen());
 	}
 
 	fp64 CPOSIXLaunchContext::f_GetRunningTime()
 	{
-		DMibLock(m_ExitTimeLock);
+		DMibLock(mp_ExitTimeLock);
 		if (f_IsRunning())
-			return m_TimeSinceStart.f_GetTime();
+			return mp_TimeSinceStart.f_GetTime();
 		else
-			return m_ExitTime;
+			return mp_ExitTime;
 	}
 
 	umint CPOSIXLaunchContext::f_GetID()
@@ -2174,22 +2174,22 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 
 #ifdef DPlatformFamily_macOS
 	NPlatform::CPOSIXLaunchContext *pLaunch = fg_AutoStaticCast(_pLaunch);
-	[[maybe_unused]] int bytes;
+	[[maybe_unused]] int nBytes;
 	proc_taskallinfo TaskInfoAll = {0};
-	bytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));
-	bytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTBSDINFO, 0, &TaskInfoAll.pbsd, sizeof(TaskInfoAll.pbsd));
+	nBytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));
+	nBytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTBSDINFO, 0, &TaskInfoAll.pbsd, sizeof(TaskInfoAll.pbsd));
 
-	if (bytes <= 0)
+	if (nBytes <= 0)
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
 		//DMibDTrace("proc_pidinfo {}\n", NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
-	else if (bytes < sizeof(TaskInfoAll.pbsd))
+	else if (nBytes < sizeof(TaskInfoAll.pbsd))
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
-		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes, (sizeof(TaskInfoAll)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
+		//DMibDTrace("proc_pidinfo {} < {} = {}\n", nBytes, (sizeof(TaskInfoAll)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
 	else
 		fg_ConvertExecutionStatistics(Stats, TaskInfoAll);
@@ -2204,21 +2204,21 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 
 #ifdef DPlatformFamily_macOS
 	NMib::NProcess::NPlatform::CPOSIXLaunchContext *pLaunch = NMib::fg_AutoStaticCast(_pLaunch);
-	int bytes;
+	int nBytes;
 	proc_taskinfo TaskInfo = {0};
-	bytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTASKINFO, 0, &TaskInfo, sizeof(TaskInfo));
+	nBytes = proc_pidinfo(pLaunch->f_GetID(), PROC_PIDTASKINFO, 0, &TaskInfo, sizeof(TaskInfo));
 
-	if (bytes <= 0)
+	if (nBytes <= 0)
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
 		//DMibDTrace("proc_pidinfo {}\n", NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
-	else if (bytes < sizeof(TaskInfo))
+	else if (nBytes < sizeof(TaskInfo))
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
-		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes, (sizeof(TaskInfo)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
+		//DMibDTrace("proc_pidinfo {} < {} = {}\n", nBytes, (sizeof(TaskInfo)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
 	else
 		NMib::NProcess::NPlatform::fg_ConvertMemoryStatistics(Stats, TaskInfo);
@@ -2243,21 +2243,21 @@ void NMib::NProcess::NPlatform::fg_Process_GetMemoryCurrentStatistics(void *_pPr
 {
 #ifdef DPlatformFamily_macOS
 	umint ProcessID = (umint)_pProcess;
-	int bytes;
+	int nBytes;
 	proc_taskinfo TaskInfo = {0};
-	bytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfo, sizeof(TaskInfo));
+	nBytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfo, sizeof(TaskInfo));
 
-	if (bytes <= 0)
+	if (nBytes <= 0)
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
 		//DMibDTrace("proc_pidinfo {}\n", NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
-	else if (bytes < sizeof(TaskInfo))
+	else if (nBytes < sizeof(TaskInfo))
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
-		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes, (sizeof(TaskInfo)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
+		//DMibDTrace("proc_pidinfo {} < {} = {}\n", nBytes, (sizeof(TaskInfo)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
 	else
 		fg_ConvertMemoryStatistics(_Stats, TaskInfo);
@@ -2268,22 +2268,22 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 {
 #ifdef DPlatformFamily_macOS
 	umint ProcessID = (umint)_pProcess;
-	[[maybe_unused]] int bytes;
+	[[maybe_unused]] int nBytes;
 	proc_taskallinfo TaskInfoAll = {0};
-	bytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));
-	bytes = proc_pidinfo(ProcessID, PROC_PIDTBSDINFO, 0, &TaskInfoAll.pbsd, sizeof(TaskInfoAll.pbsd));
+	nBytes = proc_pidinfo(ProcessID, PROC_PIDTASKINFO, 0, &TaskInfoAll.ptinfo, sizeof(TaskInfoAll.ptinfo));
+	nBytes = proc_pidinfo(ProcessID, PROC_PIDTBSDINFO, 0, &TaskInfoAll.pbsd, sizeof(TaskInfoAll.pbsd));
 
-	if (bytes <= 0)
+	if (nBytes <= 0)
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
 		//DMibDTrace("proc_pidinfo {}\n", NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
-	else if (bytes < sizeof(TaskInfoAll.pbsd))
+	else if (nBytes < sizeof(TaskInfoAll.pbsd))
 	{
 		int ErrNo = errno;
 		(void)ErrNo;
-		//DMibDTrace("proc_pidinfo {} < {} = {}\n", bytes, (sizeof(TaskInfoAll)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
+		//DMibDTrace("proc_pidinfo {} < {} = {}\n", nBytes, (sizeof(TaskInfoAll)), NMib::NPlatform::fg_FormatErrno("", ErrNo));
 	}
 	else
 		fg_ConvertExecutionStatistics(_Stats, TaskInfoAll);

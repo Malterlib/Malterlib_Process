@@ -34,17 +34,17 @@ namespace
 		{
 			umint ThisTime = NMib::fg_Min(ToRead, 256);
 			File.f_Read(Chunk, ThisTime * sizeof(uint32));
-			for (umint i = 0; i < ThisTime; ++i)
+			for (umint iWord = 0; iWord < ThisTime; ++iWord)
 			{
-				if (Chunk[i] == EpChunk)
+				if (Chunk[iWord] == EpChunk)
 				{
-					File.f_SetPosition(FilePos + i * sizeof(uint32));
+					File.f_SetPosition(FilePos + iWord * sizeof(uint32));
 					IMAGE_NT_HEADERS Headers;
 					File.f_Read(&Headers, sizeof(Headers));
 
 					if (Headers.FileHeader.Machine == IMAGE_FILE_MACHINE_I386)
 					{
-						File.f_SetPosition(FilePos + i * sizeof(uint32));
+						File.f_SetPosition(FilePos + iWord * sizeof(uint32));
 						IMAGE_NT_HEADERS32 Headers32;
 						File.f_Read(&Headers32, sizeof(Headers32));
 
@@ -53,7 +53,7 @@ namespace
 					}
 					else if (Headers.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64)
 					{
-						File.f_SetPosition(FilePos + i * sizeof(uint32));
+						File.f_SetPosition(FilePos + iWord * sizeof(uint32));
 						IMAGE_NT_HEADERS64 Headers64;
 						File.f_Read(&Headers64, sizeof(Headers64));
 						_MajorVersion = Headers64.OptionalHeader.MajorImageVersion;
@@ -123,16 +123,18 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 
 		struct CLangAndCodePage
 		{
-			WORD wLanguage;
-			WORD wCodePage;
+			WORD m_Language;
+			WORD m_CodePage;
 		} *pTranslate;
 
 		if (VerQueryValue(pBlock, str_utf16("\\VarFileInfo\\Translation"), (LPVOID *)&pTranslate, &QuerySize))
 		{
-			for (umint i = 0; i < (QuerySize/sizeof(struct CLangAndCodePage)); ++i)
+			for (umint iTranslation = 0; iTranslation < (QuerySize/sizeof(struct CLangAndCodePage)); ++iTranslation)
 			{
 				NStr::CWStr SubBlock
-					= NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild")) << pTranslate[i].wLanguage << pTranslate[i].wCodePage
+					= NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild"))
+					<< pTranslate[iTranslation].m_Language
+					<< pTranslate[iTranslation].m_CodePage
 				;
 
 				ch16 const *pBuffer = nullptr;
@@ -209,16 +211,16 @@ auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGe
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
 
 	CProcessEntry RootProcess;
-	HANDLE hProcessSnap;
+	HANDLE ProcessSnapshot;
 	PROCESSENTRY32 ProcessEntry;
 
 	// Take a snapshot of all processes in the system.
-	hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hProcessSnap != INVALID_HANDLE_VALUE)
+	ProcessSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (ProcessSnapshot != INVALID_HANDLE_VALUE)
 	{
 		ProcessEntry.dwSize = sizeof(PROCESSENTRY32);
 
-		if (Process32First(hProcessSnap, &ProcessEntry))
+		if (Process32First(ProcessSnapshot, &ProcessEntry))
 		{
 			do
 			{
@@ -370,11 +372,11 @@ auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGe
 				if (pThisProcess)
 					CloseHandle(pThisProcess);
 			}
-			while (Process32Next(hProcessSnap, &ProcessEntry))
+			while (Process32Next(ProcessSnapshot, &ProcessEntry))
 				;
 		}
 
-		CloseHandle(hProcessSnap);
+		CloseHandle(ProcessSnapshot);
 	}
 	return Ret;
 }
@@ -446,13 +448,13 @@ umint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 
 bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
 {
-	HANDLE hProcess = OpenProcess(SYNCHRONIZE, false, DWORD(_ProcessID));
-	if (!hProcess)
+	HANDLE Process = OpenProcess(SYNCHRONIZE, false, DWORD(_ProcessID));
+	if (!Process)
 		return false;
 
 	// The handle is signaled once the process has exited, which the exit code cannot tell when the process exits with STILL_ACTIVE
-	bool bRunning = WaitForSingleObject(hProcess, 0) == WAIT_TIMEOUT;
-	CloseHandle(hProcess);
+	bool bRunning = WaitForSingleObject(Process, 0) == WAIT_TIMEOUT;
+	CloseHandle(Process);
 
 	return bRunning;
 }
@@ -649,17 +651,17 @@ void NMib::NProcess::NPlatform::fg_Process_Resume(umint _ProcessID, void *_pPaus
 
 void NMib::NProcess::NPlatform::fg_Process_Terminate(umint _ProcessID)
 {
-	HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, false, _ProcessID);
-	if (!hProcess)
+	HANDLE Process = OpenProcess(PROCESS_TERMINATE, false, _ProcessID);
+	if (!Process)
 		DMibError(fg_Format("When terminating process Windows returned an error from OpenProcess: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
 
 	auto Cleanup = NMib::g_OnScopeExit / [&]
 		{
-			CloseHandle(hProcess);
+			CloseHandle(Process);
 		}
 	;
 
-	if (!TerminateProcess(hProcess, 255))
+	if (!TerminateProcess(Process, 255))
 		DMibError(fg_Format("When terminating process Windows returned an error from TerminateProcess: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
 }
 
@@ -672,7 +674,7 @@ void NMib::NProcess::NPlatform::fg_Process_Stop(umint _ProcessID)
 	}
 }
 
-constinit static NMib::NStorage::TCAggregate<NMib::NThread::CEvent> g_TerminationEvent = {DAggregateInit};
+constinit static NMib::NStorage::TCAggregate<NMib::NThread::CEvent> gs_TerminationEvent = {DAggregateInit};
 
 namespace NMib::NPlatform
 {
@@ -700,7 +702,7 @@ static void fg_ReportConsoleSessionEnd(DWORD _CtrlType)
 
 void NMib::NProcess::NPlatform::fg_Process_AbortWaitForTermination()
 {
-	g_TerminationEvent->f_SetSignaled();
+	gs_TerminationEvent->f_SetSignaled();
 }
 
 void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
@@ -711,7 +713,7 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 
 			if (_CtrlType == CTRL_C_EVENT || _CtrlType == CTRL_BREAK_EVENT)
 			{
-				g_TerminationEvent->f_SetSignaled();
+				gs_TerminationEvent->f_SetSignaled();
 				return true;
 			}
 			return false;
@@ -720,11 +722,11 @@ void NMib::NProcess::NPlatform::fg_Process_WaitForTermination()
 
 	SetConsoleCtrlHandler(fHandler, true);
 
-	g_TerminationEvent->f_Wait();
+	gs_TerminationEvent->f_Wait();
 
 	SetConsoleCtrlHandler(fHandler, false);
 
-	g_TerminationEvent.f_Destruct();
+	gs_TerminationEvent.f_Destruct();
 }
 
 namespace
@@ -750,7 +752,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 		State.m_pOnTerminate = fg_Construct(fg_Move(_fOnTerminate));
 	}
 
-	static PHANDLER_ROUTINE fHandler = [](DWORD _CtrlType) -> BOOL
+	static PHANDLER_ROUTINE s_fHandler = [](DWORD _CtrlType) -> BOOL
 		{
 			fg_ReportConsoleSessionEnd(_CtrlType);
 
@@ -773,11 +775,11 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 		}
 	;
 
-	SetConsoleCtrlHandler(fHandler, true);
+	SetConsoleCtrlHandler(s_fHandler, true);
 
 	return g_OnScopeExitShared / []
 		{
-			SetConsoleCtrlHandler(fHandler, false);
+			SetConsoleCtrlHandler(s_fHandler, false);
 
 			auto &State = *g_TerminationHandlerState;
 			DMibLock(State.m_Lock);

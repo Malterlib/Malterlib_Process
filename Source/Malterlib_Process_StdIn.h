@@ -73,7 +73,7 @@ namespace NMib::NProcess
 		CStdInReader(CStdInReader const &_Other) = delete;
 		CStdInReader &operator = (CStdInReader const &_Other) = delete;
 
-		void *m_pStdInReader;
+		void *mp_pStdInReader;
 		void fp_CheckOpen() const;
 	};
 
@@ -84,11 +84,11 @@ namespace NMib::NProcess
 		using CPromptParams = CStdInReaderPromptParams;
 
 	private:
-		NThread::CMutual m_Lock;
-		NStr::CStr m_Buffer;
-		NStr::CStr m_Errors;
-		NThread::CEventAutoReset m_Event;
-		NStorage::TCUniquePointer<CStdInReader> m_pStdInReader;
+		NThread::CMutual mp_Lock;
+		NStr::CStr mp_Buffer;
+		NStr::CStr mp_Errors;
+		NThread::CEventAutoReset mp_Event;
+		NStorage::TCUniquePointer<CStdInReader> mp_pStdInReader;
 
 	public:
 		CBlockingStdInReader();
