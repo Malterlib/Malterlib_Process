@@ -347,8 +347,8 @@ namespace NMib::NProcess::NPlatform
 			NThread::CMutual m_ExitTimeLock;
 			fp64 m_ExitTime;
 
-			static void WINAPI fs_StdOutReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
-			static void WINAPI fs_StdErrReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
+			static void WINAPI fsp_StdOutReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
+			static void WINAPI fsp_StdErrReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
 
 		protected:
 			struct COverallExecution
@@ -2163,7 +2163,7 @@ namespace NMib::NProcess::NPlatform
 			return false;
 		}
 
-		void WINAPI CConsoleRedirector::fs_StdOutReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
+		void WINAPI CConsoleRedirector::fsp_StdOutReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
 		{
 			CConsoleRedirector *pThis = (CConsoleRedirector *)lpOverlapped->hEvent;
 			if (dwNumberOfBytesTransfered)
@@ -2185,7 +2185,7 @@ namespace NMib::NProcess::NPlatform
 				pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stdout pipe error: {}" DMibNewLine) << Error);
 			}
 
-			if (::ReadFileEx(pThis->mp_hStdoutRead, pThis->mp_StdOutReadBuffer.f_GetArray(), 4096, &pThis->mp_StdOutRead, &CConsoleRedirector::fs_StdOutReadFinished))
+			if (::ReadFileEx(pThis->mp_hStdoutRead, pThis->mp_StdOutReadBuffer.f_GetArray(), 4096, &pThis->mp_StdOutRead, &CConsoleRedirector::fsp_StdOutReadFinished))
 				return;
 
 			dwErrorCode = GetLastError();
@@ -2203,7 +2203,7 @@ namespace NMib::NProcess::NPlatform
 			pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stdout pipe error: {}" DMibNewLine) << Error);
 		}
 
-		void WINAPI CConsoleRedirector::fs_StdErrReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
+		void WINAPI CConsoleRedirector::fsp_StdErrReadFinished(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
 		{
 			CConsoleRedirector *pThis = (CConsoleRedirector *)lpOverlapped->hEvent;
 			if (dwNumberOfBytesTransfered)
@@ -2225,7 +2225,7 @@ namespace NMib::NProcess::NPlatform
 				pThis->fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType_GeneralError, NStr::CStr::CFormat("Read stderr pipe error: {}" DMibNewLine) << Error);
 			}
 
-			if (::ReadFileEx(pThis->mp_hStderrRead, pThis->mp_StdErrReadBuffer.f_GetArray(), 4096, &pThis->mp_StdErrRead, &CConsoleRedirector::fs_StdErrReadFinished))
+			if (::ReadFileEx(pThis->mp_hStderrRead, pThis->mp_StdErrReadBuffer.f_GetArray(), 4096, &pThis->mp_StdErrRead, &CConsoleRedirector::fsp_StdErrReadFinished))
 				return;
 
 			dwErrorCode = GetLastError();
@@ -2255,7 +2255,7 @@ namespace NMib::NProcess::NPlatform
 				mp_StdOutRead.Pointer = mp_StdOutReadBuffer.f_GetArray();
 			}
 
-			fs_StdOutReadFinished(0, 0, &mp_StdOutRead);
+			fsp_StdOutReadFinished(0, 0, &mp_StdOutRead);
 
 			return 0;
 		}
@@ -2272,7 +2272,7 @@ namespace NMib::NProcess::NPlatform
 				mp_StdErrRead.Pointer = mp_StdErrReadBuffer.f_GetArray();
 			}
 
-			fs_StdErrReadFinished(0, 0, &mp_StdOutRead);
+			fsp_StdErrReadFinished(0, 0, &mp_StdOutRead);
 
 			return 0;
 		}
@@ -2535,7 +2535,7 @@ namespace NMib::NProcess::NPlatform
 			}
 		}
 
-		BOOL APIENTRY CreatePipeEx
+		static BOOL APIENTRY fsg_CreatePipeEx
 			(
 				OUT LPHANDLE lpReadPipe
 				, OUT LPHANDLE lpWritePipe
@@ -2772,7 +2772,7 @@ namespace NMib::NProcess::NPlatform
 					if (mp_LastLaunchOptions.m_bEnableStdRedirection && !bElevatedStdio)
 					{
 						NStr::CStr ExtendedError;
-						if (!CreatePipeEx(&hStdoutReadTmp, &hStdoutWrite, &sa, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
+						if (!fsg_CreatePipeEx(&hStdoutReadTmp, &hStdoutWrite, &sa, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
 						{
 							DWORD dwOsErr = ::GetLastError();
 							_Errors += NStr::CStr::CFormat("CreatePipe (StdOut) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr) << ExtendedError;
@@ -2781,7 +2781,7 @@ namespace NMib::NProcess::NPlatform
 
 						if (mp_LastLaunchOptions.m_bSeparateStdErr)
 						{
-							if (!CreatePipeEx(&hStderrReadTmp, &hStderrWrite, &sa, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
+							if (!fsg_CreatePipeEx(&hStderrReadTmp, &hStderrWrite, &sa, 0, FILE_FLAG_OVERLAPPED, 0, ExtendedError))
 							{
 								DWORD dwOsErr = ::GetLastError();
 								_Errors += NStr::CStr::CFormat("CreatePipe (StdErr) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr) << ExtendedError;
@@ -2790,7 +2790,7 @@ namespace NMib::NProcess::NPlatform
 						}
 
 						// Create a child stdin pipe.
-						if (!CreatePipeEx(&hStdinRead, &hStdinWriteTmp, &sa, 0, 0, 0, ExtendedError))
+						if (!fsg_CreatePipeEx(&hStdinRead, &hStdinWriteTmp, &sa, 0, 0, 0, ExtendedError))
 						{
 							DWORD dwOsErr = ::GetLastError();
 							_Errors += NStr::CStr::CFormat("CreatePipe (StdIn) failed: {} {}" DMibNewLine) << NMib::NPlatform::fg_Win32_GetLastErrorStr(dwOsErr) << ExtendedError;

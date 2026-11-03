@@ -16,7 +16,7 @@ void fg_DestroyMacOSEventHandler();
 void fg_RunApplicationMain(int argc, char *argv[]);
 #endif
 
-void OnOpenURL(NStr::CStr const &_URL)
+void fg_OnOpenURL(NStr::CStr const &_URL)
 {
 	try
 	{
@@ -84,7 +84,7 @@ int calling_convention_c main(int _ArgC, char **_pArgV)
 
 #ifdef DPlatformFamily_macOS
 	{
-		fg_CreateMacOSEventHandler(OnOpenURL);
+		fg_CreateMacOSEventHandler(fg_OnOpenURL);
 
 		fg_RunApplicationMain(_ArgC, _pArgV);
 

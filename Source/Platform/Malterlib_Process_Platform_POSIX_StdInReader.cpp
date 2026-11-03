@@ -49,8 +49,8 @@ namespace NMib::NProcess::NPlatform
 		{
 			DMibFastCheck(!mp_pRegistration);
 
-			fp_DestroyPipe(mp_PacePipe[0]);
-			fp_DestroyPipe(mp_PacePipe[1]);
+			fsp_DestroyPipe(mp_PacePipe[0]);
+			fsp_DestroyPipe(mp_PacePipe[1]);
 
 			if (mp_OldFlags != -1)
 				fcntl(0, F_SETFL, mp_OldFlags);
@@ -72,7 +72,7 @@ namespace NMib::NProcess::NPlatform
 			// epoll rejects regular files; epoll/kqueue reject /dev/null. A self-pipe schedules one read chunk per pass.
 			if (bHaveStat && (S_ISREG(Stat.st_mode) || bNullInput))
 			{
-				if (!fs_CreatePipe(mp_PacePipe[0], mp_PacePipe[1]))
+				if (!fsp_CreatePipe(mp_PacePipe[0], mp_PacePipe[1]))
 					DMibError("Failed to create the pacing pipe for reading standard input from a file");
 
 				mp_bPaced = true;
@@ -96,7 +96,7 @@ namespace NMib::NProcess::NPlatform
 				f_UpdateTerminalMode();
 			}
 
-			mp_pRegistration = mp_pLoop->f_Register(mp_bPaced ? mp_PacePipe[0] : 0, this, NSys::EIoLoopEvent::mc_Read, &fs_OnReadable, false);
+			mp_pRegistration = mp_pLoop->f_Register(mp_bPaced ? mp_PacePipe[0] : 0, this, NSys::EIoLoopEvent::mc_Read, &fsp_OnReadable, false);
 		}
 
 		// Reapplies the terminal mode from the flags of all registered readers; must be called with the subsystem lock held
@@ -144,7 +144,7 @@ namespace NMib::NProcess::NPlatform
 		DMibListLinkDS_List(CPOSIXStdInReader, m_Link) m_Readers;
 
 	private:
-		static void fp_DestroyPipe(int &_Handle)
+		static void fsp_DestroyPipe(int &_Handle)
 		{
 			if (_Handle != -1)
 			{
@@ -153,7 +153,7 @@ namespace NMib::NProcess::NPlatform
 			}
 		}
 
-		static bool fs_CreatePipe(int &_Read, int &_Write)
+		static bool fsp_CreatePipe(int &_Read, int &_Write)
 		{
 			DMibFastCheck(_Read == -1);
 			DMibFastCheck(_Write == -1);
@@ -199,7 +199,7 @@ namespace NMib::NProcess::NPlatform
 			(void)!write(mp_PacePipe[1], &Byte, 1);
 		}
 
-		static void fs_OnReadable(void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
+		static void fsp_OnReadable(void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
 		{
 			static_cast<CPOSIXStdInReaderImplementation *>(_pToken)->fp_OnReadable(_Events, _Error);
 		}

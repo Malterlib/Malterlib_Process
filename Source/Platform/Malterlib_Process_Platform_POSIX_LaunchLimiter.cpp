@@ -92,7 +92,7 @@ namespace NMib::NProcess::NPlatform
 		}
 	}
 
-	void CProcessLaunchLimiter::CProcessEntry::fr_PruneByTime(uint64 _Time)
+	void CProcessLaunchLimiter::CProcessEntry::f_PruneByTimeRecursive(uint64 _Time)
 	{
 		for (auto iChild = m_Children.f_GetIterator(); iChild;)
 		{
@@ -100,7 +100,7 @@ namespace NMib::NProcess::NPlatform
 				iChild.f_Remove();
 			else
 			{
-				iChild->fr_PruneByTime(_Time);
+				iChild->f_PruneByTimeRecursive(_Time);
 				++iChild;
 			}
 		}
@@ -108,7 +108,7 @@ namespace NMib::NProcess::NPlatform
 
 	void CProcessLaunchLimiter::CProcessEntry::f_PruneByTime()
 	{
-		fr_PruneByTime(m_StartTime);
+		f_PruneByTimeRecursive(m_StartTime);
 	}
 
 	void CProcessLaunchLimiter::CProcessEntry::f_EnumChildren(NContainer::TCVector<CProcessEntry *> &_oChildren)

@@ -1371,6 +1371,7 @@ namespace
 			}
 		}
 
+	private:
 		NMib::NStr::CStr fp_GetLongOutput()
 		{
 			NMib::NStr::CStr Ret;
@@ -1386,6 +1387,7 @@ namespace
 			return Ret;
 		}
 
+	public:
 		template <EProxyType t_ProxyType>
 		void f_TestStdOut()
 		{

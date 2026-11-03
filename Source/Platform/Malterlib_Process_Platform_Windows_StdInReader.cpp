@@ -144,7 +144,7 @@ namespace NMib::NProcess::NPlatform
 			NSys::CIoLoopRegisterOptions Options;
 			Options.m_bWaitableHandle = true;
 
-			mp_pRegistration = mp_pLoop->f_Register((NSys::CIoLoopHandle)(umint)mp_hStdInFile, this, NSys::EIoLoopEvent::mc_Read, &fs_OnConsoleSignaled, false, Options);
+			mp_pRegistration = mp_pLoop->f_Register((NSys::CIoLoopHandle)(umint)mp_hStdInFile, this, NSys::EIoLoopEvent::mc_Read, &fsp_OnConsoleSignaled, false, Options);
 		}
 
 		// Transfers the registration to its closer; null when not registered.
@@ -186,7 +186,7 @@ namespace NMib::NProcess::NPlatform
 			return 0;
 		}
 
-		static void fs_OnConsoleSignaled(void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
+		static void fsp_OnConsoleSignaled(void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
 		{
 			static_cast<CWindowsStdInReaderImplementation *>(_pToken)->fp_OnConsoleSignaled(_Events, _Error);
 		}

@@ -42,7 +42,7 @@ namespace NMib::NProcess::NPlatform
 				return NContainer::TCMap<pid_t, CProcessEntry>::fs_GetKey(this);
 			}
 
-			void fr_PruneByTime(uint64 _Time);
+			void f_PruneByTimeRecursive(uint64 _Time);
 			void f_PruneByTime();
 			void f_MapProcess(pid_t _ID, uint64 _StartTime);
 			void f_MapProcessParent(pid_t _ID, pid_t _ParentID);

@@ -714,11 +714,13 @@ namespace NMib::NProcess
 			;
 		}
 
+	private:
 		void fp_Send(NContainer::CByteVector &&_Packet, NFunction::TCFunction<void (NStr::CStr const &_Error)> &&_fOnError)
 		{
 			f_SendPacket(_Packet, fg_Move(_fOnError));
 		}
 
+	public:
 		void f_ReceivePacket(NStr::CStr const &_Packet);
 
 		void f_ReceiveData(NStr::CStr const &_Data)
@@ -1033,11 +1035,13 @@ namespace NMib::NProcess
 			NSys::fg_ConsoleOutputRaw(Base64Data);
 		}
 
+	private:
 		void fp_Send(NContainer::CByteVector &&_Packet, NFunction::TCFunction<void (NStr::CStr const &_Error)> &&_fOnError)
 		{
 			f_SendPacket(_Packet);
 		}
 
+	public:
 		template <typename tf_CMessage>
 		void f_SendMessageAsync(tf_CMessage const &_Message, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_Response);
 
