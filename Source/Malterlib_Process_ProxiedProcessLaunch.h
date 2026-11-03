@@ -12,9 +12,8 @@ namespace NMib::NProcess
 
 #define DMibErrorProcessProxyProtocol(d_Description) DMibImpError(NMib::NProcess::CExceptionProcessProxyProtocol, d_Description)
 
-	class CProxiedLaunchClient
+	struct CProxiedLaunchClient
 	{
-	public:
 		struct CInternal;
 
 	private:
@@ -27,9 +26,8 @@ namespace NMib::NProcess
 		~CProxiedLaunchClient();
 	};
 
-	class CProxiedLaunchServer
+	struct CProxiedLaunchServer
 	{
-	public:
 		struct CInternal;
 
 	private:

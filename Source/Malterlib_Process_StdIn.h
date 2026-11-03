@@ -24,8 +24,6 @@ namespace NMib::NProcess
 
 	struct CStdInReaderParams
 	{
-	public:
-	public:
 		CStdInReaderParams();
 		CStdInReaderParams(CStdInReaderParams const &_From) = delete;
 		CStdInReaderParams(CStdInReaderParams &&_From);
@@ -58,7 +56,6 @@ namespace NMib::NProcess
 
 	struct CStdInReaderPromptParams
 	{
-	public:
 		template <typename tf_CStream>
 		void f_Stream(tf_CStream &_Stream);
 
@@ -66,25 +63,24 @@ namespace NMib::NProcess
 		bool m_bPassword = false;
 	};
 
-	class CStdInReader
+	struct CStdInReader
 	{
+		CStdInReader(CStdInReaderParams &&_Params);
+		~CStdInReader();
+		CStdInReader(CStdInReader &&_Other);
+
+	private:
 		CStdInReader(CStdInReader const &) = delete;
 		CStdInReader &operator = (CStdInReader const &) = delete;
 
 		void *m_pStdInReader;
 		void fp_CheckOpen() const;
-
-	public:
-		CStdInReader(CStdInReaderParams &&_Params);
-		~CStdInReader();
-		CStdInReader(CStdInReader &&_Other);
 	};
 
 	COnScopeExitShared fg_StdInReader_RegisterScreenChange(NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange);
 
-	class CBlockingStdInReader
+	struct CBlockingStdInReader
 	{
-	public:
 		using CPromptParams = CStdInReaderPromptParams;
 
 	private:

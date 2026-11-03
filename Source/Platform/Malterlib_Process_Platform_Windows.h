@@ -9,9 +9,8 @@ namespace NMib::NProcess::NPlatform
 {
 	uint32 fg_Win32_TranslateProcessPriority(EExecutionPriority _Priority);
 
-	class CProcessEntry
+	struct CProcessEntry
 	{
-	public:
 		~CProcessEntry();
 		NStr::CStr m_FileName;
 		uint32 m_Process;

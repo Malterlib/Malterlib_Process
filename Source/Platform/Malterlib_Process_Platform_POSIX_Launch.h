@@ -18,9 +18,8 @@
 namespace NMib::NProcess::NPlatform
 {
 	static_assert(sizeof(pid_t) <= sizeof(umint));
-	class CProcessLaunchLink
+	struct CProcessLaunchLink
 	{
-	public:
 		DMibListLinkDS_Link(CProcessLaunchLink, m_Link);
 	};
 
@@ -35,11 +34,8 @@ namespace NMib::NProcess::NPlatform
 		-> NStr::CStr
 	;
 
-	class CPOSIXLaunchContext : public NThread::CThread, public CProcessLaunchLink
+	struct CPOSIXLaunchContext : public NThread::CThread, public CProcessLaunchLink
 	{
-		using NThread::CThread::f_Start;
-
-	public:
 		CPOSIXLaunchContext();
 		~CPOSIXLaunchContext();
 
@@ -75,6 +71,8 @@ namespace NMib::NProcess::NPlatform
 		DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 	private:
+		using NThread::CThread::f_Start;
+
 		void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
 		void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
 		void fp_OnOutputBinary(NMib::NProcess::EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector &&_Output);

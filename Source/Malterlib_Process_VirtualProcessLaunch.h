@@ -9,9 +9,8 @@
 
 namespace NMib::NProcess
 {
-	class CVirtualProcessLaunch
+	struct CVirtualProcessLaunch
 	{
-	public:
 		virtual ~CVirtualProcessLaunch();
 
 		virtual EProcessLaunchCloseFlag f_GetCloseFlags() const = 0;
@@ -45,12 +44,8 @@ namespace NMib::NProcess
 		}
 	};
 
-	class CVirtualProcessLaunch_Default : public CVirtualProcessLaunch
+	struct CVirtualProcessLaunch_Default : public CVirtualProcessLaunch
 	{
-		CProcessLaunch m_Launch;
-		bool m_bCreatedProcessGroup;
-
-	public:
 		CVirtualProcessLaunch_Default(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags);
 		~CVirtualProcessLaunch_Default();
 		CVirtualProcessLaunch_Default(CVirtualProcessLaunch_Default &&_Other);
@@ -70,6 +65,10 @@ namespace NMib::NProcess
 		CProcessStatistics f_GetOverallMemoryStatistics() const override;
 
 		umint f_GetProcessID() const;
+
+	private:
+		CProcessLaunch m_Launch;
+		bool m_bCreatedProcessGroup;
 	};
 
 	using FVirtualProcessLaunchFactory = NFunction::TCFunction
@@ -78,11 +77,17 @@ namespace NMib::NProcess
 		>
 	;
 
-	class CProcessLaunchHandler
+	struct CProcessLaunchHandler
 	{
-	public:
-		class CLaunchInfo
+		struct CLaunchInfo
 		{
+			friend struct CProcessLaunchHandler;
+
+			CLaunchInfo(CProcessLaunchParams const &_Params, FVirtualProcessLaunchFactory const &_Factory);
+
+			CVirtualProcessLaunch *f_GetProcessLaunch() const;
+
+		private:
 			enum class ECompletion : smint
 			{
 				mc_Running
@@ -109,13 +114,6 @@ namespace NMib::NProcess
 
 			NContainer::TCLinkedList<CDelayedOutput> m_DelayedOutput;
 			void fp_Clear();
-
-		public:
-			friend class CProcessLaunchHandler;
-
-			CLaunchInfo(CProcessLaunchParams const &_Params, FVirtualProcessLaunchFactory const &_Factory);
-
-			CVirtualProcessLaunch *f_GetProcessLaunch() const;
 		};
 
 	private:

@@ -26,9 +26,8 @@ namespace
 	using namespace NMib::NCryptography;
 	using namespace NMib::NEncoding;
 
-	class CProcessLaunchFeatures_Tests : public CTest
+	struct CProcessLaunchFeatures_Tests : public CTest
 	{
-	public:
 		CProcessLaunchFeatures_Tests()
 		{
 		}

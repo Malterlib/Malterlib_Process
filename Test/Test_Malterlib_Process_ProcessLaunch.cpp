@@ -31,9 +31,8 @@ namespace
 		, EProxyType_ElevatedProxied
 	};
 
-	class CProcessLaunch_Tests : public CTest
+	struct CProcessLaunch_Tests : public CTest
 	{
-	public:
 		CProcessLaunch_Tests()
 		{
 		}

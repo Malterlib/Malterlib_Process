@@ -31,9 +31,8 @@ namespace NMib::NProcess::NPlatform
 	BOOL fg_ChangeAceToWindowStation(HWINSTA hwinsta, PSID psid, bool _bRemove, bool &_bAdded);
 	BOOL fg_ChangeAceToDesktop(HDESK hdesk, PSID psid, bool _bRemove, bool &_bAdded);
 
-	class CProcessLaunchLink
+	struct CProcessLaunchLink
 	{
-	public:
 		DMibListLinkDS_Link(CProcessLaunchLink, m_Link);
 	};
 
@@ -327,11 +326,8 @@ namespace NMib::NProcess::NPlatform
 			}
 		}
 
-		class CConsoleRedirector : protected NThread::CThread, public CProcessLaunchLink
+		struct CConsoleRedirector : protected NThread::CThread, public CProcessLaunchLink
 		{
-			friend class CMultiProgramStarter;
-
-		public:
 			CConsoleRedirector();
 			virtual ~CConsoleRedirector();
 
@@ -432,6 +428,9 @@ namespace NMib::NProcess::NPlatform
 			{
 				return mp_hChildProcess;
 			}
+
+		private:
+			friend struct CMultiProgramStarter;
 		};
 
 #if 0

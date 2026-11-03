@@ -21,9 +21,8 @@ namespace
 		, EExitResult_NotLaunched
 	};
 
-	class CStdIn_Tests : public CTest
+	struct CStdIn_Tests : public CTest
 	{
-	public:
 		CStdIn_Tests()
 		{
 		}

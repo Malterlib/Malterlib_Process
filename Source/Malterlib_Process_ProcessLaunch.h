@@ -134,8 +134,6 @@ namespace NMib::NProcess
 
 	struct CProcessLaunchParams
 	{
-	public:
-	public:
 		CProcessLaunchParams();
 		CProcessLaunchParams(NStr::CStr const &_WorkingDirectory);
 		CProcessLaunchParams(CProcessLaunchParams const &_From);
@@ -396,16 +394,8 @@ namespace NMib::NProcess
 		}
 	};
 
-	class CProcessLaunch
+	struct CProcessLaunch
 	{
-		CProcessLaunch(CProcessLaunch const &) = delete;
-		CProcessLaunch &operator = (CProcessLaunch const &) = delete;
-
-		void *m_pProcessLaunch;
-		EProcessLaunchCloseFlag m_DestructFlags;
-		void fp_CheckOpen() const;
-
-	public:
 		CProcessLaunch(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _DestructFlags);
 		~CProcessLaunch();
 		CProcessLaunch(CProcessLaunch &&_Other);
@@ -494,6 +484,14 @@ namespace NMib::NProcess
 
 		static umint fs_KillProcesses(NFunction::TCFunction<bool (CProcessInfo const &_ProcessInfo)> const &_fProcessFilter, EProcessInfoFlag _InfoFlags, fp64 _Timeout = 30.0);
 		static umint fs_KillProcessesInDirectory(NStr::CStr const &_NamePattern, NStr::CStr const &_ArgsPattern = {}, NStr::CStr const &_Directory = {}, fp64 _Timeout = 30.0);
+
+	private:
+		CProcessLaunch(CProcessLaunch const &) = delete;
+		CProcessLaunch &operator = (CProcessLaunch const &) = delete;
+
+		void *m_pProcessLaunch;
+		EProcessLaunchCloseFlag m_DestructFlags;
+		void fp_CheckOpen() const;
 	};
 }
 

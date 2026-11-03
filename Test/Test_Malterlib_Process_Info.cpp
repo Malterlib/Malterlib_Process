@@ -6,9 +6,8 @@
 
 namespace
 {
-	class CProcessInfo_Tests : public CTest
+	struct CProcessInfo_Tests : public CTest
 	{
-	public:
 		CProcessInfo_Tests()
 		{
 		}

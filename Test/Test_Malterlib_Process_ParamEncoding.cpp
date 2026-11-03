@@ -10,9 +10,8 @@
 
 namespace
 {
-	class CProcessParamEncoding_Tests : public CTest
+	struct CProcessParamEncoding_Tests : public CTest
 	{
-	public:
 		CProcessParamEncoding_Tests()
 		{
 		}

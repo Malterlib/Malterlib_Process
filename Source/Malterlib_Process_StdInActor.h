@@ -12,9 +12,8 @@
 
 namespace NMib::NProcess
 {
-	class CStdInActor : public NConcurrency::CActor
+	struct CStdInActor : public NConcurrency::CActor
 	{
-	public:
 		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
 
 		CStdInActor();

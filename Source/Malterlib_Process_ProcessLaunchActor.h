@@ -9,9 +9,8 @@
 
 namespace NMib::NProcess
 {
-	class CProcessLaunchActor : public NConcurrency::CActor
+	struct CProcessLaunchActor : public NConcurrency::CActor
 	{
-	public:
 		enum ELogFlag
 		{
 			ELogFlag_None                                     = 0
