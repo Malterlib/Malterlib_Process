@@ -23,25 +23,10 @@ namespace NMib::NProcess
 		virtual void f_CloseStdIn() const = 0;
 		virtual fp64 f_GetRunningTime() const = 0;
 
-		virtual CProcessStatistics f_GetExecutionStatistics() const
-		{
-			return CProcessStatistics();
-		}
-
-		virtual CProcessStatistics f_GetMemoryStatistics() const
-		{
-			return CProcessStatistics();
-		}
-
-		virtual CProcessStatistics f_GetOverallExecutionStatistics() const
-		{
-			return CProcessStatistics();
-		}
-
-		virtual CProcessStatistics f_GetOverallMemoryStatistics() const
-		{
-			return CProcessStatistics();
-		}
+		virtual CProcessStatistics f_GetExecutionStatistics() const;
+		virtual CProcessStatistics f_GetMemoryStatistics() const;
+		virtual CProcessStatistics f_GetOverallExecutionStatistics() const;
+		virtual CProcessStatistics f_GetOverallMemoryStatistics() const;
 	};
 
 	struct CVirtualProcessLaunch_Default : public CVirtualProcessLaunch
@@ -127,10 +112,7 @@ namespace NMib::NProcess
 
 			NThread::CMutual m_DestroyLock;
 			NAtomic::TCAtomic<smint> m_Destroyed;
-			CDestroyed()
-				: m_Destroyed(0)
-			{
-			}
+			CDestroyed();
 		};
 
 		NStorage::TCSharedPointer<CDestroyed> mp_pDestroyedNotification;

@@ -46,6 +46,11 @@ namespace NMib::NProcess::NPlatform
 			SubSystem.m_LaunchLimiters.f_Remove(m_pLimiter);
 	}
 
+	pid_t CProcessLaunchLimiter::CProcessEntry::f_GetID() const
+	{
+		return NContainer::TCMap<pid_t, CProcessEntry>::fs_GetKey(this);
+	}
+
 	CProcessLaunchLimiter::CProcessEntry::CProcessEntry()
 	{
 	}

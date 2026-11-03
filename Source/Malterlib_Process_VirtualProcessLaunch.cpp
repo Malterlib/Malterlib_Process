@@ -16,6 +16,26 @@ namespace NMib::NProcess
 		f_StopProcess();
 	}
 
+	CProcessStatistics CVirtualProcessLaunch::f_GetExecutionStatistics() const
+	{
+		return CProcessStatistics();
+	}
+
+	CProcessStatistics CVirtualProcessLaunch::f_GetMemoryStatistics() const
+	{
+		return CProcessStatistics();
+	}
+
+	CProcessStatistics CVirtualProcessLaunch::f_GetOverallExecutionStatistics() const
+	{
+		return CProcessStatistics();
+	}
+
+	CProcessStatistics CVirtualProcessLaunch::f_GetOverallMemoryStatistics() const
+	{
+		return CProcessStatistics();
+	}
+
 	bool CProcessLaunchHandler::CLaunchInfo::fp_Lingering() const
 	{
 		if (mp_pProcessLaunch)
@@ -37,6 +57,11 @@ namespace NMib::NProcess
 	CVirtualProcessLaunch *CProcessLaunchHandler::CLaunchInfo::f_GetProcessLaunch() const
 	{
 		return mp_pProcessLaunch.f_Get();
+	}
+
+	CProcessLaunchHandler::CDestroyed::CDestroyed()
+		: m_Destroyed(0)
+	{
 	}
 
 	CProcessLaunchHandler::CProcessLaunchHandler()

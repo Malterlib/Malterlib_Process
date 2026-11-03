@@ -37,10 +37,7 @@ namespace NMib::NProcess::NPlatform
 			bool m_bTouched = false;
 			bool m_bTriedTask = false;
 
-			pid_t f_GetID() const
-			{
-				return NContainer::TCMap<pid_t, CProcessEntry>::fs_GetKey(this);
-			}
+			pid_t f_GetID() const;
 
 			void f_PruneByTimeRecursive(uint64 _Time);
 			void f_PruneByTime();

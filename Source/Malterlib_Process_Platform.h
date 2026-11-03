@@ -45,12 +45,7 @@ namespace NMib::NProcess
 		fp64 f_GetValueWithScaledUnit(NStr::CStr &o_Unit) const;
 
 		template <typename tf_CStr>
-		void f_Format(tf_CStr &o_Str) const
-		{
-			NStr::CStr Unit;
-			auto Value = f_GetValueWithScaledUnit(Unit);
-			o_Str += typename tf_CStr::CFormat("{} {}") << Value << Unit;
-		}
+		void f_Format(tf_CStr &o_Str) const;
 
 		EProcessStatUnit m_Unit;
 		NMib::NStr::CStr m_CustomUnit;
@@ -61,10 +56,7 @@ namespace NMib::NProcess
 	struct CProcessStatistics
 	{
 		template <typename tf_CStr>
-		void f_Format(tf_CStr &o_Str) const
-		{
-			o_Str += typename tf_CStr::CFormat("{}") << m_Statistics;
-		}
+		void f_Format(tf_CStr &o_Str) const;
 
 		NMib::NContainer::TCMap<NMib::NStr::CStr, CProcessStat> m_Statistics;
 	};
@@ -82,10 +74,7 @@ namespace NMib::NProcess
 
 		NTime::CTime m_BuildTime;
 
-		uint64 f_GetFullVersion()
-		{
-			return (uint64(m_Major) << 48) | (uint64(m_Minor) << 32) | (uint64(m_Revision) << 16) | uint64(m_MinorRevision);
-		}
+		uint64 f_GetFullVersion();
 	};
 
 	struct CStdInReaderParams;
@@ -204,3 +193,5 @@ namespace NMib::NProcess
 #ifndef DMibPNoShortCuts
 using namespace NMib::NProcess;
 #endif
+
+#include "Malterlib_Process_Platform.hpp"

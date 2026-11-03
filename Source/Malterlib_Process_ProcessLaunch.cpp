@@ -7,6 +7,46 @@
 
 namespace NMib::NProcess
 {
+	void CProcessLimit::f_SetMaxUnlimited()
+	{
+		m_MaxValue = ~uint64(0);
+	}
+
+	bool CProcessLimit::f_IsMaxUnlimited() const
+	{
+		return m_MaxValue == ~uint64(0);
+	}
+
+	void CProcessLimit::f_SetMaxUnchaned()
+	{
+		m_MaxValue = (~uint64(0)) - 1;
+	}
+
+	bool CProcessLimit::f_IsMaxUnchaned() const
+	{
+		return m_MaxValue == (~uint64(0)) - 1;
+	}
+
+	void CProcessLimit::f_SetUnlimited()
+	{
+		m_Value = ~uint64(0);
+	}
+
+	bool CProcessLimit::f_IsUnlimited() const
+	{
+		return m_Value == ~uint64(0);
+	}
+
+	void CProcessLimit::f_SetUnchaned()
+	{
+		m_Value = (~uint64(0)) - 1;
+	}
+
+	bool CProcessLimit::f_IsUnchaned() const
+	{
+		return m_Value == (~uint64(0)) - 1;
+	}
+
 	void CProcessLaunch::fp_CheckOpen() const
 	{
 		if (!mp_pProcessLaunch)

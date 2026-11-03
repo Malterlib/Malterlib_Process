@@ -78,4 +78,9 @@ namespace NMib::NProcess
 		}
 		return Value;
 	}
+
+	uint64 CVersionInfo::f_GetFullVersion()
+	{
+		return (uint64(m_Major) << 48) | (uint64(m_Minor) << 32) | (uint64(m_Revision) << 16) | uint64(m_MinorRevision);
+	}
 }
