@@ -121,7 +121,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 		_VersionInfo.m_Revision = pFixedFileInfo->dwFileVersionLS >> 16;
 		_VersionInfo.m_MinorRevision = (pFixedFileInfo->dwFileVersionLS & 0xFFFF);
 
-		struct LANGANDCODEPAGE
+		struct CLangAndCodePage
 		{
 			WORD wLanguage;
 			WORD wCodePage;
@@ -129,7 +129,7 @@ void NMib::NProcess::NPlatform::fg_Process_GetVersionInfo(NMib::NStr::CStr const
 
 		if (VerQueryValue(pBlock, str_utf16("\\VarFileInfo\\Translation"), (LPVOID *)&pTranslate, &QuerySize))
 		{
-			for (umint i = 0; i < (QuerySize/sizeof(struct LANGANDCODEPAGE)); ++i)
+			for (umint i = 0; i < (QuerySize/sizeof(struct CLangAndCodePage)); ++i)
 			{
 				NStr::CWStr SubBlock
 					= NStr::CWStr::CFormat(str_utf16("\\StringFileInfo\\{nfh,sj4,sf0,nc}{nfh,sj4,sf0,nc}\\PrivateBuild")) << pTranslate[i].wLanguage << pTranslate[i].wCodePage

@@ -303,7 +303,7 @@ NMib::NContainer::TCVector<NMib::NProcess::CProcessInfo> NMib::NProcess::NPlatfo
 
 				try
 				{
-					NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamNativeEndian> Stream;
+					NStream::TCBinaryStreamMemoryPtr<NStream::CBinaryStreamNativeEndian> Stream;
 					Stream.f_OpenRead(Data.f_GetArray(), Data.f_GetLen());
 
 					int32 nArgc;

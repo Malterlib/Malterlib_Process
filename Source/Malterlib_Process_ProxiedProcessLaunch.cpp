@@ -11,7 +11,7 @@
 
 namespace NMib::NProcess::NPrivate
 {
-	enum : uint32
+	enum EProtocolVersion : uint32
 	{
 		EProtocolVersion_Current = 0x105
 	};
@@ -656,7 +656,7 @@ namespace NMib::NProcess
 		NStr::CStr m_BufferedData;
 
 		NThread::CMutual m_MessageHandlerLock;
-		NContainer::TCMap<uint32, NFunction::TCFunction<void (NStream::CBinaryStreamMemoryPtr<> &_Stream)>> m_MessageHandlers;
+		NContainer::TCMap<uint32, NFunction::TCFunction<void (NStream::TCBinaryStreamMemoryPtr<> &_Stream)>> m_MessageHandlers;
 
 		bool m_bLaunched = false;
 		NStr::CStr m_BufferedSendData;
@@ -1128,7 +1128,7 @@ namespace NMib::NProcess
 		}
 
 		NThread::CMutual m_MessageHandlerLock;
-		NContainer::TCMap<uint32, NFunction::TCFunction<void (NStream::CBinaryStreamMemoryPtr<> &_Stream)>> m_MessageHandlers;
+		NContainer::TCMap<uint32, NFunction::TCFunction<void (NStream::TCBinaryStreamMemoryPtr<> &_Stream)>> m_MessageHandlers;
 
 		NStr::CStr m_BufferedData;
 
@@ -1454,7 +1454,7 @@ namespace NMib::NProcess
 			CProxiedLaunchClient::CInternal *m_pClient;
 			CProxiedLaunchServer::CInternal *m_pServer;
 
-			NStream::CBinaryStreamMemoryPtr<> &m_Stream;
+			NStream::TCBinaryStreamMemoryPtr<> &m_Stream;
 			NFunction::TCFunction<void (NContainer::CByteVector &&_SendReply)> m_fOnReply;
 
 			uint32 m_MessageID;
@@ -1462,7 +1462,7 @@ namespace NMib::NProcess
 			CHandleMessageVisitor
 				(
 					CProxiedLaunchClient::CInternal *_pClient
-					, NStream::CBinaryStreamMemoryPtr<> &_Stream
+					, NStream::TCBinaryStreamMemoryPtr<> &_Stream
 					, uint32 _MessageID
 					, NFunction::TCFunction<void (NContainer::CByteVector &&_SendReply)> &&_fOnReply
 				)
@@ -1477,7 +1477,7 @@ namespace NMib::NProcess
 			CHandleMessageVisitor
 				(
 					CProxiedLaunchServer::CInternal *_pServer
-					, NStream::CBinaryStreamMemoryPtr<> &_Stream
+					, NStream::TCBinaryStreamMemoryPtr<> &_Stream
 					, uint32 _MessageID
 					, NFunction::TCFunction<void (NContainer::CByteVector &&_SendReply)> &&_fOnReply
 				)
@@ -1511,7 +1511,7 @@ namespace NMib::NProcess
 							m_pServer
 							, [fOnReply, MessageID](typename t_CType::CResponse const &_Response)
 							{
-								NStream::CBinaryStreamMemory<> Stream;
+								NStream::TCBinaryStreamMemory<> Stream;
 								Stream << uint8(1); // Reply
 								Stream << MessageID;
 								Stream << _Response;
@@ -1528,7 +1528,7 @@ namespace NMib::NProcess
 							m_pClient
 							, [fOnReply, MessageID](typename t_CType::CResponse const &_Response)
 							{
-								NStream::CBinaryStreamMemory<> Stream;
+								NStream::TCBinaryStreamMemory<> Stream;
 								Stream << uint8(1); // Reply
 								Stream << MessageID;
 								Stream << _Response;
@@ -1735,7 +1735,7 @@ namespace NMib::NProcess
 			f_SetError("Unrecognized std output from proxy server: " + m_ErrorData);
 			return;
 		}
-		NStream::CBinaryStreamMemoryPtr<> Stream;
+		NStream::TCBinaryStreamMemoryPtr<> Stream;
 		Stream.f_OpenRead(Output);
 		uint8 bIsReply;
 		uint32 MessageID;
@@ -1756,7 +1756,7 @@ namespace NMib::NProcess
 		{
 			if (bIsReply)
 			{
-				NFunction::TCFunction<void (NStream::CBinaryStreamMemoryPtr<> &_Stream)> Handler;
+				NFunction::TCFunction<void (NStream::TCBinaryStreamMemoryPtr<> &_Stream)> Handler;
 				{
 					DMibLock(m_MessageHandlerLock);
 					auto *pHandler = m_MessageHandlers.f_FindEqual(MessageID);
@@ -1806,7 +1806,7 @@ namespace NMib::NProcess
 	{
 		NContainer::CByteVector Output;
 		NEncoding::fg_Base64Decode(_Packet, Output);
-		NStream::CBinaryStreamMemoryPtr<> Stream;
+		NStream::TCBinaryStreamMemoryPtr<> Stream;
 		Stream.f_OpenRead(Output);
 
 		uint8 bIsReply;
@@ -1817,7 +1817,7 @@ namespace NMib::NProcess
 
 		if (bIsReply)
 		{
-			NFunction::TCFunction<void (NStream::CBinaryStreamMemoryPtr<> &_Stream)> Handler;
+			NFunction::TCFunction<void (NStream::TCBinaryStreamMemoryPtr<> &_Stream)> Handler;
 			{
 				DMibLock(m_MessageHandlerLock);
 				auto *pHandler = m_MessageHandlers.f_FindEqual(MessageID);
@@ -1874,7 +1874,7 @@ namespace NMib::NProcess
 		auto pErrorLambda = fg_LambdaMove(pErrorScope);
 
 		uint32 MessageID = ++m_MessageID;
-		NStream::CBinaryStreamMemory<> Stream;
+		NStream::TCBinaryStreamMemory<> Stream;
 		Stream << uint8(0); // Not reply
 		Stream << MessageID;
 		uint32 TypeID = NPrivate::TCTypeToID<tf_CMessage>::mc_Value;
@@ -1883,7 +1883,7 @@ namespace NMib::NProcess
 
 		{
 			DMibLock(m_MessageHandlerLock);
-			m_MessageHandlers[MessageID] = [_Response, pErrorLambda, pErrorHandled](NStream::CBinaryStreamMemoryPtr<> &_Stream)
+			m_MessageHandlers[MessageID] = [_Response, pErrorLambda, pErrorHandled](NStream::TCBinaryStreamMemoryPtr<> &_Stream)
 				{
 					if (!pErrorHandled->f_Exchange(1))
 					{
@@ -1947,7 +1947,7 @@ namespace NMib::NProcess
 		auto pErrorLambda = fg_LambdaMove(pErrorScope);
 
 		uint32 MessageID = ++m_MessageID;
-		NStream::CBinaryStreamMemory<> Stream;
+		NStream::TCBinaryStreamMemory<> Stream;
 		Stream << uint8(0); // Not reply
 		Stream << MessageID;
 		uint32 TypeID = NPrivate::TCTypeToID<tf_CMessage>::mc_Value;
@@ -1956,7 +1956,7 @@ namespace NMib::NProcess
 
 		{
 			DMibLock(m_MessageHandlerLock);
-			m_MessageHandlers[MessageID] = [_Response, pErrorLambda, pErrorHandled](NStream::CBinaryStreamMemoryPtr<> &_Stream)
+			m_MessageHandlers[MessageID] = [_Response, pErrorLambda, pErrorHandled](NStream::TCBinaryStreamMemoryPtr<> &_Stream)
 				{
 					if (!pErrorHandled->f_Exchange(1))
 					{

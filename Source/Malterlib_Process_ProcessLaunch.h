@@ -244,7 +244,7 @@ namespace NMib::NProcess
 		static NContainer::TCVector<NStr::CStr> fs_ParseCommandLineUnix(NStr::CStr const &_CommandLine, NStr::CStr &o_Executable);
 		static NContainer::TCVector<NStr::CStr> fs_ParseCommandLineWindows(NStr::CStr const &_CommandLine, NStr::CStr &o_Executable);
 
-		enum : uint32
+		enum EProtocolVersion : uint32
 		{
 			EProtocolVersion_Current = 0x108
 		};
