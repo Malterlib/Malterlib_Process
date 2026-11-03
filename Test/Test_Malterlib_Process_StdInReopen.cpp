@@ -195,40 +195,40 @@ namespace
 				}
 
 #ifdef DPlatformFamily_Windows
-				HANDLE SavedInput = GetStdHandle(STD_INPUT_HANDLE);
-				HANDLE SavedOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-				HANDLE SavedError = GetStdHandle(STD_ERROR_HANDLE);
-				HANDLE Input = SavedInput;
+				HANDLE pSavedInput = GetStdHandle(STD_INPUT_HANDLE);
+				HANDLE pSavedOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+				HANDLE pSavedError = GetStdHandle(STD_ERROR_HANDLE);
+				HANDLE pInput = pSavedInput;
 				DWORD SavedMode = 0;
 				bool bAllocatedConsole = false;
 				bool bOpenedInput = false;
 				auto RestoreInput = g_OnScopeExit / [&]
 					{
-						SetConsoleMode(Input, SavedMode);
+						SetConsoleMode(pInput, SavedMode);
 						if (bOpenedInput)
-							CloseHandle(Input);
+							CloseHandle(pInput);
 						if (bAllocatedConsole)
 							FreeConsole();
-						SetStdHandle(STD_INPUT_HANDLE, SavedInput);
+						SetStdHandle(STD_INPUT_HANDLE, pSavedInput);
 					}
 				;
-				if (!GetConsoleMode(Input, &SavedMode))
+				if (!GetConsoleMode(pInput, &SavedMode))
 				{
 					FreeConsole();
 					DMibAssertTrue(AllocConsole() != 0);
 					bAllocatedConsole = true;
 					ShowWindow(GetConsoleWindow(), SW_HIDE);
-					Input = CreateFileW(L"CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-					DMibAssertTrue(Input != INVALID_HANDLE_VALUE);
+					pInput = CreateFileW(L"CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+					DMibAssertTrue(pInput != INVALID_HANDLE_VALUE);
 					bOpenedInput = true;
-					SetStdHandle(STD_INPUT_HANDLE, Input);
-					SetStdHandle(STD_OUTPUT_HANDLE, SavedOutput);
-					SetStdHandle(STD_ERROR_HANDLE, SavedError);
-					DMibAssertTrue(GetConsoleMode(Input, &SavedMode) != 0);
+					SetStdHandle(STD_INPUT_HANDLE, pInput);
+					SetStdHandle(STD_OUTPUT_HANDLE, pSavedOutput);
+					SetStdHandle(STD_ERROR_HANDLE, pSavedError);
+					DMibAssertTrue(GetConsoleMode(pInput, &SavedMode) != 0);
 				}
 
 				DWORD OriginalMode = (SavedMode | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT) & ~DWORD(ENABLE_MOUSE_INPUT);
-				DMibAssertTrue(SetConsoleMode(Input, OriginalMode) != 0);
+				DMibAssertTrue(SetConsoleMode(pInput, OriginalMode) != 0);
 #else
 				int SavedInput = dup(0);
 				DMibAssert(SavedInput, >=, 0);
@@ -281,16 +281,16 @@ namespace
 					}
 				;
 
-				NStorage::TCUniquePointer<NProcess::CStdInReader> First = fg_Construct(fParams());
-				First.f_Clear();
-				NStorage::TCUniquePointer<NProcess::CStdInReader> Second = fg_Construct(fParams());
+				NStorage::TCUniquePointer<NProcess::CStdInReader> pFirst = fg_Construct(fParams());
+				pFirst.f_Clear();
+				NStorage::TCUniquePointer<NProcess::CStdInReader> pSecond = fg_Construct(fParams());
 				DMibExpect(Loop.m_nRegistrations, ==, 1);
 				Loop.f_CompleteRemovals();
 				DMibExpect(Loop.m_nRegistrations, ==, 2);
 
 #ifdef DPlatformFamily_Windows
 				DWORD CurrentMode = 0;
-				DMibAssertTrue(GetConsoleMode(Input, &CurrentMode) != 0);
+				DMibAssertTrue(GetConsoleMode(pInput, &CurrentMode) != 0);
 				DMibExpect(CurrentMode & (ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT), ==, 0);
 				DMibExpect(CurrentMode & ENABLE_MOUSE_INPUT, !=, 0);
 #else
@@ -299,12 +299,12 @@ namespace
 				DMibAssert(tcgetattr(0, &CurrentMode), ==, 0);
 				DMibExpect(CurrentMode.c_lflag & (ICANON | ECHO), ==, 0);
 #endif
-				Second.f_Clear();
+				pSecond.f_Clear();
 				Loop.f_CompleteRemovals();
 				DMibTestPath("Restored");
 
 #ifdef DPlatformFamily_Windows
-				DMibAssertTrue(GetConsoleMode(Input, &CurrentMode) != 0);
+				DMibAssertTrue(GetConsoleMode(pInput, &CurrentMode) != 0);
 				DMibExpect(CurrentMode, ==, OriginalMode);
 #else
 				DMibExpect(fcntl(0, F_GETFL), ==, OriginalFlags);
@@ -399,7 +399,7 @@ namespace
 					}
 				;
 
-				NStorage::TCUniquePointer<NProcess::CStdInReader> LineReader = fg_Construct(fParams(NProcess::EStdInReaderFlag_LineInput));
+				NStorage::TCUniquePointer<NProcess::CStdInReader> pLineReader = fg_Construct(fParams(NProcess::EStdInReaderFlag_LineInput));
 				{
 					DMibTestPath("Line");
 					termios CurrentMode = fCurrentMode();
@@ -407,7 +407,7 @@ namespace
 					DMibExpect(CurrentMode.c_iflag & ICRNL, ==, tcflag_t(ICRNL));
 				}
 
-				NStorage::TCUniquePointer<NProcess::CStdInReader> RawReader = fg_Construct(fParams(NProcess::EStdInReaderFlag_None));
+				NStorage::TCUniquePointer<NProcess::CStdInReader> pRawReader = fg_Construct(fParams(NProcess::EStdInReaderFlag_None));
 				{
 					DMibTestPath("RawWithAnotherReader");
 					termios CurrentMode = fCurrentMode();
@@ -415,7 +415,7 @@ namespace
 					DMibExpect(CurrentMode.c_iflag & ICRNL, ==, tcflag_t(0));
 				}
 
-				RawReader.f_Clear();
+				pRawReader.f_Clear();
 				{
 					DMibTestPath("LineAfterRemoval");
 					termios CurrentMode = fCurrentMode();
@@ -423,7 +423,7 @@ namespace
 					DMibExpect(CurrentMode.c_iflag & ICRNL, ==, tcflag_t(ICRNL));
 				}
 
-				LineReader.f_Clear();
+				pLineReader.f_Clear();
 				Loop.f_CompleteRemovals();
 				{
 					DMibTestPath("Restored");

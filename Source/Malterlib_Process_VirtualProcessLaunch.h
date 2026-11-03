@@ -83,7 +83,7 @@ namespace NMib::NProcess
 		{
 			friend struct CProcessLaunchHandler;
 
-			CLaunchInfo(CProcessLaunchParams const &_Params, FVirtualProcessLaunchFactory const &_Factory);
+			CLaunchInfo(CProcessLaunchParams const &_Params, FVirtualProcessLaunchFactory const &_fFactory);
 
 			CVirtualProcessLaunch *f_GetProcessLaunch() const;
 
@@ -99,7 +99,7 @@ namespace NMib::NProcess
 			NStorage::TCUniquePointer<CVirtualProcessLaunch> mp_pProcessLaunch;
 			NAtomic::TCAtomic<ECompletion> mp_Completion;
 
-			FVirtualProcessLaunchFactory mp_Factory;
+			FVirtualProcessLaunchFactory mp_fFactory;
 
 			bool fp_Lingering() const;
 
@@ -139,7 +139,7 @@ namespace NMib::NProcess
 		CProcessLaunchHandler();
 		~CProcessLaunchHandler();
 
-		CLaunchInfo *f_AddLaunch(CProcessLaunchParams const &_Params, bool _bDelayOutput, FVirtualProcessLaunchFactory const &_LaunchFactory = FVirtualProcessLaunchFactory());
+		CLaunchInfo *f_AddLaunch(CProcessLaunchParams const &_Params, bool _bDelayOutput, FVirtualProcessLaunchFactory const &_fLaunchFactory = FVirtualProcessLaunchFactory());
 
 		void f_TerminateAll
 			(

@@ -35,10 +35,10 @@ namespace NMib::NProcess::NPrivate
 	template <uint32 t_TypeID>
 	struct TCIDToType
 	{
-		static constexpr bool mc_Defined = false;
+		static constexpr bool mc_bDefined = false;
 	};
 
-	template <uint32 t_TypeID, bool t_bDefined = TCIDToType<t_TypeID>::mc_Defined>
+	template <uint32 t_TypeID, bool t_bDefined = TCIDToType<t_TypeID>::mc_bDefined>
 	struct TCEvalNumTypeID
 	{
 		static constexpr uint32 mc_Value = TCEvalNumTypeID<t_TypeID + 1>::mc_Value;
@@ -66,8 +66,8 @@ namespace NMib::NProcess::NPrivate
 	struct TCIDToType<d_TypeID>\
 	{\
 		using CType = d_Type;\
-		static constexpr bool mc_Defined = true;\
-		static_assert(TCIDToType<d_TypeID == 0 ? 0 : d_TypeID-1>::mc_Defined, "Gap detected in type IDs");\
+		static constexpr bool mc_bDefined = true;\
+		static_assert(TCIDToType<d_TypeID == 0 ? 0 : d_TypeID-1>::mc_bDefined, "Gap detected in type IDs");\
 	};
 
 	struct CConnect
@@ -113,8 +113,8 @@ namespace NMib::NProcess::NPrivate
 			_Stream >> m_Version;
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		friend struct CHandleMessageVisitor;
@@ -153,8 +153,8 @@ namespace NMib::NProcess::NPrivate
 		{
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		friend struct CHandleMessageVisitor;
@@ -208,8 +208,8 @@ namespace NMib::NProcess::NPrivate
 			_Stream >> mp_LaunchID;
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		CProcessLaunchParams mp_Params;
@@ -286,8 +286,8 @@ namespace NMib::NProcess::NPrivate
 			_Stream >> mp_TimeSinceStart;
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		uint64 mp_LaunchID;
@@ -350,8 +350,8 @@ namespace NMib::NProcess::NPrivate
 			_Stream >> mp_Output;
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		uint64 mp_LaunchID;
@@ -403,8 +403,8 @@ namespace NMib::NProcess::NPrivate
 			_Stream >> mp_Input;
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		uint64 mp_LaunchID;
@@ -452,8 +452,8 @@ namespace NMib::NProcess::NPrivate
 			_Stream >> mp_LaunchID;
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		uint64 mp_LaunchID;
@@ -504,8 +504,8 @@ namespace NMib::NProcess::NPrivate
 			_Stream >> mp_CloseFlag;
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		uint64 mp_LaunchID;
@@ -553,8 +553,8 @@ namespace NMib::NProcess::NPrivate
 			_Stream >> mp_LaunchID;
 		}
 
-		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
-		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse);
+		void f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
+		void f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse);
 
 	private:
 		uint64 mp_LaunchID;
@@ -641,8 +641,8 @@ namespace NMib::NProcess
 						pState->m_FinishedEvent.f_SetSignaled();
 					}
 				}
-				if (m_OnError)
-					m_OnError(_Error);
+				if (m_fOnError)
+					m_fOnError(_Error);
 			}
 		}
 
@@ -664,11 +664,11 @@ namespace NMib::NProcess
 
 		NStr::CStr m_ErrorData;
 
-		NFunction::TCFunction<void (NStr::CStr const &_Error)> m_OnError;
+		NFunction::TCFunction<void (NStr::CStr const &_Error)> m_fOnError;
 
-		void f_Dispatch(NFunction::TCFunction<void ()> const &_ToDispatch)
+		void f_Dispatch(NFunction::TCFunction<void ()> const &_fToDispatch)
 		{
-			m_DispatchQueue.f_Push(_ToDispatch);
+			m_DispatchQueue.f_Push(_fToDispatch);
 			{
 				DMibLock(m_ThreadLock);
 				m_pThreadObject->m_EventWantQuit.f_Signal();
@@ -770,11 +770,11 @@ namespace NMib::NProcess
 
 		NContainer::TCMap<uint64, CLaunch> m_LaunchStates;
 
-		void f_AddLaunchState(uint64 _LaunchID, NStorage::TCSharedPointer<CLaunchState> const &_State)
+		void f_AddLaunchState(uint64 _LaunchID, NStorage::TCSharedPointer<CLaunchState> const &_pState)
 		{
 			DMibLock(m_LaunchStatesLock);
 			auto &Launch = m_LaunchStates[_LaunchID];
-			Launch.m_pState = _State;
+			Launch.m_pState = _pState;
 		}
 
 		void f_RemoveLaunchState(uint64 _LaunchID)
@@ -795,7 +795,7 @@ namespace NMib::NProcess
 		}
 
 		template <typename tf_CMessage>
-		void f_SendMessageAsync(tf_CMessage const &_Message, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_Response);
+		void f_SendMessageAsync(tf_CMessage const &_Message, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_fResponse);
 
 		struct CVirtualProcessLaunch_Client : public CVirtualProcessLaunch
 		{
@@ -816,8 +816,8 @@ namespace NMib::NProcess
 			NStorage::TCSharedPointer<CLaunchState> mp_pState;
 		};
 
-		CInternal(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_OnError)
-			: m_OnError(_OnError)
+		CInternal(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_fOnError)
+			: m_fOnError(_fOnError)
 		{
 			{
 				DMibLock(m_ThreadLock);
@@ -827,8 +827,8 @@ namespace NMib::NProcess
 						{
 							while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 							{
-								while (auto iToDispatch = m_DispatchQueue.f_Pop())
-									(*iToDispatch)();
+								while (auto ToDispatch = m_DispatchQueue.f_Pop())
+									(*ToDispatch)();
 
 								_pThread->m_EventWantQuit.f_Wait();
 							}
@@ -900,9 +900,9 @@ namespace NMib::NProcess
 				}
 			;
 
-			LaunchParams.m_fDispatcher = [this](NFunction::TCFunction<void ()> const &_Functor)
+			LaunchParams.m_fDispatcher = [this](NFunction::TCFunction<void ()> const &_fFunctor)
 				{
-					f_Dispatch(_Functor);
+					f_Dispatch(_fFunctor);
 				}
 			;
 
@@ -964,9 +964,9 @@ namespace NMib::NProcess
 		}
 	};
 
-	CProxiedLaunchClient::CProxiedLaunchClient(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_OnError)
+	CProxiedLaunchClient::CProxiedLaunchClient(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_fOnError)
 	{
-		mp_pInternal = fg_Construct(_ServerLaunchParams, _OnError);
+		mp_pInternal = fg_Construct(_ServerLaunchParams, _fOnError);
 	}
 
 	CProxiedLaunchClient::~CProxiedLaunchClient()
@@ -1043,7 +1043,7 @@ namespace NMib::NProcess
 
 	public:
 		template <typename tf_CMessage>
-		void f_SendMessageAsync(tf_CMessage const &_Message, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_Response);
+		void f_SendMessageAsync(tf_CMessage const &_Message, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_fResponse);
 
 		struct CLaunchState
 		{
@@ -1102,10 +1102,10 @@ namespace NMib::NProcess
 		NThread::CMutual m_LaunchStatesLock;
 		NContainer::TCMap<uint64, NStorage::TCSharedPointer<CLaunchState>> m_LaunchStates;
 
-		void f_AddLaunchState(uint64 _LaunchID, NStorage::TCSharedPointer<CLaunchState> const &_State)
+		void f_AddLaunchState(uint64 _LaunchID, NStorage::TCSharedPointer<CLaunchState> const &_pState)
 		{
 			DMibLock(m_LaunchStatesLock);
-			m_LaunchStates[_LaunchID] = _State;
+			m_LaunchStates[_LaunchID] = _pState;
 		}
 
 		void f_RemoveLaunchState(uint64 _LaunchID)
@@ -1161,9 +1161,9 @@ namespace NMib::NProcess
 
 		NContainer::TCThreadSafeQueue<NFunction::TCFunctionMovable<void ()>> m_DispatchQueue;
 
-		void f_Dispatch(NFunction::TCFunctionMovable<void ()> &&_ToDispatch)
+		void f_Dispatch(NFunction::TCFunctionMovable<void ()> &&_fToDispatch)
 		{
-			m_DispatchQueue.f_Push(fg_Move(_ToDispatch));
+			m_DispatchQueue.f_Push(fg_Move(_fToDispatch));
 			{
 				DMibLock(m_ThreadLock);
 				m_pThreadObject->m_EventWantQuit.f_Signal();
@@ -1187,9 +1187,9 @@ namespace NMib::NProcess
 										m_DisconnectEvent.f_SetSignaled();
 								}
 								, EStdInReaderFlag_Exclusive
-								, [&](NFunction::TCFunctionMovable<void ()> &&_ToDispatch)
+								, [&](NFunction::TCFunctionMovable<void ()> &&_fToDispatch)
 								{
-									f_Dispatch(fg_Move(_ToDispatch));
+									f_Dispatch(fg_Move(_fToDispatch));
 								}
 							)
 						;
@@ -1198,8 +1198,8 @@ namespace NMib::NProcess
 
 						while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 						{
-							while (auto iToDispatch = m_DispatchQueue.f_Pop())
-								(*iToDispatch)();
+							while (auto ToDispatch = m_DispatchQueue.f_Pop())
+								(*ToDispatch)();
 							_pThread->m_EventWantQuit.f_Wait();
 						}
 
@@ -1228,35 +1228,35 @@ namespace NMib::NProcess
 
 	namespace NPrivate
 	{
-		void CConnect::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CConnect::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on client");
 		}
 
-		void CConnect::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CConnect::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			CResponse Response;
-			_OnResponse(Response);
+			_fOnResponse(Response);
 		}
 
-		void CDisconnect::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CDisconnect::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on client");
 		}
 
-		void CDisconnect::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CDisconnect::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			CResponse Response;
-			_OnResponse(Response);
+			_fOnResponse(Response);
 			_pServer->m_DisconnectEvent.f_SetSignaled();
 		}
 
-		void CProcessLaunch_Launch::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Launch::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on client");
 		}
 
-		void CProcessLaunch_Launch::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Launch::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			NStorage::TCSharedPointer<CProxiedLaunchServer::CInternal::CLaunchState> pState = fg_Construct(_pServer, mp_LaunchID, mp_DestructFlags);
 
@@ -1313,11 +1313,11 @@ namespace NMib::NProcess
 				}
 			;
 
-			Params.m_fDispatcher = [pState](NFunction::TCFunction<void ()> const &_ToDispatch)
+			Params.m_fDispatcher = [pState](NFunction::TCFunction<void ()> const &_fToDispatch)
 				{
 					auto Server = pState->f_GetServer();
 					if (Server.f_GetServer())
-						Server.f_GetServer()->f_Dispatch(_ToDispatch);
+						Server.f_GetServer()->f_Dispatch(_fToDispatch);
 				}
 			;
 
@@ -1325,17 +1325,17 @@ namespace NMib::NProcess
 
 			_pServer->f_Dispatch
 				(
-					[pState, _OnResponse, Params, pCleanupLaunch]()
+					[pState, _fOnResponse, Params, pCleanupLaunch]()
 					{
 						pState->m_pLaunch = fg_Construct(Params, pState->m_DestructFlags);
 						CResponse Reponse;
-						_OnResponse(Reponse);
+						_fOnResponse(Reponse);
 					}
 				)
 			;
 		}
 
-		void CProcessLaunch_StateChange::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_StateChange::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			auto pState = _pClient->f_GetLaunchState(mp_LaunchID);
 
@@ -1375,15 +1375,15 @@ namespace NMib::NProcess
 				}
 			}
 			CResponse Reponse;
-			_OnResponse(Reponse);
+			_fOnResponse(Reponse);
 		}
 
-		void CProcessLaunch_StateChange::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_StateChange::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on server");
 		}
 
-		void CProcessLaunch_Output::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Output::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			auto pState = _pClient->f_GetLaunchState(mp_LaunchID);
 
@@ -1391,68 +1391,68 @@ namespace NMib::NProcess
 				pState->f_ReportOutput(pState, mp_OutputType, mp_Output);
 
 			CResponse Reponse;
-			_OnResponse(Reponse);
+			_fOnResponse(Reponse);
 		}
 
-		void CProcessLaunch_Output::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Output::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on server");
 		}
 
-		void CProcessLaunch_Input::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Input::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on client");
 		}
 
-		void CProcessLaunch_Input::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Input::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			auto pState = _pServer->f_GetLaunchState(mp_LaunchID);
 			if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
 				pState->m_pLaunch->f_SendStdIn(this->mp_Input);
 			CResponse Reponse;
-			_OnResponse(Reponse);
+			_fOnResponse(Reponse);
 		}
 
-		void CProcessLaunch_CloseInput::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_CloseInput::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on client");
 		}
 
-		void CProcessLaunch_CloseInput::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_CloseInput::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			auto pState = _pServer->f_GetLaunchState(mp_LaunchID);
 			if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
 				pState->m_pLaunch->f_CloseStdIn();
 			CResponse Reponse;
-			_OnResponse(Reponse);
+			_fOnResponse(Reponse);
 		}
 
-		void CProcessLaunch_Close::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Close::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on client");
 		}
 
-		void CProcessLaunch_Close::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Close::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			auto pState = _pServer->f_GetLaunchState(mp_LaunchID);
 			if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
 				pState->m_pLaunch->f_Close(this->mp_CloseFlag);
 			CResponse Reponse;
-			_OnResponse(Reponse);
+			_fOnResponse(Reponse);
 		}
 
-		void CProcessLaunch_Stop::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Stop::f_HandleMessage(CProxiedLaunchClient::CInternal *_pClient, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			DMibErrorProcessProxyProtocol("Not valid on client");
 		}
 
-		void CProcessLaunch_Stop::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_OnResponse)
+		void CProcessLaunch_Stop::f_HandleMessage(CProxiedLaunchServer::CInternal *_pServer, NFunction::TCFunction<void (CResponse &_Response)> const &_fOnResponse)
 		{
 			auto pState = _pServer->f_GetLaunchState(mp_LaunchID);
 			if (pState && pState->m_pLaunch && pState->m_pLaunch->f_IsOpen())
 				pState->m_pLaunch->f_StopProcess();
 			CResponse Reponse;
-			_OnResponse(Reponse);
+			_fOnResponse(Reponse);
 		}
 
 		struct CHandleMessageVisitor
@@ -1762,16 +1762,16 @@ namespace NMib::NProcess
 		{
 			if (bIsReply)
 			{
-				NFunction::TCFunction<void (NStream::TCBinaryStreamMemoryPtr<> &_Stream)> Handler;
+				NFunction::TCFunction<void (NStream::TCBinaryStreamMemoryPtr<> &_Stream)> fHandler;
 				{
 					DMibLock(m_MessageHandlerLock);
 					auto *pHandler = m_MessageHandlers.f_FindEqual(MessageID);
 					if (!pHandler)
 						return;
-					Handler = fg_Move(*pHandler);
+					fHandler = fg_Move(*pHandler);
 					m_MessageHandlers.f_Remove(MessageID);
 				}
-				Handler(Stream);
+				fHandler(Stream);
 			}
 			else
 			{
@@ -1823,16 +1823,16 @@ namespace NMib::NProcess
 
 		if (bIsReply)
 		{
-			NFunction::TCFunction<void (NStream::TCBinaryStreamMemoryPtr<> &_Stream)> Handler;
+			NFunction::TCFunction<void (NStream::TCBinaryStreamMemoryPtr<> &_Stream)> fHandler;
 			{
 				DMibLock(m_MessageHandlerLock);
 				auto *pHandler = m_MessageHandlers.f_FindEqual(MessageID);
 				if (!pHandler)
 					return;
-				Handler = fg_Move(*pHandler);
+				fHandler = fg_Move(*pHandler);
 				m_MessageHandlers.f_Remove(MessageID);
 			}
-			Handler(Stream);
+			fHandler(Stream);
 		}
 		else
 		{
@@ -1859,25 +1859,25 @@ namespace NMib::NProcess
 	void CProxiedLaunchClient::CInternal::f_SendMessageAsync
 		(
 			tf_CMessage const &_Message
-			, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_Response
+			, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_fResponse
 		)
 	{
 		NStorage::TCSharedPointer<NAtomic::TCAtomic<smint>> pErrorHandled = fg_Construct();
 		using CResponse = typename tf_CMessage::CResponse;
-		auto pErrorScope = fg_OnScopeExit
+		auto ErrorScope = fg_OnScopeExit
 			(
-				[_Response, pErrorHandled]
+				[_fResponse, pErrorHandled]
 				{
 					if (!pErrorHandled->f_Exchange(1))
 					{
 						NConcurrency::TCAsyncResult<CResponse> Response;
 						Response.f_SetException(DMibImpExceptionInstance(CExceptionProcessProxyProtocol, "Failed to send message to proxy launch server"));
-						_Response(Response);
+						_fResponse(Response);
 					}
 				}
 			)
 		;
-		auto pErrorLambda = fg_LambdaMove(pErrorScope);
+		auto ErrorLambda = fg_LambdaMove(ErrorScope);
 
 		uint32 MessageID = ++m_MessageID;
 		NStream::TCBinaryStreamMemory<> Stream;
@@ -1889,7 +1889,7 @@ namespace NMib::NProcess
 
 		{
 			DMibLock(m_MessageHandlerLock);
-			m_MessageHandlers[MessageID] = [_Response, pErrorLambda, pErrorHandled](NStream::TCBinaryStreamMemoryPtr<> &_Stream)
+			m_MessageHandlers[MessageID] = [_fResponse, ErrorLambda, pErrorHandled](NStream::TCBinaryStreamMemoryPtr<> &_Stream)
 				{
 					if (!pErrorHandled->f_Exchange(1))
 					{
@@ -1904,8 +1904,8 @@ namespace NMib::NProcess
 						{
 							Result.f_SetCurrentException();
 						}
-						(*pErrorLambda).f_Clear();
-						_Response(Result);
+						(*ErrorLambda).f_Clear();
+						_fResponse(Result);
 					}
 				}
 			;
@@ -1915,13 +1915,13 @@ namespace NMib::NProcess
 		fp_Send
 			(
 				fg_Move(ToSend)
-				, [_Response, pErrorHandled](NStr::CStr const &_Error)
+				, [_fResponse, pErrorHandled](NStr::CStr const &_Error)
 				{
 					if (!pErrorHandled->f_Exchange(1))
 					{
 						NConcurrency::TCAsyncResult<CResponse> Response;
 						Response.f_SetException(DMibImpExceptionInstance(CExceptionProcessProxyProtocol, NStr::CStr::CFormat("Error sending message to proxy launch server: {}") << _Error));
-						_Response(Response);
+						_fResponse(Response);
 					}
 				}
 			)
@@ -1932,25 +1932,25 @@ namespace NMib::NProcess
 	void CProxiedLaunchServer::CInternal::f_SendMessageAsync
 		(
 			tf_CMessage const &_Message
-			, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_Response
+			, NFunction::TCFunction<void (NConcurrency::TCAsyncResult<typename tf_CMessage::CResponse> const &_Result)> const &_fResponse
 		)
 	{
 		NStorage::TCSharedPointer<NAtomic::TCAtomic<smint>> pErrorHandled = fg_Construct();
 		using CResponse = typename tf_CMessage::CResponse;
-		auto pErrorScope = fg_OnScopeExit
+		auto ErrorScope = fg_OnScopeExit
 			(
-				[_Response, pErrorHandled]
+				[_fResponse, pErrorHandled]
 				{
 					if (!pErrorHandled->f_Exchange(1))
 					{
 						NConcurrency::TCAsyncResult<CResponse> Response;
 						Response.f_SetException(DMibImpExceptionInstance(CExceptionProcessProxyProtocol, "Failed to send message to proxy launch server"));
-						_Response(Response);
+						_fResponse(Response);
 					}
 				}
 			)
 		;
-		auto pErrorLambda = fg_LambdaMove(pErrorScope);
+		auto ErrorLambda = fg_LambdaMove(ErrorScope);
 
 		uint32 MessageID = ++m_MessageID;
 		NStream::TCBinaryStreamMemory<> Stream;
@@ -1962,7 +1962,7 @@ namespace NMib::NProcess
 
 		{
 			DMibLock(m_MessageHandlerLock);
-			m_MessageHandlers[MessageID] = [_Response, pErrorLambda, pErrorHandled](NStream::TCBinaryStreamMemoryPtr<> &_Stream)
+			m_MessageHandlers[MessageID] = [_fResponse, ErrorLambda, pErrorHandled](NStream::TCBinaryStreamMemoryPtr<> &_Stream)
 				{
 					if (!pErrorHandled->f_Exchange(1))
 					{
@@ -1977,8 +1977,8 @@ namespace NMib::NProcess
 						{
 							Result.f_SetCurrentException();
 						}
-						(*pErrorLambda).f_Clear();
-						_Response(Result);
+						(*ErrorLambda).f_Clear();
+						_fResponse(Result);
 					}
 				}
 			;
@@ -1988,13 +1988,13 @@ namespace NMib::NProcess
 		fp_Send
 			(
 				fg_Move(ToSend)
-				, [_Response, pErrorHandled](NStr::CStr const &_Error)
+				, [_fResponse, pErrorHandled](NStr::CStr const &_Error)
 				{
 					if (!pErrorHandled->f_Exchange(1))
 					{
 						NConcurrency::TCAsyncResult<CResponse> Response;
 						Response.f_SetException(DMibImpExceptionInstance(CExceptionProcessProxyProtocol, NStr::CStr::CFormat("Error sending message to proxy launch server: {}") << _Error));
-						_Response(Response);
+						_fResponse(Response);
 					}
 				}
 			)

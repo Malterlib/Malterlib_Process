@@ -211,16 +211,16 @@ auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGe
 	NContainer::TCVector<NProcess::CProcessInfo> Ret;
 
 	CProcessEntry RootProcess;
-	HANDLE ProcessSnapshot;
+	HANDLE pProcessSnapshot;
 	PROCESSENTRY32 ProcessEntry;
 
 	// Take a snapshot of all processes in the system.
-	ProcessSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (ProcessSnapshot != INVALID_HANDLE_VALUE)
+	pProcessSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (pProcessSnapshot != INVALID_HANDLE_VALUE)
 	{
 		ProcessEntry.dwSize = sizeof(PROCESSENTRY32);
 
-		if (Process32First(ProcessSnapshot, &ProcessEntry))
+		if (Process32First(pProcessSnapshot, &ProcessEntry))
 		{
 			do
 			{
@@ -237,10 +237,12 @@ auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGe
 
 				if (_ToGet & EProcessInfoFlag_StartTime)
 				{
+					// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 					FILETIME CreateTime;
 					FILETIME ExitTime;
 					FILETIME KernelTime;
 					FILETIME UserTime;
+					// NOLINTEND(malterlib-conceptual-prefix)
 					if (GetProcessTimes(pThisProcess, &CreateTime, &ExitTime, &KernelTime, &UserTime))
 						NewProcess.m_StartTime = uint64(CreateTime.dwHighDateTime) << 32 | uint64(CreateTime.dwLowDateTime);
 				}
@@ -249,21 +251,21 @@ auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGe
 				{
 					do
 					{
-						HANDLE ProcessToken;
-						if (!OpenProcessToken(pThisProcess, TOKEN_READ, &ProcessToken))
+						HANDLE pProcessToken;
+						if (!OpenProcessToken(pThisProcess, TOKEN_READ, &pProcessToken))
 							break;
 
 						auto Cleanup = g_OnScopeExit / [&]
 							{
-								CloseHandle(ProcessToken);
+								CloseHandle(pProcessToken);
 							}
 						;
 
 						uint32 NeededLength = 0;
-						GetTokenInformation(ProcessToken, TokenUser, nullptr, 0, &NeededLength);
+						GetTokenInformation(pProcessToken, TokenUser, nullptr, 0, &NeededLength);
 
 						NContainer::CByteVector TokenData;
-						if (!GetTokenInformation(ProcessToken, TokenUser, TokenData.f_GetArray(NeededLength), NeededLength, &NeededLength))
+						if (!GetTokenInformation(pProcessToken, TokenUser, TokenData.f_GetArray(NeededLength), NeededLength, &NeededLength))
 							break;
 
 						TOKEN_USER &TokenUserInfo = *((TOKEN_USER *)TokenData.f_GetArray());
@@ -372,11 +374,11 @@ auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGe
 				if (pThisProcess)
 					CloseHandle(pThisProcess);
 			}
-			while (Process32Next(ProcessSnapshot, &ProcessEntry))
+			while (Process32Next(pProcessSnapshot, &ProcessEntry))
 				;
 		}
 
-		CloseHandle(ProcessSnapshot);
+		CloseHandle(pProcessSnapshot);
 	}
 	return Ret;
 }
@@ -448,13 +450,13 @@ umint NMib::NProcess::NPlatform::fg_Process_GetCurrentUID()
 
 bool NMib::NProcess::NPlatform::fg_Process_IsRunning(umint _ProcessID)
 {
-	HANDLE Process = OpenProcess(SYNCHRONIZE, false, DWORD(_ProcessID));
-	if (!Process)
+	HANDLE pProcess = OpenProcess(SYNCHRONIZE, false, DWORD(_ProcessID));
+	if (!pProcess)
 		return false;
 
 	// The handle is signaled once the process has exited, which the exit code cannot tell when the process exits with STILL_ACTIVE
-	bool bRunning = WaitForSingleObject(Process, 0) == WAIT_TIMEOUT;
-	CloseHandle(Process);
+	bool bRunning = WaitForSingleObject(pProcess, 0) == WAIT_TIMEOUT;
+	CloseHandle(pProcess);
 
 	return bRunning;
 }
@@ -505,10 +507,12 @@ void NMib::NProcess::NPlatform::fg_Process_GetMemoryOverallStatistics(void *_pPr
 
 void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
+	// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 	FILETIME CreateTime1;
 	FILETIME ExitTime1;
 	FILETIME KernelTime1;
 	FILETIME UserTime1;
+	// NOLINTEND(malterlib-conceptual-prefix)
 
 	if (GetProcessTimes(_pProcess, &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
 	{
@@ -529,10 +533,12 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 
 void NMib::NProcess::NPlatform::fg_Process_GetExecutionOverallStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
+	// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 	FILETIME CreateTime1;
 	FILETIME ExitTime1;
 	FILETIME KernelTime1;
 	FILETIME UserTime1;
+	// NOLINTEND(malterlib-conceptual-prefix)
 
 	if (GetProcessTimes(_pProcess, &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
 	{
@@ -651,17 +657,17 @@ void NMib::NProcess::NPlatform::fg_Process_Resume(umint _ProcessID, void *_pPaus
 
 void NMib::NProcess::NPlatform::fg_Process_Terminate(umint _ProcessID)
 {
-	HANDLE Process = OpenProcess(PROCESS_TERMINATE, false, _ProcessID);
-	if (!Process)
+	HANDLE pProcess = OpenProcess(PROCESS_TERMINATE, false, _ProcessID);
+	if (!pProcess)
 		DMibError(fg_Format("When terminating process Windows returned an error from OpenProcess: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
 
 	auto Cleanup = NMib::g_OnScopeExit / [&]
 		{
-			CloseHandle(Process);
+			CloseHandle(pProcess);
 		}
 	;
 
-	if (!TerminateProcess(Process, 255))
+	if (!TerminateProcess(pProcess, 255))
 		DMibError(fg_Format("When terminating process Windows returned an error from TerminateProcess: {}", NMib::NPlatform::fg_Win32_GetLastErrorStr()));
 }
 

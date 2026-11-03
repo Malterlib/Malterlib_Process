@@ -469,7 +469,7 @@ namespace NMib
 {
 	namespace NSys
 	{
-		extern ch8 const *g_LinuxProgramIdentifier;
+		extern ch8 const *g_pLinuxProgramIdentifier;
 	}
 }
 
@@ -477,7 +477,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_RegisterURLHandler(NMib::NStr::CStr con
 {
 	NMib::NStr::CStr DesktopFile
 		= NStr::CStr::CFormat("{}_{}")
-		<< NMib::NSys::g_LinuxProgramIdentifier
+		<< NMib::NSys::g_pLinuxProgramIdentifier
 		<< NMib::NCryptography::fg_GetHashedUuidString(_ExePath, NMib::NCryptography::CUniversallyUniqueIdentifier("{4860363c-8bf6-4cb8-a22c-2b7b71c18264}"))
 	;
 	NMib::NStr::CStr MimeAppsFile = NMib::NFile::CFile::fs_GetUserHomeDirectory() + "/.local/share/applications/mimeapps.list";
@@ -624,8 +624,8 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 	_Params.m_LaunchType = NProcess::EProcessLaunchType_Executable;
 	_Params.m_bSeparateStdErr = true;
 
-	auto SavedOnStateChange = fg_Move(_Params.m_fOnStateChange);
-	auto SavedOnOutput = fg_Move(_Params.m_fOnOutput);
+	auto fSavedOnStateChange = fg_Move(_Params.m_fOnStateChange);
+	auto fSavedOnOutput = fg_Move(_Params.m_fOnOutput);
 
 	struct CLaunchOutput
 	{
@@ -649,7 +649,7 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 
 	NStorage::TCSharedPointer<CLaunchData> pLaunchData = fg_Construct();
 
-	_Params.m_fOnStateChange = [SavedOnStateChange, SavedOnOutput, pLaunchData](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+	_Params.m_fOnStateChange = [fSavedOnStateChange, fSavedOnOutput, pLaunchData](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 		{
 			switch (_State.f_GetTypeID())
 			{
@@ -667,22 +667,22 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 								ErrorStr += iOutput->m_Output;
 						}
 
-						if (SavedOnStateChange)
-							SavedOnStateChange(ErrorStr, _TimeSinceStart);
+						if (fSavedOnStateChange)
+							fSavedOnStateChange(ErrorStr, _TimeSinceStart);
 					}
 					else
 					{
-						if (SavedOnStateChange)
-							SavedOnStateChange((void *)pLaunchData->m_pLaunchedProcess, _TimeSinceStart);
+						if (fSavedOnStateChange)
+							fSavedOnStateChange((void *)pLaunchData->m_pLaunchedProcess, _TimeSinceStart);
 
-						if (SavedOnOutput)
+						if (fSavedOnOutput)
 						{
 							for (auto iOutput = pLaunchData->m_LaunchOutputs.f_GetIterator(); iOutput; ++iOutput)
-								SavedOnOutput(iOutput->m_OutputType, iOutput->m_Output);
+								fSavedOnOutput(iOutput->m_OutputType, iOutput->m_Output);
 						}
 
-						if (SavedOnStateChange)
-							SavedOnStateChange(_State, _TimeSinceStart);
+						if (fSavedOnStateChange)
+							fSavedOnStateChange(_State, _TimeSinceStart);
 					}
 				}
 				break;
@@ -697,8 +697,8 @@ bool NMib::NProcess::NPlatform::fg_Linux_LaunchDocumentOrURL(NMib::NProcess::CPr
 
 			case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 				{
-					if (SavedOnStateChange)
-						SavedOnStateChange(_State, _TimeSinceStart);
+					if (fSavedOnStateChange)
+						fSavedOnStateChange(_State, _TimeSinceStart);
 				}
 				break;
 			}

@@ -22,7 +22,7 @@ namespace NMib::NProcess
 	public:
 		FVirtualProcessLaunchFactory f_GetFactory();
 
-		CProxiedLaunchClient(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_OnError);
+		CProxiedLaunchClient(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_fOnError);
 		~CProxiedLaunchClient();
 	};
 

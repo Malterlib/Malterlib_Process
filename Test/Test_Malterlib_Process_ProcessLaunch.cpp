@@ -325,9 +325,9 @@ namespace
 
 					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
-					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_ToDispatch)
+					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
 						{
-							DispatchQueue.f_Push(_ToDispatch);
+							DispatchQueue.f_Push(_fToDispatch);
 						}
 					;
 
@@ -648,9 +648,9 @@ namespace
 
 						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
-						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_ToDispatch)
+						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
 							{
-								DispatchQueue.f_Push(_ToDispatch);
+								DispatchQueue.f_Push(_fToDispatch);
 							}
 						;
 
@@ -949,9 +949,9 @@ namespace
 
 						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
-						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_ToDispatch)
+						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
 							{
-								DispatchQueue.f_Push(_ToDispatch);
+								DispatchQueue.f_Push(_fToDispatch);
 							}
 						;
 
@@ -1056,9 +1056,9 @@ namespace
 
 						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
-						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_ToDispatch)
+						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
 							{
-								DispatchQueue.f_Push(_ToDispatch);
+								DispatchQueue.f_Push(_fToDispatch);
 							}
 						;
 
@@ -1144,9 +1144,9 @@ namespace
 
 							NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
-							Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_ToDispatch)
+							Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
 								{
-									DispatchQueue.f_Push(_ToDispatch);
+									DispatchQueue.f_Push(_fToDispatch);
 								}
 							;
 
@@ -1597,7 +1597,7 @@ namespace
 			{
 				NMib::NThread::CMutual Lock;
 				TCAtomic<EExitResult> Exited = EExitResult_None;
-				TCAtomic<bool> Failed = false;
+				TCAtomic<bool> bFailed = false;
 				TCAtomic<uint32> ExitCode = 33;
 				NMib::NStr::CStr FailedMessage;
 
@@ -1618,7 +1618,7 @@ namespace
 								break;
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
-									Failed = true;
+									bFailed = true;
 									Exited = EExitResult_NotLaunched;
 									{
 										DMibLock(Lock);
@@ -1647,14 +1647,14 @@ namespace
 					if (tf_ProxyType == EProxyType_ElevatedProxied)
 					{
 						DMibLock(Lock);
-						DMibTest(DMibExpr(Failed.f_Load()));
+						DMibTest(DMibExpr(bFailed.f_Load()));
 						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
 					}
 					else
 #endif
 					{
 						DMibLock(Lock);
-						DMibTest(!DMibExpr(Failed.f_Load()));
+						DMibTest(!DMibExpr(bFailed.f_Load()));
 						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
 						DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
 					}
@@ -1679,14 +1679,14 @@ namespace
 					if (tf_ProxyType == EProxyType_ElevatedProxied)
 					{
 						DMibLock(Lock);
-						DMibTest(DMibExpr(Failed.f_Load()));
+						DMibTest(DMibExpr(bFailed.f_Load()));
 						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
 					}
 					else
 #endif
 					{
 						DMibLock(Lock);
-						DMibTest(DMibExpr(Failed.f_Load()));
+						DMibTest(DMibExpr(bFailed.f_Load()));
 						DMibTest(DMibExpr(FailedMessage) != DMibExpr(""));
 					}
 				}
@@ -1713,7 +1713,7 @@ namespace
 					if (tf_ProxyType == EProxyType_ElevatedProxied)
 					{
 						DMibLock(Lock);
-						DMibTest(DMibExpr(Failed.f_Load()));
+						DMibTest(DMibExpr(bFailed.f_Load()));
 						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
 						DMibExpect(FailedMessage.f_Trim(), ==, "Launching a document or URL elevated is not supported on Linux.");
 					}
@@ -1739,9 +1739,9 @@ namespace
 						DMibLock(Lock);
 						FailedMessage.f_Clear();
 					}
-					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_ToDispatch)
+					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
 						{
-							DispatchQueue.f_Push(_ToDispatch);
+							DispatchQueue.f_Push(_fToDispatch);
 						}
 					;
 
@@ -1759,7 +1759,7 @@ namespace
 					if (tf_ProxyType == EProxyType_ElevatedProxied)
 					{
 						DMibLock(Lock);
-						DMibTest(DMibExpr(Failed.f_Load()));
+						DMibTest(DMibExpr(bFailed.f_Load()));
 						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
 					}
 					else
@@ -1861,9 +1861,9 @@ namespace
 
 					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
 
-					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_ToDispatch)
+					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
 						{
-							DispatchQueue.f_Push(_ToDispatch);
+							DispatchQueue.f_Push(_fToDispatch);
 						}
 					;
 

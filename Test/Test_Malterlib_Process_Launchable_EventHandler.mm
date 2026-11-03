@@ -10,31 +10,31 @@
 - (void)getUrl: (NSAppleEventDescriptor *)_pEvent withReplyEvent: (NSAppleEventDescriptor *)_pReplyEvent
 {
 	// Get the URL
-	if (m_pfOnOpenURL)
+	if (m_fOnOpenURL)
 	{
-		NSString *URLString = [[_pEvent paramDescriptorForKeyword: keyDirectObject] stringValue];
+		NSString *pURLString = [[_pEvent paramDescriptorForKeyword: keyDirectObject] stringValue];
 
-		NMib::NStr::CStr URL(URLString.UTF8String);
+		NMib::NStr::CStr URL(pURLString.UTF8String);
 
-		m_pfOnOpenURL(URL);
+		m_fOnOpenURL(URL);
 
 		[[NSApplication sharedApplication] stop: NSApp];
 	}
 }
 
-- (void)setOnOpenURL: (FOnOpenURL *)_pHandler
+- (void)setOnOpenURL: (FOnOpenURL *)_fHandler
 {
-	m_pfOnOpenURL = _pHandler;
+	m_fOnOpenURL = _fHandler;
 }
 @end
 
 CMacOSEventHandler *g_pMacOSEventHandler = nullptr;
 
-void fg_CreateMacOSEventHandler(FOnOpenURL *_pOnOpenURL)
+void fg_CreateMacOSEventHandler(FOnOpenURL *_fOnOpenURL)
 {
 	g_pMacOSEventHandler = [[CMacOSEventHandler alloc] init];
 
-	[g_pMacOSEventHandler setOnOpenURL: _pOnOpenURL];
+	[g_pMacOSEventHandler setOnOpenURL: _fOnOpenURL];
 
 	NSAppleEventManager *pEventManager = [NSAppleEventManager sharedAppleEventManager];
 	[pEventManager setEventHandler: g_pMacOSEventHandler andSelector: @selector(getUrl:withReplyEvent:) forEventClass: kInternetEventClass andEventID: kAEGetURL];
@@ -47,7 +47,7 @@ void fg_DestroyMacOSEventHandler()
 	g_pMacOSEventHandler = nullptr;
 }
 
-void fg_RunApplicationMain(int _ArgC, char *_pArgV[])
+void fg_RunApplicationMain(int _ArgC, char *_ArgV[])
 {
 	[NSApplication sharedApplication];
 

@@ -21,7 +21,7 @@
 
 namespace NMib::NProcess::NPlatform
 {
-	BOOL fg_ChangeAceToWindowStation(HWINSTA _WindowStation, PSID _pSid, bool _bRemove, bool &_bAdded)
+	BOOL fg_ChangeAceToWindowStation(HWINSTA _pWindowStation, PSID _pSid, bool _bRemove, bool &_bAdded)
 	{
 		ACCESS_ALLOWED_ACE *pAce = NULL;
 		ACL_SIZE_INFORMATION AclSizeInfo;
@@ -44,7 +44,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			// Obtain the DACL for the window station.
 
-			if (!GetUserObjectSecurity(_WindowStation, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
+			if (!GetUserObjectSecurity(_pWindowStation, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
 			{
 				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 				{
@@ -60,7 +60,7 @@ namespace NMib::NProcess::NPlatform
 
 					SidSize = SdSizeNeeded;
 
-					if (!GetUserObjectSecurity(_WindowStation, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
+					if (!GetUserObjectSecurity(_pWindowStation, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
 						__leave;
 				}
 				else
@@ -179,7 +179,7 @@ namespace NMib::NProcess::NPlatform
 
 			// Set the new security descriptor for the window station.
 
-			if (!SetUserObjectSecurity(_WindowStation, &SecurityInformation, pNewSecurityDescriptor))
+			if (!SetUserObjectSecurity(_pWindowStation, &SecurityInformation, pNewSecurityDescriptor))
 				__leave;
 
 			// Indicate success.
@@ -210,7 +210,7 @@ namespace NMib::NProcess::NPlatform
 		return bSuccess;
 	}
 
-	BOOL fg_ChangeAceToDesktop(HDESK _Desktop, PSID _pSid, bool _bRemove, bool &_bAdded)
+	BOOL fg_ChangeAceToDesktop(HDESK _pDesktop, PSID _pSid, bool _bRemove, bool &_bAdded)
 	{
 		ACL_SIZE_INFORMATION AclSizeInfo;
 		BOOL bDaclExist;
@@ -232,7 +232,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			// Obtain the security descriptor for the desktop object.
 
-			if (!GetUserObjectSecurity(_Desktop, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
+			if (!GetUserObjectSecurity(_pDesktop, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
 			{
 				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 				{
@@ -248,7 +248,7 @@ namespace NMib::NProcess::NPlatform
 
 					SidSize = SdSizeNeeded;
 
-					if (!GetUserObjectSecurity(_Desktop, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
+					if (!GetUserObjectSecurity(_pDesktop, &SecurityInformation, pSecurityDescriptor, SidSize, &SdSizeNeeded))
 						__leave;
 				}
 				else
@@ -343,7 +343,7 @@ namespace NMib::NProcess::NPlatform
 
 			// Set the new security descriptor for the desktop object.
 
-			if (!SetUserObjectSecurity(_Desktop, &SecurityInformation, pNewSecurityDescriptor))
+			if (!SetUserObjectSecurity(_pDesktop, &SecurityInformation, pNewSecurityDescriptor))
 				__leave;
 
 			// Indicate success.

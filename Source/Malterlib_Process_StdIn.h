@@ -34,13 +34,13 @@ namespace NMib::NProcess
 		EStdInReaderFlag m_Flags;
 		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> m_fOnReceiveInput;
 		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)> m_fOnReceiveBinaryInput;
-		NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> m_fDispatcher;
+		NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_fFunctor)> m_fDispatcher;
 
 		static auto fs_Create
 			(
 				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> &&_fOnReceiveInput
 				, EStdInReaderFlag _Flags = EStdInReaderFlag_None
-				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher = {}
+				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_fFunctor)> &&_fDispatcher = {}
 			)
 			-> CStdInReaderParams
 		;
@@ -48,7 +48,7 @@ namespace NMib::NProcess
 			(
 				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)> &&_fOnReceiveInput
 				, EStdInReaderFlag _Flags = EStdInReaderFlag_None
-				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher = {}
+				, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_fFunctor)> &&_fDispatcher = {}
 			)
 			-> CStdInReaderParams
 		;

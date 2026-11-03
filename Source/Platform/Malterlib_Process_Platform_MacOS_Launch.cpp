@@ -44,17 +44,17 @@ auto NMib::NProcess::NPlatform::fg_MacOS_LaunchExecutableWithRoot
 
 	ParametersList.f_Insert((ch8 *)nullptr);
 
-	char *ToolPath = Executable.f_GetStrUniqueWritable();
+	char *pToolPath = Executable.f_GetStrUniqueWritable();
 
-	AuthorizationRef Authorization;
+	AuthorizationRef pAuthorization;
 
 	auto OnExit = g_OnScopeExit / [&]()
 		{
-			AuthorizationFree(Authorization, kAuthorizationFlagDestroyRights);
+			AuthorizationFree(pAuthorization, kAuthorizationFlagDestroyRights);
 		}
 	;
 
-	OSStatus Status = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment, kAuthorizationFlagDefaults, &Authorization);
+	OSStatus Status = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment, kAuthorizationFlagDefaults, &pAuthorization);
 	if (Status != errAuthorizationSuccess)
 	{
 		_Errors += NMib::NPlatform::fg_FormatOSStatus("AuthorizationCreate (launch elevated)", Status);
@@ -94,7 +94,7 @@ auto NMib::NProcess::NPlatform::fg_MacOS_LaunchExecutableWithRoot
 		Environment.items = EnvironmentItems;
 	}
 
-	Status = AuthorizationCopyRights(Authorization, &Rights, &Environment, Flags, NULL);
+	Status = AuthorizationCopyRights(pAuthorization, &Rights, &Environment, Flags, NULL);
 	if (Status != errAuthorizationSuccess)
 	{
 		_Errors += NMib::NPlatform::fg_FormatOSStatus("AuthorizationCopyRights (launch elevated)", Status);
@@ -106,7 +106,7 @@ auto NMib::NProcess::NPlatform::fg_MacOS_LaunchExecutableWithRoot
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-	Status = AuthorizationExecuteWithPrivileges(Authorization, ToolPath, kAuthorizationFlagDefaults, ParametersList.f_GetArray(), &pPipe);
+	Status = AuthorizationExecuteWithPrivileges(pAuthorization, pToolPath, kAuthorizationFlagDefaults, ParametersList.f_GetArray(), &pPipe);
 #pragma clang diagnostic pop
 
 	if (Status != errAuthorizationSuccess)

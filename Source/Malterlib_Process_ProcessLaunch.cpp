@@ -575,7 +575,7 @@ namespace NMib::NProcess
 			NMib::NStr::CStr const &_Operation
 			, NMib::NStr::CStr const &_File
 			, NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> const &_fOnStateChange
-			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_Dispatcher
+			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> const &_fDispatcher
 		)
 		-> CProcessLaunchParams
 	{
@@ -584,7 +584,7 @@ namespace NMib::NProcess
 		Ret.m_Operation = _Operation;
 		Ret.m_Target = _File;
 		Ret.m_fOnStateChange = _fOnStateChange;
-		Ret.m_fDispatcher = _Dispatcher;
+		Ret.m_fDispatcher = _fDispatcher;
 		return Ret;
 	}
 
@@ -593,7 +593,7 @@ namespace NMib::NProcess
 			NMib::NStr::CStr const &_Operation
 			, NMib::NStr::CStr const &_URL
 			, NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> const &_fOnStateChange
-			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_Dispatcher
+			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> const &_fDispatcher
 		)
 		-> CProcessLaunchParams
 	{
@@ -602,7 +602,7 @@ namespace NMib::NProcess
 		Ret.m_Operation = _Operation;
 		Ret.m_Target = _URL;
 		Ret.m_fOnStateChange = _fOnStateChange;
-		Ret.m_fDispatcher = _Dispatcher;
+		Ret.m_fDispatcher = _fDispatcher;
 		return Ret;
 	}
 
@@ -612,7 +612,7 @@ namespace NMib::NProcess
 			, NMib::NStr::CStr const &_Parameters
 			, NMib::NStr::CStr const &_WorkingDirectory
 			, NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> const &_fOnStateChange
-			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_Dispatcher
+			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> const &_fDispatcher
 		)
 		-> CProcessLaunchParams
 	{
@@ -622,7 +622,7 @@ namespace NMib::NProcess
 		Ret.m_Parameters = _Parameters;
 		Ret.m_WorkingDirectory = _WorkingDirectory;
 		Ret.m_fOnStateChange = _fOnStateChange;
-		Ret.m_fDispatcher = _Dispatcher;
+		Ret.m_fDispatcher = _fDispatcher;
 		return Ret;
 	}
 
@@ -632,11 +632,11 @@ namespace NMib::NProcess
 			, NContainer::TCVector<NMib::NStr::CStr> const &_Parameters
 			, NMib::NStr::CStr const &_WorkingDirectory
 			, NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> const &_fOnStateChange
-			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_Dispatcher
+			, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> const &_fDispatcher
 		)
 		-> CProcessLaunchParams
 	{
-		return fs_LaunchExecutableRawParams(_Executable, fs_GetParams(_Parameters), _WorkingDirectory, _fOnStateChange, _Dispatcher);
+		return fs_LaunchExecutableRawParams(_Executable, fs_GetParams(_Parameters), _WorkingDirectory, _fOnStateChange, _fDispatcher);
 	}
 
 	CProcessLaunchParams::CProcessLaunchParams(NStr::CStr const &_WorkingDirectory)

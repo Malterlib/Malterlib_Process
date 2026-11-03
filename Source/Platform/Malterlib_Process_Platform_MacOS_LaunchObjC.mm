@@ -27,7 +27,7 @@ namespace NMib::NProcess::NPlatform
 
 		LSApplicationParameters Params;
 
-		FSRef ApplicationRef;
+		FSRef ApplicationRef; // NOLINT(malterlib-conceptual-prefix): FSRef is a struct, which the check takes for a function type by its name
 		Boolean bIsDirectory;
 		OSStatus Result = FSPathMakeRef((UInt8 const *)UTF8Target.f_GetStr(), &ApplicationRef, &bIsDirectory);
 		if (Result < 0)
@@ -200,7 +200,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			NSString *pPath = NMib::NPlatform::fg_MacOS_GetString(Program);
 
-			FSRef AppRef;
+			FSRef AppRef; // NOLINT(malterlib-conceptual-prefix): FSRef is a struct, which the check takes for a function type by its name
 			if (FSPathMakeRef((UInt8 const *)[pPath fileSystemRepresentation], &AppRef, NULL) != noErr)
 				return false;
 
@@ -235,26 +235,26 @@ namespace NMib::NProcess::NPlatform
 
 		NStr::CStr const &Exe = _ExePath;
 
-		CFURLRef AppURL = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8 const *)Exe.f_GetStr(), Exe.f_GetLen(), FALSE);
+		CFURLRef pAppURL = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8 const *)Exe.f_GetStr(), Exe.f_GetLen(), FALSE);
 
 		OSStatus Result;
 
-		Result = LSRegisterURL(AppURL, false);
+		Result = LSRegisterURL(pAppURL, false);
 
-		CFRelease(AppURL);
+		CFRelease(pAppURL);
 
 		if (Result < 0)
 			return false;
 
 		NStr::CStr const &Scheme = _Protocol;
 
-		CFStringRef CFScheme = CFStringCreateWithBytes(NULL, (UInt8 const *)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
+		CFStringRef pCFScheme = CFStringCreateWithBytes(NULL, (UInt8 const *)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
 
 		CAutoReleasePool ARPool;
-		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
-		Result = LSSetDefaultHandlerForURLScheme(CFScheme, (__bridge CFStringRef)BundleID);
+		auto pBundleID = [[NSBundle mainBundle] bundleIdentifier];
+		Result = LSSetDefaultHandlerForURLScheme(pCFScheme, (__bridge CFStringRef)pBundleID);
 
-		CFRelease(CFScheme);
+		CFRelease(pCFScheme);
 
 		return Result >= 0;
 	}
@@ -263,13 +263,13 @@ namespace NMib::NProcess::NPlatform
 	{
 		NStr::CStr const &Scheme = _Protocol;
 
-		CFStringRef SchemeRef = CFStringCreateWithBytes(NULL, (UInt8 const *)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
+		CFStringRef pSchemeRef = CFStringCreateWithBytes(NULL, (UInt8 const *)Scheme.f_GetStr(), Scheme.f_GetLen(), kCFStringEncodingUTF8, FALSE);
 
 		CAutoReleasePool ARPool;
-		auto BundleID = [[NSBundle mainBundle] bundleIdentifier];
-		OSStatus Result = LSSetDefaultHandlerForURLScheme(SchemeRef, (__bridge CFStringRef)BundleID);
+		auto pBundleID = [[NSBundle mainBundle] bundleIdentifier];
+		OSStatus Result = LSSetDefaultHandlerForURLScheme(pSchemeRef, (__bridge CFStringRef)pBundleID);
 
-		CFRelease(SchemeRef);
+		CFRelease(pSchemeRef);
 
 		return Result >= 0;
 	}
@@ -288,43 +288,43 @@ namespace NMib::NProcess::NPlatform
 
 		CAutoReleasePool ARPool;
 
-		LSSharedFileListRef LoginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
+		LSSharedFileListRef pLoginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
 
 		UInt32 SeedValue;
-		CFURLRef ThePath = NULL;
+		CFURLRef pThePath = NULL;
 
-		CFArrayRef LoginItemsArray = LSSharedFileListCopySnapshot(LoginItems, &SeedValue);
+		CFArrayRef pLoginItemsArray = LSSharedFileListCopySnapshot(pLoginItems, &SeedValue);
 
-		NSString *BundlePath = NMib::NPlatform::fg_MacOS_GetString(ExePath);
+		NSString *pBundlePath = NMib::NPlatform::fg_MacOS_GetString(ExePath);
 
-		for (id Item in(__bridge NSArray *)LoginItemsArray)
+		for (id pItem in(__bridge NSArray *)pLoginItemsArray)
 		{
-			LSSharedFileListItemRef ItemRef = (__bridge LSSharedFileListItemRef)Item;
-			if (LSSharedFileListItemResolve(ItemRef, 0, (CFURLRef *)&ThePath, NULL) == noErr)
+			LSSharedFileListItemRef pItemRef = (__bridge LSSharedFileListItemRef)pItem;
+			if (LSSharedFileListItemResolve(pItemRef, 0, (CFURLRef *)&pThePath, NULL) == noErr)
 			{
-				if ([[(__bridge NSURL *)ThePath path] hasPrefix: BundlePath])
+				if ([[(__bridge NSURL *)pThePath path] hasPrefix: pBundlePath])
 				{
-					if (ThePath != NULL)
-						CFRelease(ThePath);
+					if (pThePath != NULL)
+						CFRelease(pThePath);
 					// Already exists.
 					break;
 				}
 
-				if (ThePath != NULL)
-					CFRelease(ThePath);
+				if (pThePath != NULL)
+					CFRelease(pThePath);
 			}
 		}
 
-		if (LoginItemsArray != NULL)
-			CFRelease(LoginItemsArray);
+		if (pLoginItemsArray != NULL)
+			CFRelease(pLoginItemsArray);
 
-		auto URL = [NSURL fileURLWithPath: BundlePath];
+		auto pURL = [NSURL fileURLWithPath: pBundlePath];
 
-		LSSharedFileListItemRef Item = LSSharedFileListInsertItemURL(LoginItems, kLSSharedFileListItemLast, NULL, NULL, (__bridge CFURLRef)URL, NULL, NULL);
-		if (Item)
-			CFRelease(Item);
+		LSSharedFileListItemRef pItem = LSSharedFileListInsertItemURL(pLoginItems, kLSSharedFileListItemLast, NULL, NULL, (__bridge CFURLRef)pURL, NULL, NULL);
+		if (pItem)
+			CFRelease(pItem);
 
-		CFRelease(LoginItems);
+		CFRelease(pLoginItems);
 
 		return true;
 	}
@@ -343,32 +343,32 @@ namespace NMib::NProcess::NPlatform
 
 		CAutoReleasePool ARPool;
 
-		LSSharedFileListRef LoginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
+		LSSharedFileListRef pLoginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
 
 		UInt32 SeedValue;
-		CFURLRef ThePath = NULL;
+		CFURLRef pThePath = NULL;
 
-		CFArrayRef LoginItemsArray = LSSharedFileListCopySnapshot(LoginItems, &SeedValue);
+		CFArrayRef pLoginItemsArray = LSSharedFileListCopySnapshot(pLoginItems, &SeedValue);
 
-		NSString *BundlePath = NMib::NPlatform::fg_MacOS_GetString(ExePath);
+		NSString *pBundlePath = NMib::NPlatform::fg_MacOS_GetString(ExePath);
 
-		for (id Item in(__bridge NSArray *)LoginItemsArray)
+		for (id pItem in(__bridge NSArray *)pLoginItemsArray)
 		{
-			LSSharedFileListItemRef ItemRef = (__bridge LSSharedFileListItemRef)Item;
-			if (LSSharedFileListItemResolve(ItemRef, 0, (CFURLRef *)&ThePath, NULL) == noErr)
+			LSSharedFileListItemRef pItemRef = (__bridge LSSharedFileListItemRef)pItem;
+			if (LSSharedFileListItemResolve(pItemRef, 0, (CFURLRef *)&pThePath, NULL) == noErr)
 			{
-				if ([[(__bridge NSURL *)ThePath path] hasPrefix: BundlePath])
-					LSSharedFileListItemRemove(LoginItems, ItemRef);
+				if ([[(__bridge NSURL *)pThePath path] hasPrefix: pBundlePath])
+					LSSharedFileListItemRemove(pLoginItems, pItemRef);
 
-				if (ThePath != NULL)
-					CFRelease(ThePath);
+				if (pThePath != NULL)
+					CFRelease(pThePath);
 			}
 		}
 
-		if (LoginItemsArray != NULL)
-			CFRelease(LoginItemsArray);
+		if (pLoginItemsArray != NULL)
+			CFRelease(pLoginItemsArray);
 
-		CFRelease(LoginItems);
+		CFRelease(pLoginItems);
 
 		return true;
 	}

@@ -68,9 +68,9 @@ namespace
 					CProcessLaunchParams Params;
 					Params.m_Target = bFail ? NFile::CFile::fs_GetProgramDirectory() / "missing-reap-test-executable" : NFile::CFile::fs_GetProgramPath();
 					Params.m_Parameters = "--std-out-exit 0";
-					Params.m_fDispatcher = [&](NFunction::TCFunction<void ()> const &_Function)
+					Params.m_fDispatcher = [&](NFunction::TCFunction<void ()> const &_fFunction)
 						{
-							Dispatch.f_Push(_Function);
+							Dispatch.f_Push(_fFunction);
 							Changed.f_Signal();
 						}
 					;

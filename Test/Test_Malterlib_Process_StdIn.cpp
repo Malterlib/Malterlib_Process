@@ -115,22 +115,22 @@ namespace
 							CActorSubscription Subscription;
 							if (bBinary)
 							{
-								auto OnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / []
+								auto fOnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / []
 									(EStdInReaderOutputType _Type, NContainer::CIOByteVector _Input, NStr::CStr _Error) -> TCFuture<void>
 									{
 										co_return {};
 									}
 								;
-								Subscription = Actor(&CStdInActor::f_RegisterForInputBinary, fg_Move(OnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
+								Subscription = Actor(&CStdInActor::f_RegisterForInputBinary, fg_Move(fOnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
 							}
 							else
 							{
-								auto OnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType _Type, NStr::CStrIO _Input) -> TCFuture<void>
+								auto fOnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType _Type, NStr::CStrIO _Input) -> TCFuture<void>
 									{
 										co_return {};
 									}
 								;
-								Subscription = Actor(&CStdInActor::f_RegisterForInput, fg_Move(OnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
+								Subscription = Actor(&CStdInActor::f_RegisterForInput, fg_Move(fOnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
 							}
 
 							if (Manager.f_GetQueueIoLoop(EPriority_NormalHighCPU, 0))

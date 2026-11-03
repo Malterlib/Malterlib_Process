@@ -190,15 +190,15 @@ namespace NMib::NProcess
 		NFunction::TCFunction<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_fOnOutput;
 		// Stdout and stderr as read, in place of m_fOnOutput, which still gets the other output. Proxies carry output as text
 		NFunction::TCFunction<void (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)> m_fOnOutputBinary;
-		NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> m_fDispatcher;
+		NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> m_fDispatcher;
 
 		static auto fs_LaunchDocument
 			(
 				NMib::NStr::CStr const &_Operation
 				, NMib::NStr::CStr const &_File
 				, NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> const &_fOnStateChange
-				, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_fDispatcher
-				= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)>()
+				, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> const &_fDispatcher
+				= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)>()
 			)
 			-> CProcessLaunchParams
 		;
@@ -208,8 +208,8 @@ namespace NMib::NProcess
 				NMib::NStr::CStr const &_Operation
 				, NMib::NStr::CStr const &_URL
 				, NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> const &_fOnStateChange
-				, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_fDispatcher
-				= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)>()
+				, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> const &_fDispatcher
+				= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)>()
 			)
 			-> CProcessLaunchParams
 		;
@@ -220,8 +220,8 @@ namespace NMib::NProcess
 				, NMib::NStr::CStr const &_Parameters
 				, NMib::NStr::CStr const &_WorkingDirectory
 				, NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> const &_fOnStateChange
-				, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_fDispatcher
-				= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)>()
+				, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> const &_fDispatcher
+				= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)>()
 			)
 			-> CProcessLaunchParams
 		;
@@ -231,8 +231,8 @@ namespace NMib::NProcess
 				, NContainer::TCVector<NMib::NStr::CStr> const &_Parameters
 				, NMib::NStr::CStr const &_WorkingDirectory
 				, NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> const &_fOnStateChange
-				, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)> const &_fDispatcher
-				= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_Functor)>()
+				, NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> const &_fDispatcher
+				= NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)>()
 			)
 			-> CProcessLaunchParams
 		;

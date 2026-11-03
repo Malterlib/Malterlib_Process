@@ -170,7 +170,7 @@ namespace NMib::NProcess
 		(
 			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> &&_fOnReceiveInput
 			, EStdInReaderFlag _Flags
-			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher
+			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_fFunctor)> &&_fDispatcher
 		)
 		-> CStdInReaderParams
 	{
@@ -185,7 +185,7 @@ namespace NMib::NProcess
 		(
 			NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)> &&_fOnReceiveInput
 			, EStdInReaderFlag _Flags
-			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_Functor)> &&_fDispatcher
+			, NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_fFunctor)> &&_fDispatcher
 		)
 		-> CStdInReaderParams
 	{

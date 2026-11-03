@@ -209,7 +209,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 {
 	auto pOnTerminate = NStorage::TCSharedPointer<NFunction::TCFunction<void ()>>(fg_Construct(fg_Move(_fOnTerminate)));
 
-	auto pSigterm = NSys::fg_System_RegisterForSignal
+	auto Sigterm = NSys::fg_System_RegisterForSignal
 		(
 			SIGTERM
 			, [pOnTerminate]
@@ -218,7 +218,7 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 			}
 		)
 	;
-	auto pSigint = NSys::fg_System_RegisterForSignal
+	auto Sigint = NSys::fg_System_RegisterForSignal
 		(
 			SIGINT
 			, [pOnTerminate]
@@ -228,10 +228,10 @@ NMib::COnScopeExitShared NMib::NProcess::NPlatform::fg_Process_WaitForTerminatio
 		)
 	;
 
-	return g_OnScopeExitShared / [pSigterm, pSigint]() mutable
+	return g_OnScopeExitShared / [Sigterm, Sigint]() mutable
 		{
-			pSigterm.f_Clear();
-			pSigint.f_Clear();
+			Sigterm.f_Clear();
+			Sigint.f_Clear();
 		}
 	;
 }
