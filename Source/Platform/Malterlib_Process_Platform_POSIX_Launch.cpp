@@ -50,8 +50,8 @@ extern "C"
 
 extern "C"
 {
-	int posix_spawnattr_set_uid_np(posix_spawnattr_t const *__restrict, uid_t) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
-	int posix_spawnattr_set_gid_np(posix_spawnattr_t const *__restrict, gid_t) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
+	int posix_spawnattr_set_uid_np(posix_spawnattr_t const * __restrict _pAttributes, uid_t _UserID) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
+	int posix_spawnattr_set_gid_np(posix_spawnattr_t const * __restrict _pAttributes, gid_t _GroupID) __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
 }
 #endif
 
