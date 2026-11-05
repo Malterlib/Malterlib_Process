@@ -38,22 +38,26 @@ namespace NMib::NProcess::NPlatform
 
 	struct CSubSystem_Process_Platform_Windows_Launch : public CSubSystem
 	{
+		~CSubSystem_Process_Platform_Windows_Launch();
+
+		void f_DestroyThreadSpecific() override;
+
 		align_cacheline NThread::CMutual m_LaunchesLock;
 		DMibListLinkDS_List(CProcessLaunchLink, m_Link) m_Launches;
 
 		align_cacheline NThread::CMutual m_UserLaunchLock;
-
-		~CSubSystem_Process_Platform_Windows_Launch()
-		{
-			DMibLock(m_LaunchesLock);
-			DMibFastCheck(m_Launches.f_IsEmpty()); // Process launches are still active
-		}
-
-		void f_DestroyThreadSpecific() override
-		{
-			fg_ProcessLaunch_CancelAll();
-		}
 	};
+
+	CSubSystem_Process_Platform_Windows_Launch::~CSubSystem_Process_Platform_Windows_Launch()
+	{
+		DMibLock(m_LaunchesLock);
+		DMibFastCheck(m_Launches.f_IsEmpty()); // Process launches are still active
+	}
+
+	void CSubSystem_Process_Platform_Windows_Launch::f_DestroyThreadSpecific()
+	{
+		fg_ProcessLaunch_CancelAll();
+	}
 
 	constinit TCSubSystem<CSubSystem_Process_Platform_Windows_Launch, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_Windows_Launch = {DAggregateInit};
 
@@ -334,12 +338,32 @@ namespace NMib::NProcess::NPlatform
 			NStr::CStr f_GetThreadName() override;
 			aint f_Main() override;
 
+			bool f_Open(NMib::NProcess::CProcessLaunchParams const &_Options);
+			bool f_StartRedirector(EProcessLaunchCloseFlag _Flags);
+			void f_Close(NMib::NProcess::EProcessLaunchCloseFlag _Flags);
+			void f_Cancel();
+			fp64 f_GetRunningTime();
+			bool f_IsRunning();
+			bool f_SendText(NStr::CStrIO const &_Data);
+			void f_CloseStdIn();
+			void f_SendBinary(NContainer::CIOByteVector const &_Data);
+			void f_StopProcess();
+			void f_TerminateTree(NStr::CStr &o_Log);
+			umint f_GetID() const;
+			NMib::NProcess::CProcessStatistics f_GetOverallExecutionStatistics();
+			NMib::NProcess::CProcessStatistics f_GetOverallMemoryStatistics();
+
+			HANDLE f_GetChildProcess() const;
+
 			NStorage::CIntrusiveRefCount m_RefCount;
 
 			DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfRef);
 			DIfRefCountDebugging(NStorage::CRefCountDebugReference m_DebugSelfThreadRef);
 
 		private:
+			static void WINAPI fsp_StdOutReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped);
+			static void WINAPI fsp_StdErrReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped);
+
 			HANDLE mp_pEvent; // Win32 auto-reset event; waited together with the process handle
 
 			NTime::CStopwatch mp_TimeSinceStart;
@@ -347,10 +371,7 @@ namespace NMib::NProcess::NPlatform
 			NThread::CMutual mp_ExitTimeLock;
 			fp64 mp_ExitTime;
 
-			static void WINAPI fsp_StdOutReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped);
-			static void WINAPI fsp_StdErrReadFinished(DWORD _ErrorCode, DWORD _nBytesTransferred, LPOVERLAPPED _pOverlapped);
-
-		protected:
+		protected: // NOLINT(malterlib-member-order): these follow the private data members, as data member order decides initialization, destruction and layout
 			struct COverallExecution
 			{
 				FILETIME m_CreateTime = {0};
@@ -358,6 +379,23 @@ namespace NMib::NProcess::NPlatform
 				FILETIME m_KernelTime = {0};
 				FILETIME m_UserTime = {0};
 			};
+
+			void fp_UpdateOverall();
+
+			bool fp_LaunchChild(HANDLE _pStdOut, HANDLE _pStdIn, HANDLE _pStdErr, NStr::CStr &_Errors);
+			int fp_RedirectStdout();
+			int fp_RedirectStderr();
+			void fp_DestroyHandle(HANDLE &_pHandle);
+			void fp_ClearSandbox();
+			void fp_TerminateSandbox(NStr::CStr &_Output);
+			void fp_Close();
+			bool fp_DoStart(NStr::CStr &_Errors);
+
+			void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
+			void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
+			void fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, uint8 const *_pData, umint _Size);
+			void fp_OnExit(uint32 _ExitCode);
+			virtual bool f_DestroyThread() override;
 
 			NThread::CMutual mp_PipeLock;
 			NThread::CMutual mp_ChildProcessLock; // Closing mp_pChildProcess; f_TerminateTree cannot wait for mp_PipeLock, which a blocked stdin write holds
@@ -389,49 +427,12 @@ namespace NMib::NProcess::NPlatform
 
 			NStorage::TCOptional<PROCESS_MEMORY_COUNTERS_EX> mp_OverallStats_Memory;
 			NStorage::TCOptional<COverallExecution> mp_OverallStats_Execution;
-
-			void fp_UpdateOverall();
-
-			bool fp_LaunchChild(HANDLE _pStdOut, HANDLE _pStdIn, HANDLE _pStdErr, NStr::CStr &_Errors);
-			int fp_RedirectStdout();
-			int fp_RedirectStderr();
-			void fp_DestroyHandle(HANDLE &_pHandle);
-			void fp_ClearSandbox();
-			void fp_TerminateSandbox(NStr::CStr &_Output);
-			void fp_Close();
-			bool fp_DoStart(NStr::CStr &_Errors);
-
-		protected:
-			void fp_OnLaunched(NMib::NStr::CStr const &_Error, void *_pProcess, bool _bSuccess);
-			void fp_OnOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output);
-			void fp_OnStdOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType, uint8 const *_pData, umint _Size);
-			void fp_OnExit(uint32 _ExitCode);
-			virtual bool f_DestroyThread() override;
-
-		public:
-			bool f_Open(NMib::NProcess::CProcessLaunchParams const &_Options);
-			bool f_StartRedirector(EProcessLaunchCloseFlag _Flags);
-			void f_Close(NMib::NProcess::EProcessLaunchCloseFlag _Flags);
-			void f_Cancel();
-			fp64 f_GetRunningTime();
-			bool f_IsRunning();
-			bool f_SendText(NStr::CStrIO const &_Data);
-			void f_CloseStdIn();
-			void f_SendBinary(NContainer::CIOByteVector const &_Data);
-			void f_StopProcess();
-			void f_TerminateTree(NStr::CStr &o_Log);
-			umint f_GetID() const;
-			NMib::NProcess::CProcessStatistics f_GetOverallExecutionStatistics();
-			NMib::NProcess::CProcessStatistics f_GetOverallMemoryStatistics();
-
-			HANDLE f_GetChildProcess() const
-			{
-				return mp_pChildProcess;
-			}
-
-		private:
-			friend struct CMultiProgramStarter;
 		};
+
+		HANDLE CConsoleRedirector::f_GetChildProcess() const
+		{
+			return mp_pChildProcess;
+		}
 
 #if 0
 #	define DEnableSandboxLock

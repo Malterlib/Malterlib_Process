@@ -12,6 +12,11 @@ namespace NMib::NProcess::NPlatform
 	struct CProcessEntry
 	{
 		~CProcessEntry();
+
+		bool operator == (uint32 _Process) const noexcept;
+		void f_MapProcess(uint32 _ID, uint32 _ParentID, NStr::CWStr const &_FileName, NTime::CTime const &_CreationTime);
+		void f_KillTree(NStr::CStr &_Log, aint _Depth = 0);
+
 		NStr::CStr m_FileName;
 		uint32 m_Process;
 		NTime::CTime m_CreationTime;
@@ -20,9 +25,5 @@ namespace NMib::NProcess::NPlatform
 
 		DMibListLinkDS_Link(CProcessEntry, m_LinkAll);
 		DMibListLinkDS_List(CProcessEntry, m_LinkAll) m_AllProcess;
-
-		bool operator == (uint32 _Process) const noexcept;
-		void f_MapProcess(uint32 _ID, uint32 _ParentID, NStr::CWStr const &_FileName, NTime::CTime const &_CreationTime);
-		void f_KillTree(NStr::CStr &_Log, aint _Depth = 0);
 	};
 }

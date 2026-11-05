@@ -15,10 +15,7 @@ namespace NMib::NProcess
 	{
 		struct CSubscription
 		{
-			CSubscription(CStdInReaderParams &&_Params)
-				: m_StdInReader(fg_Move(_Params))
-			{
-			}
+			CSubscription(CStdInReaderParams &&_Params);
 
 			CStdInReader m_StdInReader;
 		};
@@ -36,68 +33,12 @@ namespace NMib::NProcess
 
 		struct CPrompt
 		{
-			void f_CheckOutputPrompt()
-			{
-				if (m_bOutputPrompt)
-					return;
+			CPrompt(CStdInReaderPromptParams &&_Params, NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor);
+			~CPrompt();
 
-				m_bOutputPrompt = true;
-				if (!m_Params.m_Prompt.f_IsEmpty())
-					fs_StdOutput(m_StdOutActor, m_Params.m_Prompt);
-			}
-
-			void f_ChangeInsertPos(umint _iInsertPos)
-			{
-				if (_iInsertPos > m_iInsertPos)
-					fs_StdOutput(m_StdOutActor, "\x1B[{}C"_f << (_iInsertPos - m_iInsertPos));
-				else if (m_iInsertPos > _iInsertPos)
-					fs_StdOutput(m_StdOutActor, "\x1B[{}D"_f << (m_iInsertPos - _iInsertPos));
-				else
-					fs_StdOutput(m_StdOutActor, "\x7");
-
-				m_iRenderInsertPos = m_iInsertPos = _iInsertPos;
-			}
-
-			void f_Redraw(umint _OldLen, umint _NewInsertPos)
-			{
-				umint ExtraChars = 0;
-				if (_OldLen > umint(m_Result.f_GetLen()))
-					ExtraChars = _OldLen - m_Result.f_GetLen();
-
-				umint InsertPosFromEnd = (m_Result.f_GetLen() + ExtraChars) - _NewInsertPos;
-
-				NStr::CStr OutputString;
-
-				if (m_iRenderInsertPos)
-					OutputString += "\x1B[{}D"_f << m_iRenderInsertPos;
-
-				if (m_Params.m_bPassword)
-					OutputString += "{sf*,sj*}"_f << "" << m_Result.f_GetLen();
-				else
-					OutputString += m_Result;
-
-				if (ExtraChars)
-					OutputString += "{sf ,sj*}"_f << "" << ExtraChars;
-
-				if (InsertPosFromEnd)
-					OutputString += "\x1B[{}D"_f << InsertPosFromEnd;
-
-				fs_StdOutput(m_StdOutActor, OutputString);
-
-				m_iRenderInsertPos = _NewInsertPos;
-			}
-
-			CPrompt(CStdInReaderPromptParams &&_Params, NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor)
-				: m_StdOutActor(_StdOutActor)
-				, m_Params(fg_Move(_Params))
-			{
-			}
-
-			~CPrompt()
-			{
-				if (m_bOutputPrompt && !m_Params.m_Prompt.f_IsEmpty())
-					fs_StdOutput(m_StdOutActor, DMibNewLine);
-			}
+			void f_CheckOutputPrompt();
+			void f_ChangeInsertPos(umint _iInsertPos);
+			void f_Redraw(umint _OldLen, umint _NewInsertPos);
 
 			NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> m_StdOutActor;
 
@@ -144,19 +85,9 @@ namespace NMib::NProcess
 			NStr::CStr m_Error;
 		};
 
-		CInternal(CStdInActor *_pThis)
-			: m_pThis(_pThis)
-		{
-		}
+		CInternal(CStdInActor *_pThis);
 
-		// Create the output actor only when prompt echoing needs it.
-		NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &f_GetStdOutActor()
-		{
-			if (!m_StdOutActor)
-				m_StdOutActor = fg_Construct(fg_Construct(), "StdIn output actor");
-
-			return m_StdOutActor;
-		}
+		NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &f_GetStdOutActor();
 
 		void f_RegisterForRead();
 		void f_RegisterForReadBinary();
@@ -177,6 +108,88 @@ namespace NMib::NProcess
 
 		NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> m_StdOutActor;
 	};
+
+	CStdInActor::CInternal::CSubscription::CSubscription(CStdInReaderParams &&_Params)
+		: m_StdInReader(fg_Move(_Params))
+	{
+	}
+
+	CStdInActor::CInternal::CPrompt::CPrompt(CStdInReaderPromptParams &&_Params, NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &_StdOutActor)
+		: m_StdOutActor(_StdOutActor)
+		, m_Params(fg_Move(_Params))
+	{
+	}
+
+	CStdInActor::CInternal::CPrompt::~CPrompt()
+	{
+		if (m_bOutputPrompt && !m_Params.m_Prompt.f_IsEmpty())
+			fs_StdOutput(m_StdOutActor, DMibNewLine);
+	}
+
+	void CStdInActor::CInternal::CPrompt::f_CheckOutputPrompt()
+	{
+		if (m_bOutputPrompt)
+			return;
+
+		m_bOutputPrompt = true;
+		if (!m_Params.m_Prompt.f_IsEmpty())
+			fs_StdOutput(m_StdOutActor, m_Params.m_Prompt);
+	}
+
+	void CStdInActor::CInternal::CPrompt::f_ChangeInsertPos(umint _iInsertPos)
+	{
+		if (_iInsertPos > m_iInsertPos)
+			fs_StdOutput(m_StdOutActor, "\x1B[{}C"_f << (_iInsertPos - m_iInsertPos));
+		else if (m_iInsertPos > _iInsertPos)
+			fs_StdOutput(m_StdOutActor, "\x1B[{}D"_f << (m_iInsertPos - _iInsertPos));
+		else
+			fs_StdOutput(m_StdOutActor, "\x7");
+
+		m_iRenderInsertPos = m_iInsertPos = _iInsertPos;
+	}
+
+	void CStdInActor::CInternal::CPrompt::f_Redraw(umint _OldLen, umint _NewInsertPos)
+	{
+		umint ExtraChars = 0;
+		if (_OldLen > umint(m_Result.f_GetLen()))
+			ExtraChars = _OldLen - m_Result.f_GetLen();
+
+		umint InsertPosFromEnd = (m_Result.f_GetLen() + ExtraChars) - _NewInsertPos;
+
+		NStr::CStr OutputString;
+
+		if (m_iRenderInsertPos)
+			OutputString += "\x1B[{}D"_f << m_iRenderInsertPos;
+
+		if (m_Params.m_bPassword)
+			OutputString += "{sf*,sj*}"_f << "" << m_Result.f_GetLen();
+		else
+			OutputString += m_Result;
+
+		if (ExtraChars)
+			OutputString += "{sf ,sj*}"_f << "" << ExtraChars;
+
+		if (InsertPosFromEnd)
+			OutputString += "\x1B[{}D"_f << InsertPosFromEnd;
+
+		fs_StdOutput(m_StdOutActor, OutputString);
+
+		m_iRenderInsertPos = _NewInsertPos;
+	}
+
+	CStdInActor::CInternal::CInternal(CStdInActor *_pThis)
+		: m_pThis(_pThis)
+	{
+	}
+
+	// Create the output actor only when prompt echoing needs it.
+	NConcurrency::TCActor<NConcurrency::CSeparateThreadActor> const &CStdInActor::CInternal::f_GetStdOutActor()
+	{
+		if (!m_StdOutActor)
+			m_StdOutActor = fg_Construct(fg_Construct(), "StdIn output actor");
+
+		return m_StdOutActor;
+	}
 
 	CStdInActor::CStdInActor()
 		: mp_pInternal(fg_Construct(this))

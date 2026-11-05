@@ -63,6 +63,8 @@ namespace NMib::NProcess
 
 	struct CVersionInfo
 	{
+		uint64 f_GetFullVersion();
+
 		uint16 m_Major;
 		uint16 m_Minor;
 		uint16 m_Revision;
@@ -73,8 +75,6 @@ namespace NMib::NProcess
 		NStr::CStr m_GitCommit;
 
 		NTime::CTime m_BuildTime;
-
-		uint64 f_GetFullVersion();
 	};
 
 	struct CStdInReaderParams;

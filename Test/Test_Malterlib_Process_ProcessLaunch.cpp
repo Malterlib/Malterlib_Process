@@ -33,150 +33,20 @@ namespace
 
 	struct CProcessLaunch_Tests : public CTest
 	{
-		CProcessLaunch_Tests()
-		{
-		}
-
-		zuint8 m_ExitCode;
-
-		static NMib::NStr::CStr fs_GetTestPath(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test, NMib::NStr::CStr const &_Logger = "Registry")
-		{
-			NMib::NContainer::TCVector<NMib::NStr::CStr> Ret;
-			if (_Test.f_IsEmpty())
-				Ret = {"--test", _TestPath, "--logger", _Logger, "--filter-results", "[\"All\"]", "--process-recursive"};
-			else
-				Ret = {"--test", _TestPath / _Test, "--logger", _Logger, "--filter-results", "[\"All\"]", "--process-recursive"};
-
-			auto Groups = NMib::NTest::fg_TestGetCurrentGroups();
-
-			if (!Groups.f_IsEmpty())
-			{
-				Ret.f_Insert("--groups");
-
-				NMib::NEncoding::CJsonSorted Json = NMib::NEncoding::EJsonType_Array;
-				for (auto iGroup = Groups.f_GetIterator(); iGroup; ++iGroup)
-					Json.f_Insert(iGroup.f_GetKey());
-				Ret.f_Insert(Json.f_ToString(nullptr));
-			}
-
-			return NMib::NProcess::CProcessLaunchParams::fs_GetParams(Ret);
-		}
-
-		auto f_GetLaunchParams(NMib::NStr::CStr const &_TestPath = fg_TestGetCurrentPath(), NMib::NStr::CStr const &_Test = "JustExit", NMib::NStr::CStr const &_Logger = "Registry")
-			-> NMib::NProcess::CProcessLaunchParams
-		{
-			NMib::NProcess::CProcessLaunchParams Params;
-			Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
-
-			if (_Test == "JustExit")
-				Params.m_Parameters = NMib::NStr::CStr::CFormat("--std-out-exit {}") << m_ExitCode.f_Get();
-			else
-				Params.m_Parameters = fs_GetTestPath(_TestPath, _Test, _Logger);
-			return Params;
-		}
-
-		NMib::NThread::CMutual m_ProxyClientLock;
-		NMib::NStorage::TCUniquePointer<NMib::NProcess::CProxiedLaunchClient> m_pProxyClient;
-
-		bool m_bProxyElevation = false;
-		bool m_bFailClient = false;
-
-		NMib::NProcess::CProxiedLaunchClient &f_GetClient()
-		{
-			DMibLock(m_ProxyClientLock);
-			if (m_pProxyClient)
-				return *m_pProxyClient;
-
-			NMib::NProcess::CProcessLaunchParams Params;
-			Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
-			if (m_bProxyElevation && NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
-				Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
-
-			if (!m_bFailClient)
-				Params.m_Parameters = "--test Malterlib/Process/ProcessLaunch/ProxyServer --logger Null --process-recursive";
-			else
-				Params.m_Parameters = "--DoesNotExist";
-
-			Params.m_bStdOutPID = true;
-
-			m_pProxyClient = NMib::fg_Construct
-				(
-					Params
-					, [](NMib::NStr::CStr const &_Error)
-					{
-						if (_Error.f_Find("Did you mean any of the following"))
-							return; // Normal part of test
-
-						DMibConErrOut("Proxy Client Error:\n{}", _Error);
-					}
-				)
-			;
-
-			return *m_pProxyClient;
-		}
-
-		void f_DoProxyServer()
-		{
-			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-			{
-				DMibTestSuite("ProxyServer")
-				{
-					NMib::NProcess::CProxiedLaunchServer Server;
-				};
-			}
-		}
-
-		void f_EnableClientFailure(bool _bFail)
-		{
-			m_bFailClient = _bFail;
-
-			DMibLock(m_ProxyClientLock);
-			m_pProxyClient = nullptr;
-		}
-
 		struct CProxiedProcessLaunch
 		{
+			CProxiedProcessLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag, CProcessLaunch_Tests *_pThis);
+
+			void f_Start();
+			NMib::NProcess::EProcessLaunchCloseFlag f_GetCloseFlags() const;
+			void f_Close(NMib::NProcess::EProcessLaunchCloseFlag _CloseFlags);
+			bool f_IsOpen() const;
+			bool f_IsRunning() const;
+			void f_SendStdIn(NMib::NStr::CStr const &_Data) const;
+			fp64 f_GetRunningTime() const;
+
 			CProcessLaunch_Tests *m_pThis;
 			NMib::NStorage::TCUniquePointer<NMib::NProcess::CVirtualProcessLaunch> m_pLaunch;
-			CProxiedProcessLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag, CProcessLaunch_Tests *_pThis)
-				: m_pThis(_pThis)
-			{
-				m_pLaunch = m_pThis->f_GetClient().f_GetFactory()(_Params, _Flag);
-			}
-
-			void f_Start()
-			{
-			}
-
-			NMib::NProcess::EProcessLaunchCloseFlag f_GetCloseFlags() const
-			{
-				return m_pLaunch->f_GetCloseFlags();
-			}
-
-			void f_Close(NMib::NProcess::EProcessLaunchCloseFlag _CloseFlags)
-			{
-				return m_pLaunch->f_Close(_CloseFlags);
-			}
-
-			bool f_IsOpen() const
-			{
-				return m_pLaunch->f_IsOpen();
-			}
-
-			bool f_IsRunning() const
-			{
-				return m_pLaunch->f_IsRunning();
-			}
-
-			void f_SendStdIn(NMib::NStr::CStr const &_Data) const
-			{
-				return m_pLaunch->f_SendStdIn(_Data);
-			}
-
-			fp64 f_GetRunningTime() const
-			{
-				return m_pLaunch->f_GetRunningTime();
-			}
 		};
 
 		template <EProxyType t_ProxyType, typename t_CDummy = void>
@@ -197,221 +67,278 @@ namespace
 			using CType = CProxiedProcessLaunch;
 		};
 
+		CProcessLaunch_Tests();
+
+		static NMib::NStr::CStr fs_GetTestPath(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test, NMib::NStr::CStr const &_Logger = "Registry");
+
+		auto f_GetLaunchParams(NMib::NStr::CStr const &_TestPath = fg_TestGetCurrentPath(), NMib::NStr::CStr const &_Test = "JustExit", NMib::NStr::CStr const &_Logger = "Registry")
+			-> NMib::NProcess::CProcessLaunchParams
+		;
+
+		NMib::NProcess::CProxiedLaunchClient &f_GetClient();
+		void f_DoProxyServer();
+		void f_EnableClientFailure(bool _bFail);
+
 		template <bool tf_bProxied>
 		auto f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
 			-> NMib::TCEnableIf<!tf_bProxied, NMib::NStorage::TCUniquePointer<NMib::NProcess::CProcessLaunch>>
-		{
-			return NMib::fg_Construct(_Params, _Flag);
-		}
+		;
 
 		template <bool tf_bProxied>
 		auto f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
 			-> NMib::TCEnableIf<tf_bProxied, NMib::NStorage::TCUniquePointer<CProxiedProcessLaunch>>
-		{
-			return NMib::fg_Construct(_Params, _Flag, this);
-		}
+		;
 
 		template <EProxyType tf_ProxyType>
-		void f_TestExecutable(bool _bThreaded, bool _bForceFork)
+		void f_TestExecutable(bool _bThreaded, bool _bForceFork);
+
+		template <EProxyType tf_ProxyType>
+		void f_TestExecutableFromDll();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestPerformance(bool _bThreaded, bool _bForceFork);
+
+		template <EProxyType tf_ProxyType>
+		void f_TestDocument();
+
+		void f_TestElevationStdIn();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestElevation();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestDeElevation();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestSandbox();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestLimits();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestStdOut();
+
+		static NMib::NContainer::CIOByteVector fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType);
+
+		template <EProxyType tf_ProxyType>
+		void f_TestBinaryOutput();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestWebLaunch();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestSimpleURLLaunch();
+
+		template <EProxyType tf_ProxyType>
+		void f_TestProxyFailure(bool _bThreaded, bool _bForceFork);
+
+		template <EProxyType tf_ProxyType>
+		void f_TestKillSandbox();
+
+		template <EProxyType tf_ProxyType>
+		void f_DoAllTests(bool _bForceFork);
+
+		void f_DoTests();
+
+		zuint8 m_ExitCode;
+
+		NMib::NThread::CMutual m_ProxyClientLock;
+		NMib::NStorage::TCUniquePointer<NMib::NProcess::CProxiedLaunchClient> m_pProxyClient;
+
+		bool m_bProxyElevation = false;
+		bool m_bFailClient = false;
+
+	private:
+		NMib::NStr::CStr fp_GetLongOutput();
+	};
+
+	CProcessLaunch_Tests::CProxiedProcessLaunch::CProxiedProcessLaunch
+		(
+			NMib::NProcess::CProcessLaunchParams const &_Params
+			, NMib::NProcess::EProcessLaunchCloseFlag _Flag
+			, CProcessLaunch_Tests *_pThis
+		)
+		: m_pThis(_pThis)
+	{
+		m_pLaunch = m_pThis->f_GetClient().f_GetFactory()(_Params, _Flag);
+	}
+
+	void CProcessLaunch_Tests::CProxiedProcessLaunch::f_Start()
+	{
+	}
+
+	NMib::NProcess::EProcessLaunchCloseFlag CProcessLaunch_Tests::CProxiedProcessLaunch::f_GetCloseFlags() const
+	{
+		return m_pLaunch->f_GetCloseFlags();
+	}
+
+	void CProcessLaunch_Tests::CProxiedProcessLaunch::f_Close(NMib::NProcess::EProcessLaunchCloseFlag _CloseFlags)
+	{
+		return m_pLaunch->f_Close(_CloseFlags);
+	}
+
+	bool CProcessLaunch_Tests::CProxiedProcessLaunch::f_IsOpen() const
+	{
+		return m_pLaunch->f_IsOpen();
+	}
+
+	bool CProcessLaunch_Tests::CProxiedProcessLaunch::f_IsRunning() const
+	{
+		return m_pLaunch->f_IsRunning();
+	}
+
+	void CProcessLaunch_Tests::CProxiedProcessLaunch::f_SendStdIn(NMib::NStr::CStr const &_Data) const
+	{
+		return m_pLaunch->f_SendStdIn(_Data);
+	}
+
+	fp64 CProcessLaunch_Tests::CProxiedProcessLaunch::f_GetRunningTime() const
+	{
+		return m_pLaunch->f_GetRunningTime();
+	}
+
+	CProcessLaunch_Tests::CProcessLaunch_Tests()
+	{
+	}
+
+	NMib::NStr::CStr CProcessLaunch_Tests::fs_GetTestPath(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test, NMib::NStr::CStr const &_Logger)
+	{
+		NMib::NContainer::TCVector<NMib::NStr::CStr> Ret;
+		if (_Test.f_IsEmpty())
+			Ret = {"--test", _TestPath, "--logger", _Logger, "--filter-results", "[\"All\"]", "--process-recursive"};
+		else
+			Ret = {"--test", _TestPath / _Test, "--logger", _Logger, "--filter-results", "[\"All\"]", "--process-recursive"};
+
+		auto Groups = NMib::NTest::fg_TestGetCurrentGroups();
+
+		if (!Groups.f_IsEmpty())
 		{
-			DMibTestSuite((_bThreaded ? "Executable" : "Executable non threaded"))
+			Ret.f_Insert("--groups");
+
+			NMib::NEncoding::CJsonSorted Json = NMib::NEncoding::EJsonType_Array;
+			for (auto iGroup = Groups.f_GetIterator(); iGroup; ++iGroup)
+				Json.f_Insert(iGroup.f_GetKey());
+			Ret.f_Insert(Json.f_ToString(nullptr));
+		}
+
+		return NMib::NProcess::CProcessLaunchParams::fs_GetParams(Ret);
+	}
+
+	auto CProcessLaunch_Tests::f_GetLaunchParams(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test, NMib::NStr::CStr const &_Logger) -> NMib::NProcess::CProcessLaunchParams
+	{
+		NMib::NProcess::CProcessLaunchParams Params;
+		Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
+
+		if (_Test == "JustExit")
+			Params.m_Parameters = NMib::NStr::CStr::CFormat("--std-out-exit {}") << m_ExitCode.f_Get();
+		else
+			Params.m_Parameters = fs_GetTestPath(_TestPath, _Test, _Logger);
+		return Params;
+	}
+
+	NMib::NProcess::CProxiedLaunchClient &CProcessLaunch_Tests::f_GetClient()
+	{
+		DMibLock(m_ProxyClientLock);
+		if (m_pProxyClient)
+			return *m_pProxyClient;
+
+		NMib::NProcess::CProcessLaunchParams Params;
+		Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
+		if (m_bProxyElevation && NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
+			Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
+
+		if (!m_bFailClient)
+			Params.m_Parameters = "--test Malterlib/Process/ProcessLaunch/ProxyServer --logger Null --process-recursive";
+		else
+			Params.m_Parameters = "--DoesNotExist";
+
+		Params.m_bStdOutPID = true;
+
+		m_pProxyClient = NMib::fg_Construct
+			(
+				Params
+				, [](NMib::NStr::CStr const &_Error)
+				{
+					if (_Error.f_Find("Did you mean any of the following"))
+						return; // Normal part of test
+
+					DMibConErrOut("Proxy Client Error:\n{}", _Error);
+				}
+			)
+		;
+
+		return *m_pProxyClient;
+	}
+
+	void CProcessLaunch_Tests::f_DoProxyServer()
+	{
+		if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+		{
+			DMibTestSuite("ProxyServer")
 			{
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-				{
-				}
-				else
-				{
-					using namespace NMib::NStr;
-
-					CStr ProxyType;
-					switch (tf_ProxyType)
-					{
-					case EProxyType_None: ProxyType = "N"; break;
-					case EProxyType_Proxied: ProxyType = "P"; break;
-					case EProxyType_ElevatedProxied: ProxyType = "E"; break;
-					}
-
-					CStr WorkingDirectory
-						= NMib::NFile::CFile::fs_GetProgramDirectory() / ("ProcessWorkingDir{}{}{}_{}"_f << (_bThreaded ? "T" : "") << (_bForceFork ? "F" : "") << ProxyType << m_ExitCode)
-					;
-
-					fg_TestAddCleanupPath(WorkingDirectory);
-
-					NMib::NFile::CFile::fs_CreateDirectory(WorkingDirectory);
-
-					TCAtomic<EExitResult> Exited = EExitResult_None;
-					TCAtomic<uint32> ExitCode = 66;
-					CStr StdOut;
-					NMib::NThread::CMutual Lock;
-					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
-					Params.m_bThreaded = _bThreaded;
-					Params.m_bForceFork = _bForceFork;
-					Params.m_WorkingDirectory = WorkingDirectory;
-
-					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-						{
-							DMibLock(Lock);
-							switch (_State.f_GetTypeID())
-							{
-							case NMib::NProcess::EProcessLaunchState_Exited:
-								{
-									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-									Exited = EExitResult_Exited;
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-								{
-									Exited = EExitResult_NotLaunched;
-									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_Launched: break;
-							}
-						}
-					;
-
-					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, CStr const &_Output)
-						{
-							DMibLock(Lock);
-							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-								StdOut += _Output;
-							else
-								DMibConErrOut("Unexpected output: {}\r\n", _Output);
-						}
-					;
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-						if (!_bThreaded)
-							pLauncher->f_Start();
-					}
-
-					{
-						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-					}
-
-					Exited = EExitResult_None;
-					ExitCode = 66;
-					{
-						DMibLock(Lock);
-						StdOut.f_Clear();
-					}
-
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						if (!_bThreaded)
-							pLauncher->f_Start();
-					}
-
-					while (Exited.f_Load() == EExitResult_None)
-						NMib::NSys::fg_Thread_SmallestSleep();
-					{
-						DMibLock(Lock);
-
-						DMibTestPath("Wait for exit");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-					}
-
-					Exited = EExitResult_None;
-					ExitCode = 66;
-					{
-						DMibLock(Lock);
-						StdOut.f_Clear();
-					}
-
-					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
-
-					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
-						{
-							DispatchQueue.f_Push(_fToDispatch);
-						}
-					;
-
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						if (!_bThreaded)
-							pLauncher->f_Start();
-					}
-
-					while (Exited.f_Load() == EExitResult_None)
-					{
-						NMib::NSys::fg_Thread_SmallestSleep();
-						while (auto QueueEntry = DispatchQueue.f_Pop())
-							(*QueueEntry)();
-					}
-					{
-						DMibLock(Lock);
-						DMibTestPath("Wait for exit with dispatch");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-					}
-				}
+				NMib::NProcess::CProxiedLaunchServer Server;
 			};
 		}
+	}
 
-		template <EProxyType tf_ProxyType>
-		void f_TestExecutableFromDll()
+	void CProcessLaunch_Tests::f_EnableClientFailure(bool _bFail)
+	{
+		m_bFailClient = _bFail;
+
+		DMibLock(m_ProxyClientLock);
+		m_pProxyClient = nullptr;
+	}
+
+	template <bool tf_bProxied>
+	auto CProcessLaunch_Tests::f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
+		-> NMib::TCEnableIf<!tf_bProxied, NMib::NStorage::TCUniquePointer<NMib::NProcess::CProcessLaunch>>
+	{
+		return NMib::fg_Construct(_Params, _Flag);
+	}
+
+	template <bool tf_bProxied>
+	auto CProcessLaunch_Tests::f_CreateLaunch(NMib::NProcess::CProcessLaunchParams const &_Params, NMib::NProcess::EProcessLaunchCloseFlag _Flag)
+		-> NMib::TCEnableIf<tf_bProxied, NMib::NStorage::TCUniquePointer<CProxiedProcessLaunch>>
+	{
+		return NMib::fg_Construct(_Params, _Flag, this);
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestExecutable(bool _bThreaded, bool _bForceFork)
+	{
+		DMibTestSuite((_bThreaded ? "Executable" : "Executable non threaded"))
 		{
-#if !defined(DMibSanitizerEnabled_Thread) && !defined(DCompiler_MSVC_Workaround_DllsBroken)
-			// tsan does not currently support unloading dlls
-			DMibTestSuite("Executable from dll")
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
 			{
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-				{
-				}
-				else
-				{
-					NMib::NStr::CStr DllPath = NMib::NStr::CStr("Test_Malterlib_Helper_Process") + NMib::NFile::CFile::fs_GetDllExtension();
-#	ifdef DPlatformFamily_Linux
-					DllPath = NMib::NFile::CFile::fs_AppendPath(NMib::NFile::CFile::fs_GetProgramDirectory(), DllPath);
-#	endif
-
-					for (umint iLoad = 0; iLoad < 10; ++iLoad)
-					{
-						void *pDll = NMib::NSys::fg_LoadLibrary(DllPath);
-
-						DMibTest(DMibExpr(pDll))(ETest_FailAndStop)(ETestFlag_Aggregated);
-
-						uint32 (calling_convention_c *fLaunchInDll)(ch8 const *_pProgram, ch8 const *_pParams) = nullptr;
-
-						(void * &)fLaunchInDll = NMib::NSys::fg_GetLibrarySymbol(pDll, "fg_Launch");
-						DMibTest(DMibExpr(fLaunchInDll))(ETest_FailAndStop)(ETestFlag_Aggregated);
-
-						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
-
-						[[maybe_unused]] uint32 LaunchResult = fLaunchInDll(Params.m_Target, Params.m_Parameters);
-
-						NMib::NSys::fg_FreeLibrary(pDll);
-					}
-				}
-			};
-#endif
-		}
-
-		template <EProxyType tf_ProxyType>
-		void f_TestPerformance(bool _bThreaded, bool _bForceFork)
-		{
-			DMibTestSuite(CTestCategory(_bThreaded ? "Performance" : "Performance non threaded") << CTestGroup("Performance"))
+			}
+			else
 			{
+				using namespace NMib::NStr;
+
+				CStr ProxyType;
+				switch (tf_ProxyType)
+				{
+				case EProxyType_None: ProxyType = "N"; break;
+				case EProxyType_Proxied: ProxyType = "P"; break;
+				case EProxyType_ElevatedProxied: ProxyType = "E"; break;
+				}
+
+				CStr WorkingDirectory
+					= NMib::NFile::CFile::fs_GetProgramDirectory() / ("ProcessWorkingDir{}{}{}_{}"_f << (_bThreaded ? "T" : "") << (_bForceFork ? "F" : "") << ProxyType << m_ExitCode)
+				;
+
+				fg_TestAddCleanupPath(WorkingDirectory);
+
+				NMib::NFile::CFile::fs_CreateDirectory(WorkingDirectory);
+
 				TCAtomic<EExitResult> Exited = EExitResult_None;
 				TCAtomic<uint32> ExitCode = 66;
-				NMib::NStr::CStr StdOut;
-				NMib::NProcess::CProcessLaunchParams Params;
+				CStr StdOut;
 				NMib::NThread::CMutual Lock;
-
-#ifdef DPlatformFamily_Windows
-				Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
-#else
-				Params.m_Target = NMib::NFile::CFile::fs_GetProgramDirectory() / "MalterlibHelper";
-#endif
-				Params.m_Parameters = NMib::NStr::CStr::CFormat("--just-exit {}") << m_ExitCode.f_Get();
+				NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
 				Params.m_bThreaded = _bThreaded;
 				Params.m_bForceFork = _bForceFork;
+				Params.m_WorkingDirectory = WorkingDirectory;
 
 				Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 					{
@@ -435,7 +362,7 @@ namespace
 					}
 				;
 
-				Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+				Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, CStr const &_Output)
 					{
 						DMibLock(Lock);
 						if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
@@ -444,560 +371,564 @@ namespace
 							DMibConErrOut("Unexpected output: {}\r\n", _Output);
 					}
 				;
-				CTestPerformanceMeasure MalterlibTime("Malterlib");
-
-				umint nTests = 256 + 1;
-				umint nLoops = 1;
-
-				for (umint iTest = 0; iTest < nTests; ++iTest)
 				{
-					MalterlibTime.f_Start();
-					for (umint iLoop = 0; iLoop < nLoops; ++iLoop)
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+					if (!_bThreaded)
+						pLauncher->f_Start();
+				}
+
+				{
+					DMibTestPath("Block on exit");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+				}
+
+				Exited = EExitResult_None;
+				ExitCode = 66;
+				{
+					DMibLock(Lock);
+					StdOut.f_Clear();
+				}
+
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					if (!_bThreaded)
+						pLauncher->f_Start();
+				}
+
+				while (Exited.f_Load() == EExitResult_None)
+					NMib::NSys::fg_Thread_SmallestSleep();
+				{
+					DMibLock(Lock);
+
+					DMibTestPath("Wait for exit");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+				}
+
+				Exited = EExitResult_None;
+				ExitCode = 66;
+				{
+					DMibLock(Lock);
+					StdOut.f_Clear();
+				}
+
+				NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
+
+				Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
 					{
-						Exited = EExitResult_None;
-						ExitCode = 66;
-						{
-							DMibLock(Lock);
-							StdOut.f_Clear();
-						}
-						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-							if (!_bThreaded)
-								pLauncher->f_Start();
-						}
-
-						{
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited))(ETestFlag_Aggregated);
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()))(ETestFlag_Aggregated);
-						}
+						DispatchQueue.f_Push(_fToDispatch);
 					}
-					MalterlibTime.f_Stop(nLoops);
+				;
+
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					if (!_bThreaded)
+						pLauncher->f_Start();
 				}
 
-				CTestPerformance PerfTest(1.0);
-				PerfTest.f_Add(MalterlibTime);
-				DMibTest(DMibExpr(PerfTest));
-			};
-		}
+				while (Exited.f_Load() == EExitResult_None)
+				{
+					NMib::NSys::fg_Thread_SmallestSleep();
+					while (auto QueueEntry = DispatchQueue.f_Pop())
+						(*QueueEntry)();
+				}
+				{
+					DMibLock(Lock);
+					DMibTestPath("Wait for exit with dispatch");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+				}
+			}
+		};
+	}
 
-		template <EProxyType tf_ProxyType>
-		void f_TestDocument()
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestExecutableFromDll()
+	{
+#if !defined(DMibSanitizerEnabled_Thread) && !defined(DCompiler_MSVC_Workaround_DllsBroken)
+		// tsan does not currently support unloading dlls
+		DMibTestSuite("Executable from dll")
 		{
-			DMibTestSuite("Document")
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
 			{
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			}
+			else
+			{
+				NMib::NStr::CStr DllPath = NMib::NStr::CStr("Test_Malterlib_Helper_Process") + NMib::NFile::CFile::fs_GetDllExtension();
+#	ifdef DPlatformFamily_Linux
+				DllPath = NMib::NFile::CFile::fs_AppendPath(NMib::NFile::CFile::fs_GetProgramDirectory(), DllPath);
+#	endif
+
+				for (umint iLoad = 0; iLoad < 10; ++iLoad)
 				{
-					NMib::NSys::fg_Thread_Sleep(0.01f);
-					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
+					void *pDll = NMib::NSys::fg_LoadLibrary(DllPath);
 
-					NMib::NStr::CStr ExtraData = fg_TestGetExtraData();
-					aint iProtocol = ExtraData.f_Find("://");
-					if (iProtocol >= 0)
-						ExtraData = ExtraData.f_Extract(iProtocol + 3);
+					DMibTest(DMibExpr(pDll))(ETest_FailAndStop)(ETestFlag_Aggregated);
 
-					NMib::NFile::CFile::fs_CreateDirectory(NMib::NFile::CFile::fs_GetPath(ExtraData));
-					NMib::NFile::CFile File;
-					File.f_Open(ExtraData, NMib::NFile::EFileOpen_Write | NMib::NFile::EFileOpen_ShareAll);
+					uint32 (calling_convention_c *fLaunchInDll)(ch8 const *_pProgram, ch8 const *_pParams) = nullptr;
+
+					(void * &)fLaunchInDll = NMib::NSys::fg_GetLibrarySymbol(pDll, "fg_Launch");
+					DMibTest(DMibExpr(fLaunchInDll))(ETest_FailAndStop)(ETestFlag_Aggregated);
+
+					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
+
+					[[maybe_unused]] uint32 LaunchResult = fLaunchInDll(Params.m_Target, Params.m_Parameters);
+
+					NMib::NSys::fg_FreeLibrary(pDll);
 				}
-				else
-				{
+			}
+		};
+#endif
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestPerformance(bool _bThreaded, bool _bForceFork)
+	{
+		DMibTestSuite(CTestCategory(_bThreaded ? "Performance" : "Performance non threaded") << CTestGroup("Performance"))
+		{
+			TCAtomic<EExitResult> Exited = EExitResult_None;
+			TCAtomic<uint32> ExitCode = 66;
+			NMib::NStr::CStr StdOut;
+			NMib::NProcess::CProcessLaunchParams Params;
+			NMib::NThread::CMutual Lock;
+
 #ifdef DPlatformFamily_Windows
-					NMib::NStr::CStr URLTest = NMib::NCryptography::fg_GetHashedUuidString
-						(
-							fg_TestGetCurrentPath()
-							, NMib::NCryptography::CUniversallyUniqueIdentifier("{3CD79DA2-0245-4662-A4E2-153B32B8FCE2}")
-						)
-					;
+			Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
 #else
-					NMib::NStr::CStr URLTest;
+			Params.m_Target = NMib::NFile::CFile::fs_GetProgramDirectory() / "MalterlibHelper";
 #endif
-					NMib::NStr::CStr URLHandler = DLaunchableScheme + URLTest;
-					URLHandler = URLHandler.f_LowerCase();
+			Params.m_Parameters = NMib::NStr::CStr::CFormat("--just-exit {}") << m_ExitCode.f_Get();
+			Params.m_bThreaded = _bThreaded;
+			Params.m_bForceFork = _bForceFork;
 
-#ifdef DPlatformFamily_Windows
-					NMib::NProcess::CProcessLaunch::fs_RegisterURLHandler
-						(
-							URLHandler
-							, NMib::NFile::CFile::fs_GetProgramPath()
-							, NMib::NProcess::CProcessLaunchParams::fs_GetParams
-							(
-								{
-									"--test"
-									, fg_TestGetCurrentPath()
-									, "--logger"
-									, "Registry"
-									, "--filter-results"
-									, "[\"All\"]"
-									, "--process-recursive"
-									, "--extra-data"
-								}
-							)
-							+ " \"%1\""
-						)
-					;
-					auto Cleanup = NMib::fg_OnScopeExit
-						(
-							[&]()
-							{
-								NMib::NProcess::CProcessLaunch::fs_DeRegisterURLHandler(URLHandler);
-							}
-						)
-					;
-#endif
-
+			Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+				{
+					DMibLock(Lock);
+					switch (_State.f_GetTypeID())
 					{
-						NMib::NStr::CStr TestFilePath = NMib::NFile::CFile::fs_GetProgramDirectory() + "/" DLaunchableScheme + URLTest + "_Handled.txt";
-						if (NMib::NFile::CFile::fs_FileExists(TestFilePath))
-							NMib::NFile::CFile::fs_DeleteFile(TestFilePath);
-
-						NMib::NThread::CMutual Lock;
-						TCAtomic<EExitResult> Exited = EExitResult_None;
-						TCAtomic<uint32> ExitCode = 66;
-						NMib::NProcess::CProcessLaunchParams Params;
-						NMib::NStr::CStr LaunchError;
-
-						Params.m_LaunchType = NMib::NProcess::EProcessLaunchType_Document;
-						Params.m_Target = URLHandler + "://" + TestFilePath;
-						Params.m_bShowLaunched = false;
-						NMib::NStr::CStr Output;
-						Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-							{
-								DMibLock(Lock);
-								Output += _Output;
-							}
-						;
-
-						Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-							{
-								DMibLock(Lock);
-								switch (_State.f_GetTypeID())
-								{
-								case NMib::NProcess::EProcessLaunchState_Launched:
-									{
-										void *pProcess = _State.f_Get<NMib::NProcess::EProcessLaunchState_Launched>();
-										if (!pProcess)
-										{
-											if (ExitCode == 66)
-												ExitCode = m_ExitCode.f_Get();
-										}
-									}
-									break;
-								case NMib::NProcess::EProcessLaunchState_Exited:
-									{
-										ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-										Exited = EExitResult_Exited;
-									}
-									break;
-								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-									{
-										Exited = EExitResult_NotLaunched;
-										LaunchError = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
-									}
-									break;
-								}
-							}
-						;
-
+					case NMib::NProcess::EProcessLaunchState_Exited:
 						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+							Exited = EExitResult_Exited;
 						}
-
+						break;
+					case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 						{
-							DMibLock(Lock);
-							DMibTestPath("Block on exit");
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
-							DMibTest(DMibExpr(Output) == DMibExpr(""));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
+							Exited = EExitResult_NotLaunched;
+							DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 						}
-
-						if (NMib::NFile::CFile::fs_FileExists(TestFilePath))
-							NMib::NFile::CFile::fs_DeleteFile(TestFilePath);
-
-						Exited = EExitResult_None;
-						ExitCode = 66;
-						{
-							DMibLock(Lock);
-							Output.f_Clear();
-							LaunchError.f_Clear();
-						}
-
-						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						}
-
-						while (Exited.f_Load() == EExitResult_None)
-							NMib::NSys::fg_Thread_SmallestSleep();
-						{
-							DMibLock(Lock);
-							DMibTestPath("Wait for exit");
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
-							DMibTest(DMibExpr(Output) == DMibExpr(""));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
-						}
-
-						Exited = EExitResult_None;
-						ExitCode = 66;
-						{
-							DMibLock(Lock);
-							LaunchError.f_Clear();
-						}
-
-						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
-
-						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
-							{
-								DispatchQueue.f_Push(_fToDispatch);
-							}
-						;
-
-						if (NMib::NFile::CFile::fs_FileExists(TestFilePath))
-							NMib::NFile::CFile::fs_DeleteFile(TestFilePath);
-
-						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						}
-
-						while (Exited.f_Load() == EExitResult_None)
-						{
-							NMib::NSys::fg_Thread_SmallestSleep();
-							while (auto QueueEntry = DispatchQueue.f_Pop())
-								(*QueueEntry)();
-						}
-						{
-							DMibLock(Lock);
-							DMibTestPath("Wait for exit with dispatch");
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
-						}
+						break;
+					case NMib::NProcess::EProcessLaunchState_Launched: break;
 					}
 				}
-			};
-		}
+			;
 
-		void f_TestElevationStdIn()
-		{
-			DMibTestSuite(NMib::NTest::CTestCategory("ElevationStdIn") << NMib::NTest::CTestGroup("Manual"))
-			{
-				// This has to be enabled manually as you need to press the button to allow elevation
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 				{
-					if
-					(
-						NMib::NProcess::CProcessLaunch::fs_GetElevation() != NMib::NProcess::EProcessElevation_IsElevated
-						&& NMib::NProcess::CProcessLaunch::fs_GetElevation() != NMib::NProcess::EProcessElevation_IsRoot
-					)
-					{
-						DMibConErrOutRaw("Not elevated");
-					}
-
-					DMibConErrOutRaw("Test stderr");
-					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
-
-					NMib::NStr::CStr Input;
-					NMib::NThread::CEvent Event;
-
-					NMib::NProcess::CStdInReaderParams Params = NMib::NProcess::CStdInReaderParams::fs_Create
-						(
-							[&](NMib::NProcess::EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
-							{
-								Input += _Input;
-
-								if (_Input.f_FindChar('\n') > -1)
-									Event.f_SetSignaled();
-							}
-						)
-					;
-
-					NMib::NProcess::CStdInReader Reader(NMib::fg_Move(Params));
-
-					if (Event.f_WaitTimeout(10.0))
-						DMibConOut("Timed out waiting for std input. Current input: {}", Input);
+					DMibLock(Lock);
+					if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+						StdOut += _Output;
 					else
-						DMibConOutRaw(Input);
+						DMibConErrOut("Unexpected output: {}\r\n", _Output);
 				}
-				else
+			;
+			CTestPerformanceMeasure MalterlibTime("Malterlib");
+
+			umint nTests = 256 + 1;
+			umint nLoops = 1;
+
+			for (umint iTest = 0; iTest < nTests; ++iTest)
+			{
+				MalterlibTime.f_Start();
+				for (umint iLoop = 0; iLoop < nLoops; ++iLoop)
 				{
-					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
+					Exited = EExitResult_None;
+					ExitCode = 66;
 					{
-						NMib::NProcess::CProcessLaunch *pLauncher = nullptr;
-						NMib::NStr::CStr RandomString = NMib::NCryptography::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
+						DMibLock(Lock);
+						StdOut.f_Clear();
+					}
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						if (!_bThreaded)
+							pLauncher->f_Start();
+					}
 
-						NMib::NThread::CMutual Lock;
-						TCAtomic<EExitResult> Exited = EExitResult_None;
-						TCAtomic<uint32> ExitCode = 66;
-						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "", "Null");
-						Params.m_bShowLaunched = false;
-						Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
-						Params.m_bStdOutPID = true;
-						Params.m_Prompt = "You need to elevate to run the elevation tests.\"This is quoted\"\nSecond line";
-
-						Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-							{
-								DMibLock(Lock);
-								switch (_State.f_GetTypeID())
-								{
-								case NMib::NProcess::EProcessLaunchState_Launched:
-									{
-										pLauncher->f_SendStdIn(RandomString);
-										pLauncher->f_SendStdIn("\n");
-									}
-									break;
-								case NMib::NProcess::EProcessLaunchState_Exited:
-									{
-										ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-										Exited = EExitResult_Exited;
-									}
-									break;
-								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-									{
-										Exited = EExitResult_NotLaunched;
-										DMibConOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-									}
-									break;
-								}
-							}
-						;
-
-						NMib::NStr::CStr StdErr;
-						NMib::NStr::CStr StdOut;
-
-						Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-							{
-								DMibLock(Lock);
-								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
-									StdErr += _Output;
-								else if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-									StdOut += _Output;
-							}
-						;
-
-						{
-							NMib::NProcess::CProcessLaunch Launcher(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-							{
-								DMibLock(Lock);
-								pLauncher = &Launcher;
-							}
-						}
-
-						{
-							DMibLock(Lock);
-							DMibTestPath("Block on exit");
-							StdOut = StdOut.f_Trim();
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
-							DMibTest(DMibExpr(StdOut) == DMibExpr(RandomString));
-						}
+					{
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited))(ETestFlag_Aggregated);
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()))(ETestFlag_Aggregated);
 					}
 				}
-			};
-		}
+				MalterlibTime.f_Stop(nLoops);
+			}
 
-		template <EProxyType tf_ProxyType>
-		void f_TestElevation()
+			CTestPerformance PerfTest(1.0);
+			PerfTest.f_Add(MalterlibTime);
+			DMibTest(DMibExpr(PerfTest));
+		};
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestDocument()
+	{
+		DMibTestSuite("Document")
 		{
-			DMibTestSuite(NMib::NTest::CTestCategory("Elevation") << NMib::NTest::CTestGroup("Manual"))
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
 			{
-				// This has to be enabled manually as you need to press the button to allow elevation
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-				{
-					if
+				NMib::NSys::fg_Thread_Sleep(0.01f);
+				NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
+
+				NMib::NStr::CStr ExtraData = fg_TestGetExtraData();
+				aint iProtocol = ExtraData.f_Find("://");
+				if (iProtocol >= 0)
+					ExtraData = ExtraData.f_Extract(iProtocol + 3);
+
+				NMib::NFile::CFile::fs_CreateDirectory(NMib::NFile::CFile::fs_GetPath(ExtraData));
+				NMib::NFile::CFile File;
+				File.f_Open(ExtraData, NMib::NFile::EFileOpen_Write | NMib::NFile::EFileOpen_ShareAll);
+			}
+			else
+			{
+#ifdef DPlatformFamily_Windows
+				NMib::NStr::CStr URLTest = NMib::NCryptography::fg_GetHashedUuidString
 					(
-						NMib::NProcess::CProcessLaunch::fs_GetElevation() != NMib::NProcess::EProcessElevation_IsElevated
-						&& NMib::NProcess::CProcessLaunch::fs_GetElevation() != NMib::NProcess::EProcessElevation_IsRoot
+						fg_TestGetCurrentPath()
+						, NMib::NCryptography::CUniversallyUniqueIdentifier("{3CD79DA2-0245-4662-A4E2-153B32B8FCE2}")
 					)
-					{
-						DMibConErrOutRaw("Not elevated");
-					}
-
-					DMibConOutRaw("Test stdout");
-					DMibConErrOutRaw("Test stderr");
-					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
-				}
-				else
-				{
-#ifdef DPlatformFamily_Linux
-					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated && tf_ProxyType != EProxyType_ElevatedProxied)
+				;
 #else
-					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
+				NMib::NStr::CStr URLTest;
 #endif
-					{
-						NMib::NThread::CMutual Lock;
-						TCAtomic<EExitResult> Exited = EExitResult_None;
-						TCAtomic<uint32> ExitCode = 66;
-						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "", "Null");
-						Params.m_bShowLaunched = false;
-						Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
-						Params.m_bStdOutPID = true;
-						Params.m_Prompt = "You need to elevate to run the elevation tests.\"This is quoted\"\nSecond line";
+				NMib::NStr::CStr URLHandler = DLaunchableScheme + URLTest;
+				URLHandler = URLHandler.f_LowerCase();
 
-						Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+#ifdef DPlatformFamily_Windows
+				NMib::NProcess::CProcessLaunch::fs_RegisterURLHandler
+					(
+						URLHandler
+						, NMib::NFile::CFile::fs_GetProgramPath()
+						, NMib::NProcess::CProcessLaunchParams::fs_GetParams
+						(
 							{
-								DMibLock(Lock);
-								switch (_State.f_GetTypeID())
-								{
-								case NMib::NProcess::EProcessLaunchState_Exited:
-									{
-										ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-										Exited = EExitResult_Exited;
-									}
-									break;
-								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-									{
-										Exited = EExitResult_NotLaunched;
-										//DMibTrace("Launch failed error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-									}
-									break;
-								case NMib::NProcess::EProcessLaunchState_Launched: break;
-								}
+								"--test"
+								, fg_TestGetCurrentPath()
+								, "--logger"
+								, "Registry"
+								, "--filter-results"
+								, "[\"All\"]"
+								, "--process-recursive"
+								, "--extra-data"
 							}
-						;
-
-						NMib::NStr::CStr StdErr;
-						NMib::NStr::CStr StdOut;
-
-						Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-							{
-								DMibLock(Lock);
-								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
-									StdErr += _Output;
-								else if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-									StdOut += _Output;
-							}
-						;
-
+						)
+						+ " \"%1\""
+					)
+				;
+				auto Cleanup = NMib::fg_OnScopeExit
+					(
+						[&]()
 						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							NMib::NProcess::CProcessLaunch::fs_DeRegisterURLHandler(URLHandler);
 						}
-
-						{
-							DMibLock(Lock);
-							DMibTestPath("Block on exit");
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
-							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
-						}
-
-						{
-							DMibLock(Lock);
-							StdErr = NMib::NStr::CStr();
-							StdOut = NMib::NStr::CStr();
-						}
-						Exited = EExitResult_None;
-						ExitCode = 66;
-						NMib::NStr::CStr OldTarget = Params.m_Target;
-						Params.m_Target = "/Blah";
-
-						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-						}
-
-						{
-							DMibLock(Lock);
-							DMibTestPath("Non existing target");
-#ifdef DPlatformFamily_Linux
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(127));
-							DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Error accessing /Blah: No such file or directory"));
-							DMibTest(DMibExpr(StdOut) == DMibExpr(""));
-#else
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(66));
-							DMibTest(DMibExpr(StdErr) == DMibExpr(""));
-							DMibTest(DMibExpr(StdOut) == DMibExpr(""));
+					)
+				;
 #endif
-						}
 
-						{
-							DMibLock(Lock);
-							StdErr = NMib::NStr::CStr();
-							StdOut = NMib::NStr::CStr();
-						}
-						Exited = EExitResult_None;
-						ExitCode = 66;
-						Params.m_Target = OldTarget;
-
-						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						}
-
-						while (Exited.f_Load() == EExitResult_None)
-							NMib::NSys::fg_Thread_SmallestSleep();
-						{
-							DMibLock(Lock);
-							DMibTestPath("Wait for exit");
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
-							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
-						}
-
-						{
-							DMibLock(Lock);
-							StdErr = NMib::NStr::CStr();
-							StdOut = NMib::NStr::CStr();
-						}
-						Exited = EExitResult_None;
-						ExitCode = 66;
-
-						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
-
-						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
-							{
-								DispatchQueue.f_Push(_fToDispatch);
-							}
-						;
-
-						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						}
-
-						while (Exited.f_Load() == EExitResult_None)
-						{
-							NMib::NSys::fg_Thread_SmallestSleep();
-							while (auto QueueEntry = DispatchQueue.f_Pop())
-								(*QueueEntry)();
-						}
-						{
-							DMibLock(Lock);
-							DMibTestPath("Wait for exit with dispatch");
-							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
-							DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
-						}
-					}
-				}
-			};
-		}
-
-		template <EProxyType tf_ProxyType>
-		void f_TestDeElevation()
-		{
-#ifndef DPlatformFamily_Windows
-			return;
-#endif
-			DMibTestSuite(NMib::NTest::CTestCategory("De-elevation") << NMib::NTest::CTestGroup("Manual"))
-			{
-				// This has to be enabled manually as you need to press the button to allow elevation
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
 				{
-					NMib::NStr::CStr TestPath = fg_TestGetCurrentPath();
+					NMib::NStr::CStr TestFilePath = NMib::NFile::CFile::fs_GetProgramDirectory() + "/" DLaunchableScheme + URLTest + "_Handled.txt";
+					if (NMib::NFile::CFile::fs_FileExists(TestFilePath))
+						NMib::NFile::CFile::fs_DeleteFile(TestFilePath);
 
 					NMib::NThread::CMutual Lock;
 					TCAtomic<EExitResult> Exited = EExitResult_None;
 					TCAtomic<uint32> ExitCode = 66;
-					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(TestPath);
+					NMib::NProcess::CProcessLaunchParams Params;
+					NMib::NStr::CStr LaunchError;
+
+					Params.m_LaunchType = NMib::NProcess::EProcessLaunchType_Document;
+					Params.m_Target = URLHandler + "://" + TestFilePath;
 					Params.m_bShowLaunched = false;
-					Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_DeElevate;
-					Params.m_Parameters = fs_GetTestPath(TestPath, "CheckElevation");
+					NMib::NStr::CStr Output;
+					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+						{
+							DMibLock(Lock);
+							Output += _Output;
+						}
+					;
+
+					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+						{
+							DMibLock(Lock);
+							switch (_State.f_GetTypeID())
+							{
+							case NMib::NProcess::EProcessLaunchState_Launched:
+								{
+									void *pProcess = _State.f_Get<NMib::NProcess::EProcessLaunchState_Launched>();
+									if (!pProcess)
+									{
+										if (ExitCode == 66)
+											ExitCode = m_ExitCode.f_Get();
+									}
+								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_Exited:
+								{
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
+								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+								{
+									Exited = EExitResult_NotLaunched;
+									LaunchError = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
+								}
+								break;
+							}
+						}
+					;
+
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+					}
+
+					{
+						DMibLock(Lock);
+						DMibTestPath("Block on exit");
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
+						DMibTest(DMibExpr(Output) == DMibExpr(""));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
+					}
+
+					if (NMib::NFile::CFile::fs_FileExists(TestFilePath))
+						NMib::NFile::CFile::fs_DeleteFile(TestFilePath);
+
+					Exited = EExitResult_None;
+					ExitCode = 66;
+					{
+						DMibLock(Lock);
+						Output.f_Clear();
+						LaunchError.f_Clear();
+					}
+
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					}
+
+					while (Exited.f_Load() == EExitResult_None)
+						NMib::NSys::fg_Thread_SmallestSleep();
+					{
+						DMibLock(Lock);
+						DMibTestPath("Wait for exit");
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
+						DMibTest(DMibExpr(Output) == DMibExpr(""));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
+					}
+
+					Exited = EExitResult_None;
+					ExitCode = 66;
+					{
+						DMibLock(Lock);
+						LaunchError.f_Clear();
+					}
+
+					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
+
+					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
+						{
+							DispatchQueue.f_Push(_fToDispatch);
+						}
+					;
+
+					if (NMib::NFile::CFile::fs_FileExists(TestFilePath))
+						NMib::NFile::CFile::fs_DeleteFile(TestFilePath);
+
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					}
+
+					while (Exited.f_Load() == EExitResult_None)
+					{
+						NMib::NSys::fg_Thread_SmallestSleep();
+						while (auto QueueEntry = DispatchQueue.f_Pop())
+							(*QueueEntry)();
+					}
+					{
+						DMibLock(Lock);
+						DMibTestPath("Wait for exit with dispatch");
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(LaunchError) == DMibExpr(""));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(NMib::NFile::CFile::fs_FileExists(TestFilePath)));
+					}
+				}
+			}
+		};
+	}
+
+	void CProcessLaunch_Tests::f_TestElevationStdIn()
+	{
+		DMibTestSuite(NMib::NTest::CTestCategory("ElevationStdIn") << NMib::NTest::CTestGroup("Manual"))
+		{
+			// This has to be enabled manually as you need to press the button to allow elevation
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			{
+				if
+				(
+					NMib::NProcess::CProcessLaunch::fs_GetElevation() != NMib::NProcess::EProcessElevation_IsElevated
+					&& NMib::NProcess::CProcessLaunch::fs_GetElevation() != NMib::NProcess::EProcessElevation_IsRoot
+				)
+				{
+					DMibConErrOutRaw("Not elevated");
+				}
+
+				DMibConErrOutRaw("Test stderr");
+				NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
+
+				NMib::NStr::CStr Input;
+				NMib::NThread::CEvent Event;
+
+				NMib::NProcess::CStdInReaderParams Params = NMib::NProcess::CStdInReaderParams::fs_Create
+					(
+						[&](NMib::NProcess::EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
+						{
+							Input += _Input;
+
+							if (_Input.f_FindChar('\n') > -1)
+								Event.f_SetSignaled();
+						}
+					)
+				;
+
+				NMib::NProcess::CStdInReader Reader(NMib::fg_Move(Params));
+
+				if (Event.f_WaitTimeout(10.0))
+					DMibConOut("Timed out waiting for std input. Current input: {}", Input);
+				else
+					DMibConOutRaw(Input);
+			}
+			else
+			{
+				if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
+				{
+					NMib::NProcess::CProcessLaunch *pLauncher = nullptr;
+					NMib::NStr::CStr RandomString = NMib::NCryptography::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
+
+					NMib::NThread::CMutual Lock;
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
+					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "", "Null");
+					Params.m_bShowLaunched = false;
+					Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
+					Params.m_bStdOutPID = true;
+					Params.m_Prompt = "You need to elevate to run the elevation tests.\"This is quoted\"\nSecond line";
+
+					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+						{
+							DMibLock(Lock);
+							switch (_State.f_GetTypeID())
+							{
+							case NMib::NProcess::EProcessLaunchState_Launched:
+								{
+									pLauncher->f_SendStdIn(RandomString);
+									pLauncher->f_SendStdIn("\n");
+								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_Exited:
+								{
+									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+									Exited = EExitResult_Exited;
+								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+								{
+									Exited = EExitResult_NotLaunched;
+									DMibConOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+								}
+								break;
+							}
+						}
+					;
+
+					NMib::NStr::CStr StdErr;
+					NMib::NStr::CStr StdOut;
+
+					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+						{
+							DMibLock(Lock);
+							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
+								StdErr += _Output;
+							else if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+								StdOut += _Output;
+						}
+					;
+
+					{
+						NMib::NProcess::CProcessLaunch Launcher(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						{
+							DMibLock(Lock);
+							pLauncher = &Launcher;
+						}
+					}
+
+					{
+						DMibLock(Lock);
+						DMibTestPath("Block on exit");
+						StdOut = StdOut.f_Trim();
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
+						DMibTest(DMibExpr(StdOut) == DMibExpr(RandomString));
+					}
+				}
+			}
+		};
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestElevation()
+	{
+		DMibTestSuite(NMib::NTest::CTestCategory("Elevation") << NMib::NTest::CTestGroup("Manual"))
+		{
+			// This has to be enabled manually as you need to press the button to allow elevation
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			{
+				if
+				(
+					NMib::NProcess::CProcessLaunch::fs_GetElevation() != NMib::NProcess::EProcessElevation_IsElevated
+					&& NMib::NProcess::CProcessLaunch::fs_GetElevation() != NMib::NProcess::EProcessElevation_IsRoot
+				)
+				{
+					DMibConErrOutRaw("Not elevated");
+				}
+
+				DMibConOutRaw("Test stdout");
+				DMibConErrOutRaw("Test stderr");
+				NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
+			}
+			else
+			{
+#ifdef DPlatformFamily_Linux
+				if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated && tf_ProxyType != EProxyType_ElevatedProxied)
+#else
+				if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
+#endif
+				{
+					NMib::NThread::CMutual Lock;
+					TCAtomic<EExitResult> Exited = EExitResult_None;
+					TCAtomic<uint32> ExitCode = 66;
+					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "", "Null");
+					Params.m_bShowLaunched = false;
+					Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
+					Params.m_bStdOutPID = true;
+					Params.m_Prompt = "You need to elevate to run the elevation tests.\"This is quoted\"\nSecond line";
+
 					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
 							DMibLock(Lock);
@@ -1012,7 +943,7 @@ namespace
 							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
 								{
 									Exited = EExitResult_NotLaunched;
-									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+									//DMibTrace("Launch failed error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
 								}
 								break;
 							case NMib::NProcess::EProcessLaunchState_Launched: break;
@@ -1020,221 +951,237 @@ namespace
 						}
 					;
 
-					DMibTestSuite("CheckElevation")
-					{
-						DMibTest(DMibExpr(NMib::NProcess::CProcessLaunch::fs_GetElevation()) == DMibExpr(NMib::NProcess::EProcessElevation_IsNotElevated));
-					};
+					NMib::NStr::CStr StdErr;
+					NMib::NStr::CStr StdOut;
 
-					DMibTestSuite("Block on exit")
-					{
+					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+							DMibLock(Lock);
+							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
+								StdErr += _Output;
+							else if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+								StdOut += _Output;
 						}
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+					;
+
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+					}
+
+					{
+						DMibLock(Lock);
+						DMibTestPath("Block on exit");
 						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-					};
-
-					DMibTestSuite("Wait for exit")
-					{
-						Exited = EExitResult_None;
-						ExitCode = 66;
-
-						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						}
-
-						while (Exited.f_Load() == EExitResult_None)
-							NMib::NSys::fg_Thread_SmallestSleep();
 						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-					};
+						DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
+						DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
+					}
 
-					DMibTestSuite("Wait for exit with dispatch")
 					{
-						Exited = EExitResult_None;
-						ExitCode = 66;
+						DMibLock(Lock);
+						StdErr = NMib::NStr::CStr();
+						StdOut = NMib::NStr::CStr();
+					}
+					Exited = EExitResult_None;
+					ExitCode = 66;
+					NMib::NStr::CStr OldTarget = Params.m_Target;
+					Params.m_Target = "/Blah";
 
-						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+					}
 
-						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
-							{
-								DispatchQueue.f_Push(_fToDispatch);
-							}
-						;
-
-						{
-							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						}
-
-						while (Exited.f_Load() == EExitResult_None)
-						{
-							NMib::NSys::fg_Thread_SmallestSleep();
-							while (auto QueueEntry = DispatchQueue.f_Pop())
-								(*QueueEntry)();
-						}
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+					{
+						DMibLock(Lock);
+						DMibTestPath("Non existing target");
+#ifdef DPlatformFamily_Linux
 						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-					};
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(127));
+						DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Error accessing /Blah: No such file or directory"));
+						DMibTest(DMibExpr(StdOut) == DMibExpr(""));
+#else
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(66));
+						DMibTest(DMibExpr(StdErr) == DMibExpr(""));
+						DMibTest(DMibExpr(StdOut) == DMibExpr(""));
+#endif
+					}
+
+					{
+						DMibLock(Lock);
+						StdErr = NMib::NStr::CStr();
+						StdOut = NMib::NStr::CStr();
+					}
+					Exited = EExitResult_None;
+					ExitCode = 66;
+					Params.m_Target = OldTarget;
+
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					}
+
+					while (Exited.f_Load() == EExitResult_None)
+						NMib::NSys::fg_Thread_SmallestSleep();
+					{
+						DMibLock(Lock);
+						DMibTestPath("Wait for exit");
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
+						DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
+					}
+
+					{
+						DMibLock(Lock);
+						StdErr = NMib::NStr::CStr();
+						StdOut = NMib::NStr::CStr();
+					}
+					Exited = EExitResult_None;
+					ExitCode = 66;
+
+					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
+
+					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
+						{
+							DispatchQueue.f_Push(_fToDispatch);
+						}
+					;
+
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					}
+
+					while (Exited.f_Load() == EExitResult_None)
+					{
+						NMib::NSys::fg_Thread_SmallestSleep();
+						while (auto QueueEntry = DispatchQueue.f_Pop())
+							(*QueueEntry)();
+					}
+					{
+						DMibLock(Lock);
+						DMibTestPath("Wait for exit with dispatch");
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						DMibTest(DMibExpr(StdErr) == DMibExpr("Test stderr"));
+						DMibTest(DMibExpr(StdOut) == DMibExpr("Test stdout"));
+					}
 				}
-				else
-				{
-					NMib::NStr::CStr TestPath = fg_TestGetCurrentPath();
-					DMibTestSuite("RunTest")
-					{
-						if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
-						{
-							NMib::NThread::CMutual Lock;
-							TCAtomic<EExitResult> Exited = EExitResult_None;
-							TCAtomic<uint32> ExitCode = 66;
-							NMib::NProcess::CProcessLaunchParams Params = CProcessLaunch_Tests::f_GetLaunchParams(TestPath);
-							Params.m_bShowLaunched = false;
-							Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
+			}
+		};
+	}
 
-							Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-								{
-									DMibLock(Lock);
-									switch (_State.f_GetTypeID())
-									{
-									case NMib::NProcess::EProcessLaunchState_Exited:
-										{
-											ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-											Exited = EExitResult_Exited;
-										}
-										break;
-									case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-										{
-											Exited = EExitResult_NotLaunched;
-											DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-										}
-										break;
-									case NMib::NProcess::EProcessLaunchState_Launched: break;
-									}
-								}
-							;
-
-							{
-								Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Block on exit");
-								auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-							}
-
-							{
-								DMibTestPath("Block on exit");
-								DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-								DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							}
-
-							Exited = EExitResult_None;
-							ExitCode = 66;
-
-							{
-								Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Wait for exit");
-								auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-							}
-
-							while (Exited.f_Load() == EExitResult_None)
-								NMib::NSys::fg_Thread_SmallestSleep();
-							{
-								DMibTestPath("Wait for exit");
-								DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-								DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							}
-
-							Exited = EExitResult_None;
-							ExitCode = 66;
-
-							NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
-
-							Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
-								{
-									DispatchQueue.f_Push(_fToDispatch);
-								}
-							;
-
-							{
-								Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Wait for exit with dispatch");
-								auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-							}
-
-							while (Exited.f_Load() == EExitResult_None)
-							{
-								NMib::NSys::fg_Thread_SmallestSleep();
-								while (auto QueueEntry = DispatchQueue.f_Pop())
-									(*QueueEntry)();
-							}
-							{
-								DMibTestPath("Wait for exit with dispatch");
-								DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-								DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-							}
-						}
-					};
-				}
-			};
-		}
-
-		template <EProxyType tf_ProxyType>
-		void f_TestSandbox()
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestDeElevation()
+	{
+#ifndef DPlatformFamily_Windows
+		return;
+#endif
+		DMibTestSuite(NMib::NTest::CTestCategory("De-elevation") << NMib::NTest::CTestGroup("Manual"))
 		{
-			DMibTestSuite("Sandbox")
+			// This has to be enabled manually as you need to press the button to allow elevation
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
 			{
-				if (!NMib::NFile::CFile::fs_FileExists(NMib::NFile::CFile::fs_GetProgramDirectory() / "MalterlibSandbox_x64.dll"))
-					return;
+				NMib::NStr::CStr TestPath = fg_TestGetCurrentPath();
 
-#ifdef DPlatformFamily_Windows
-				NMib::NStr::CStr Sandbox = "X:";
-#else
-				NMib::NStr::CStr Sandbox = "/";
-#endif
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+				NMib::NThread::CMutual Lock;
+				TCAtomic<EExitResult> Exited = EExitResult_None;
+				TCAtomic<uint32> ExitCode = 66;
+				NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(TestPath);
+				Params.m_bShowLaunched = false;
+				Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_DeElevate;
+				Params.m_Parameters = fs_GetTestPath(TestPath, "CheckElevation");
+				Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						DMibLock(Lock);
+						switch (_State.f_GetTypeID())
+						{
+						case NMib::NProcess::EProcessLaunchState_Exited:
+							{
+								ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								Exited = EExitResult_Exited;
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							{
+								Exited = EExitResult_NotLaunched;
+								DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_Launched: break;
+						}
+					}
+				;
+
+				DMibTestSuite("CheckElevation")
 				{
-#ifdef DPlatformFamily_Windows
-					NMib::NStr::CStr File = NMib::NStr::CStr("X:/TestFile.txt");
-#else
-					NMib::NStr::CStr File = NMib::NStr::CStr("/TestFile.txt");
-#endif
-					bool bExists = NMib::NFile::CFile::fs_FileExists(File);
-					DMibTest(DMibExpr(bExists));
-					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
-				}
-				else
+					DMibTest(DMibExpr(NMib::NProcess::CProcessLaunch::fs_GetElevation()) == DMibExpr(NMib::NProcess::EProcessElevation_IsNotElevated));
+				};
+
+				DMibTestSuite("Block on exit")
 				{
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+					}
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+				};
+
+				DMibTestSuite("Wait for exit")
+				{
+					Exited = EExitResult_None;
+					ExitCode = 66;
+
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					}
+
+					while (Exited.f_Load() == EExitResult_None)
+						NMib::NSys::fg_Thread_SmallestSleep();
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+				};
+
+				DMibTestSuite("Wait for exit with dispatch")
+				{
+					Exited = EExitResult_None;
+					ExitCode = 66;
+
+					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
+
+					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
+						{
+							DispatchQueue.f_Push(_fToDispatch);
+						}
+					;
+
+					{
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					}
+
+					while (Exited.f_Load() == EExitResult_None)
+					{
+						NMib::NSys::fg_Thread_SmallestSleep();
+						while (auto QueueEntry = DispatchQueue.f_Pop())
+							(*QueueEntry)();
+					}
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+				};
+			}
+			else
+			{
+				NMib::NStr::CStr TestPath = fg_TestGetCurrentPath();
+				DMibTestSuite("RunTest")
+				{
+					if (NMib::NProcess::CProcessLaunch::fs_GetElevation() == NMib::NProcess::EProcessElevation_IsNotElevated)
 					{
 						NMib::NThread::CMutual Lock;
 						TCAtomic<EExitResult> Exited = EExitResult_None;
 						TCAtomic<uint32> ExitCode = 66;
-						NMib::NStr::CStr StdOut;
-						NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
+						NMib::NProcess::CProcessLaunchParams Params = CProcessLaunch_Tests::f_GetLaunchParams(TestPath);
+						Params.m_bShowLaunched = false;
+						Params.m_Elevation = NMib::NProcess::EProcessLaunchElevation_Elevate;
 
-						Params.m_Parameters = NMib::NProcess::CProcessLaunchParams::fs_GetParams
-							(
-								{
-									"--test"
-									, fg_TestGetCurrentPath()
-									, "--logger"
-									, "Registry"
-									, "--filter-results"
-									, "[\"All\"]"
-									, "--process-recursive"
-								}
-							)
-						;
-
-						NMib::NStr::CStr SandboxPath = NMib::NFile::CFile::fs_GetProgramDirectory() + "/SandboxTest";
-						NMib::NStr::CStr SandboxFile = SandboxPath + "/TestFile.txt";
-						NMib::NFile::CFile::fs_CreateDirectory(SandboxPath);
-						{
-							NMib::NFile::CFile File;
-							File.f_Open(SandboxFile, NMib::NFile::EFileOpen_Write);
-						}
-
-						Params.m_bSandboxed = true;
-#ifdef DPlatformFamily_Windows
-						Params.m_SandboxRoots["X:"] = SandboxPath;
-#else
-						Params.m_SandboxRoots[NMib::NStr::CStr()] = SandboxPath;
-#endif
-
-						//Params.
 						Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 							{
 								DMibLock(Lock);
@@ -1257,17 +1204,8 @@ namespace
 							}
 						;
 
-						Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-							{
-								DMibLock(Lock);
-								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-									StdOut += _Output;
-								else
-									DMibConErrOut("Unexpected output: {}\r\n", _Output);
-							}
-						;
-
 						{
+							Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Block on exit");
 							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
 						}
 
@@ -1276,692 +1214,119 @@ namespace
 							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
 							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
 						}
-					}
-				}
-			};
-		}
 
-		template <EProxyType tf_ProxyType>
-		void f_TestLimits()
-		{
-			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-			{
-				DMibTestSuite("Limits")
-				{
-					try
-					{
-						NMib::NSys::fg_Thread_SetPriority(NMib::NSys::fg_Thread_GetCurrent(), NMib::EExecutionPriority_Lowest);
-					}
-					catch (NMib::NException::CException const &)
-					{
-					}
+						Exited = EExitResult_None;
+						ExitCode = 66;
 
-					NMib::NTime::CStopwatch Stopwatch;
-					Stopwatch.f_Start();
-					// Block for 1 seconds
-					while (Stopwatch.f_GetTime() < 1.0)
+						{
+							Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Wait for exit");
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+						}
+
+						while (Exited.f_Load() == EExitResult_None)
+							NMib::NSys::fg_Thread_SmallestSleep();
+						{
+							DMibTestPath("Wait for exit");
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						}
+
+						Exited = EExitResult_None;
+						ExitCode = 66;
+
+						NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
+
+						Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
+							{
+								DispatchQueue.f_Push(_fToDispatch);
+							}
 						;
 
-					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
-				};
-			}
-			else
-			{
-				DMibTestSuite("Limits")
-				{
-					TCAtomic<EExitResult> Exited = EExitResult_None;
-					TCAtomic<uint32> ExitCode = 66;
-					NMib::NStr::CStr StdOut;
-					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
-					Params.m_bThreaded = true;
-					NMib::NThread::CMutual Lock;
-					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
-							DMibLock(Lock);
-							switch (_State.f_GetTypeID())
-							{
-							case NMib::NProcess::EProcessLaunchState_Exited:
-								{
-									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-									Exited = EExitResult_Exited;
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-								{
-									Exited = EExitResult_NotLaunched;
-									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_Launched: break;
-							}
+							Params.m_Parameters = CProcessLaunch_Tests::fs_GetTestPath(TestPath, "Wait for exit with dispatch");
+							auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
 						}
-					;
 
-					umint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
-					Params.m_LaunchPriority = NMib::EExecutionPriority_Lowest;
-					Params.m_CPUUsage = NMib::fg_Max(fp64(nCores) - 2.0, fp64(1.0)) / fp64(nCores);
-					//Params.m_CPUUsage = fp64(1.0) / fp64(nCores);
-					//Params.m_CPUUsage = 0.5;
-					Params.m_ProcessGroup = "LimitsTest";
-
-					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+						while (Exited.f_Load() == EExitResult_None)
 						{
-							DMibLock(Lock);
-							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-								StdOut += _Output;
-							else
-								DMibConErrOut("Unexpected output: {}\r\n", _Output);
+							NMib::NSys::fg_Thread_SmallestSleep();
+							while (auto QueueEntry = DispatchQueue.f_Pop())
+								(*QueueEntry)();
 						}
-					;
-					{
-						umint nLaunches = NMib::fg_Min(nCores * 16, 64u);
-						NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<tf_ProxyType>::CType>> Launches;
-						for (umint iLaunch = 0; iLaunch < nLaunches; ++iLaunch)
-							Launches.f_Insert(f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit));
-					}
-
-					{
-						DMibLock(Lock);
-						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						{
+							DMibTestPath("Wait for exit with dispatch");
+							DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+							DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+						}
 					}
 				};
 			}
-		}
+		};
+	}
 
-	private:
-		NMib::NStr::CStr fp_GetLongOutput()
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestSandbox()
+	{
+		DMibTestSuite("Sandbox")
 		{
-			NMib::NStr::CStr Ret;
+			if (!NMib::NFile::CFile::fs_FileExists(NMib::NFile::CFile::fs_GetProgramDirectory() / "MalterlibSandbox_x64.dll"))
+				return;
 
-			NMib::NMisc::CRandomShiftRNG Random;
-			for (auto iValue = 0; iValue < 1024 * 1024; ++iValue)
-			{
-				if (iValue % 1024 == 0 && iValue != 0)
-					Ret += "\n";
-				Ret += NMib::NStr::CStr::CFormat("{nfh,sj1,sf0}") << Random.f_GetValue<uint32>();
-			}
-
-			return Ret;
-		}
-
-	public:
-		template <EProxyType tf_ProxyType>
-		void f_TestStdOut()
-		{
-			DMibTestSuite("StdOut")
-			{
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-				{
-					DMibConErrOutRaw(fp_GetLongOutput());
-					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
-				}
-				else
-				{
-					TCAtomic<EExitResult> Exited = EExitResult_None;
-					TCAtomic<uint32> ExitCode = 66;
-					NMib::NStr::CStr StdOut;
-					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
-					Params.m_Parameters = fs_GetTestPath(fg_TestGetCurrentPath(), "", "Null");
-
-					Params.m_bThreaded = true;
-					NMib::NThread::CMutual Lock;
-					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-						{
-							DMibLock(Lock);
-							switch (_State.f_GetTypeID())
-							{
-							case NMib::NProcess::EProcessLaunchState_Launched:
-								{
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_Exited:
-								{
-									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-									Exited = EExitResult_Exited;
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-								{
-									Exited = EExitResult_NotLaunched;
-									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-								}
-								break;
-							}
-						}
-					;
-
-					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-						{
-							DMibLock(Lock);
-							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
-								StdOut += _Output;
-							else
-								DMibConErrOut("Unexpected output: {}\n", _Output);
-						}
-					;
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-					}
-
-					{
-						DMibLock(Lock);
-						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(StdOut == fp_GetLongOutput()));
-#if 0
-						if (StdOut != fp_GetLongOutput())
-						{
-							NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Actual.txt"), StdOut);
-							NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Expected.txt"), fp_GetLongOutput());
-						}
+#ifdef DPlatformFamily_Windows
+			NMib::NStr::CStr Sandbox = "X:";
+#else
+			NMib::NStr::CStr Sandbox = "/";
 #endif
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
-					}
-				}
-			};
-		}
-
-		static NMib::NContainer::CIOByteVector fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType)
-		{
-			NMib::NContainer::CIOByteVector Output;
-			if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
 			{
-				for (umint iByte = 0; iByte < 256; ++iByte)
-					Output.f_Insert(uint8(iByte));
+#ifdef DPlatformFamily_Windows
+				NMib::NStr::CStr File = NMib::NStr::CStr("X:/TestFile.txt");
+#else
+				NMib::NStr::CStr File = NMib::NStr::CStr("/TestFile.txt");
+#endif
+				bool bExists = NMib::NFile::CFile::fs_FileExists(File);
+				DMibTest(DMibExpr(bExists));
+				NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
 			}
 			else
-				Output.f_Insert((uint8 const *)"\0err\xff", 5);
-
-			return Output;
-		}
-
-		template <EProxyType tf_ProxyType>
-		void f_TestBinaryOutput()
-		{
-			DMibTestSuite("Binary Output")
 			{
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-				{
-					NMib::NSys::fg_ConsoleOutputBinary(fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut));
-					NMib::NSys::fg_ConsoleErrorOutputBinary(fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr));
-					NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
-				}
-				else
-				{
-					TCAtomic<EExitResult> Exited = EExitResult_None;
-					TCAtomic<uint32> ExitCode = 66;
-					NMib::NContainer::CIOByteVector StdOut;
-					NMib::NContainer::CIOByteVector StdErr;
-					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
-					Params.m_Parameters = fs_GetTestPath(fg_TestGetCurrentPath(), "", "Null");
-
-					Params.m_bThreaded = true;
-					NMib::NThread::CMutual Lock;
-					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-						{
-							DMibLock(Lock);
-							switch (_State.f_GetTypeID())
-							{
-							case NMib::NProcess::EProcessLaunchState_Launched: break;
-							case NMib::NProcess::EProcessLaunchState_Exited:
-								{
-									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-									Exited = EExitResult_Exited;
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-								{
-									Exited = EExitResult_NotLaunched;
-									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-								}
-								break;
-							}
-						}
-					;
-
-					Params.m_fOnOutputBinary = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NContainer::CIOByteVector const &_Output)
-						{
-							DMibLock(Lock);
-							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-								StdOut.f_Insert(_Output);
-							else
-								StdErr.f_Insert(_Output);
-						}
-					;
-
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-					}
-
-					DMibLock(Lock);
-					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-					DMibExpect(StdOut, ==, fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut));
-					DMibExpect(StdErr, ==, fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr));
-					DMibExpect(ExitCode.f_Load(), ==, m_ExitCode.f_Get());
-				}
-			};
-		}
-
-		template <EProxyType tf_ProxyType>
-		void f_TestWebLaunch()
-		{
-			DMibTestSuite("WebLaunch")
-			{
-				NMib::NAtomic::TCAtomic<int32> Finished;
-				NMib::NThread::CEventAutoReset Event;
-				NMib::NProcess::CProcessLaunchParams Params = NMib::NProcess::CProcessLaunchParams::fs_LaunchURL
-					(
-						""
-						, "http://localhost"
-						, [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-						{
-							switch (_State.f_GetTypeID())
-							{
-							case NMib::NProcess::EProcessLaunchState_Exited:
-								{
-									++Finished;
-									Event.f_Signal();
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-								{
-									DMibTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-									++Finished;
-									Event.f_Signal();
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_Launched: break;
-							}
-						}
-					)
-				;
-
-				NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<tf_ProxyType>::CType>> Launches;
-				umint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
-				for (umint iLaunch = 0; iLaunch < nCores * 2; ++iLaunch)
-					Launches.f_Insert(f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone));
-
-				Launches.f_Clear();
-				while (Finished.f_Load() != nCores * 2)
-					Event.f_Wait();
-			};
-		}
-
-		template <EProxyType tf_ProxyType>
-		void f_TestSimpleURLLaunch()
-		{
-			DMibTestSuite(NMib::NTest::CTestCategory("SimpleURL") << NMib::NTest::CTestGroup("Manual"))
-			{
-				NMib::NThread::CMutual Lock;
-				TCAtomic<EExitResult> Exited = EExitResult_None;
-				TCAtomic<bool> bFailed = false;
-				TCAtomic<uint32> ExitCode = 33;
-				NMib::NStr::CStr FailedMessage;
-
-				NMib::NProcess::CProcessLaunchParams Params = NMib::NProcess::CProcessLaunchParams::fs_LaunchURL
-					(
-						""
-						, "http://localhost"
-						, [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-						{
-							DMibLock(Lock);
-							switch (_State.f_GetTypeID())
-							{
-							case NMib::NProcess::EProcessLaunchState_Exited:
-								{
-									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-									Exited = EExitResult_Exited;
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-								{
-									bFailed = true;
-									Exited = EExitResult_NotLaunched;
-									{
-										DMibLock(Lock);
-										FailedMessage = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
-									}
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_Launched: break;
-							}
-						}
-					)
-				;
-
-				{
-					DMibTestPath("Success");
-
-					Params.m_Target = "http://www.malterlib.com";
-					Exited = EExitResult_None;
-					ExitCode = 66;
-
-					{
-						auto Launch = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-					}
-
-#ifdef DPlatformFamily_Linux
-					if (tf_ProxyType == EProxyType_ElevatedProxied)
-					{
-						DMibLock(Lock);
-						DMibTest(DMibExpr(bFailed.f_Load()));
-						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
-					}
-					else
-#endif
-					{
-						DMibLock(Lock);
-						DMibTest(!DMibExpr(bFailed.f_Load()));
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
-						DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
-					}
-				}
-
-				{
-					DMibTestPath("Failed");
-
-					Params.m_Target = "failed://www.malterlib.com";
-					Exited = EExitResult_None;
-					ExitCode = 66;
-					{
-						DMibLock(Lock);
-						FailedMessage.f_Clear();
-					}
-
-					{
-						auto Launch = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-					}
-
-#ifdef DPlatformFamily_Linux
-					if (tf_ProxyType == EProxyType_ElevatedProxied)
-					{
-						DMibLock(Lock);
-						DMibTest(DMibExpr(bFailed.f_Load()));
-						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
-					}
-					else
-#endif
-					{
-						DMibLock(Lock);
-						DMibTest(DMibExpr(bFailed.f_Load()));
-						DMibTest(DMibExpr(FailedMessage) != DMibExpr(""));
-					}
-				}
-
-				{
-					DMibTestPath("Linger");
-
-					Params.m_Target = "http://www.malterlib.com";
-					Exited = EExitResult_None;
-					ExitCode = 66;
-					{
-						DMibLock(Lock);
-						FailedMessage.f_Clear();
-					}
-
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-					}
-
-					while (Exited.f_Load() == EExitResult_None)
-						NMib::NSys::fg_Thread_SmallestSleep();
-
-#ifdef DPlatformFamily_Linux
-					if (tf_ProxyType == EProxyType_ElevatedProxied)
-					{
-						DMibLock(Lock);
-						DMibTest(DMibExpr(bFailed.f_Load()));
-						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
-						DMibExpect(FailedMessage.f_Trim(), ==, "Launching a document or URL elevated is not supported on Linux.");
-					}
-					else
-#endif
-					{
-						DMibLock(Lock);
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
-						DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
-					}
-				}
-
-				{
-					DMibTestPath("Dispatcher");
-
-					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
-
-					Params.m_Target = "http://www.malterlib.com";
-					Exited = EExitResult_None;
-					ExitCode = 66;
-					{
-						DMibLock(Lock);
-						FailedMessage.f_Clear();
-					}
-					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
-						{
-							DispatchQueue.f_Push(_fToDispatch);
-						}
-					;
-
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-					}
-					while (Exited.f_Load() == EExitResult_None)
-					{
-						NMib::NSys::fg_Thread_SmallestSleep();
-						while (auto QueueEntry = DispatchQueue.f_Pop())
-							(*QueueEntry)();
-					}
-
-#ifdef DPlatformFamily_Linux
-					if (tf_ProxyType == EProxyType_ElevatedProxied)
-					{
-						DMibLock(Lock);
-						DMibTest(DMibExpr(bFailed.f_Load()));
-						DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
-					}
-					else
-#endif
-					{
-						DMibLock(Lock);
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
-						DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
-					}
-				}
-			};
-		}
-
-		template <EProxyType tf_ProxyType>
-		void f_TestProxyFailure(bool _bThreaded, bool _bForceFork)
-		{
-			DMibTestSuite((_bThreaded ? "Proxy failure" : "Proxy failure non threaded"))
-			{
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-				{
-				}
-				else
 				{
 					NMib::NThread::CMutual Lock;
 					TCAtomic<EExitResult> Exited = EExitResult_None;
 					TCAtomic<uint32> ExitCode = 66;
 					NMib::NStr::CStr StdOut;
 					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
-					Params.m_bThreaded = _bThreaded;
-					Params.m_bForceFork = _bForceFork;
-					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-						{
-							DMibLock(Lock);
-							switch (_State.f_GetTypeID())
+
+					Params.m_Parameters = NMib::NProcess::CProcessLaunchParams::fs_GetParams
+						(
 							{
-							case NMib::NProcess::EProcessLaunchState_Exited:
-								{
-									ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-									Exited = EExitResult_Exited;
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-								{
-									Exited = EExitResult_NotLaunched;
-								}
-								break;
-							case NMib::NProcess::EProcessLaunchState_Launched: break;
+								"--test"
+								, fg_TestGetCurrentPath()
+								, "--logger"
+								, "Registry"
+								, "--filter-results"
+								, "[\"All\"]"
+								, "--process-recursive"
 							}
-						}
+						)
 					;
 
-					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-						{
-							DMibLock(Lock);
-							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-								StdOut += _Output;
-							else
-								DMibConErrOut("Unexpected output: {}\r\n", _Output);
-						}
-					;
+					NMib::NStr::CStr SandboxPath = NMib::NFile::CFile::fs_GetProgramDirectory() + "/SandboxTest";
+					NMib::NStr::CStr SandboxFile = SandboxPath + "/TestFile.txt";
+					NMib::NFile::CFile::fs_CreateDirectory(SandboxPath);
 					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-						if (!_bThreaded)
-							pLauncher->f_Start();
+						NMib::NFile::CFile File;
+						File.f_Open(SandboxFile, NMib::NFile::EFileOpen_Write);
 					}
-
-					{
-						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
-					}
-
-					Exited = EExitResult_None;
-					ExitCode = 66;
-					{
-						DMibLock(Lock);
-						StdOut.f_Clear();
-					}
-
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						if (!_bThreaded)
-							pLauncher->f_Start();
-					}
-
-					while (Exited.f_Load() == EExitResult_None)
-						NMib::NSys::fg_Thread_SmallestSleep();
-					{
-						DMibTestPath("Wait for exit");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
-					}
-
-					Exited = EExitResult_None;
-					ExitCode = 66;
-					{
-						DMibLock(Lock);
-						StdOut.f_Clear();
-					}
-
-					NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
-
-					Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
-						{
-							DispatchQueue.f_Push(_fToDispatch);
-						}
-					;
-
-					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
-						if (!_bThreaded)
-							pLauncher->f_Start();
-					}
-
-					while (Exited.f_Load() == EExitResult_None)
-					{
-						NMib::NSys::fg_Thread_SmallestSleep();
-						while (auto QueueEntry = DispatchQueue.f_Pop())
-							(*QueueEntry)();
-					}
-					{
-						DMibTestPath("Wait for exit with dispatch");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
-					}
-				}
-			};
-		}
-
-		template <EProxyType tf_ProxyType>
-		void f_TestKillSandbox()
-		{
-			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-			{
-				DMibTestCategory("KillSandbox")
-				{
-					for (umint iSuite = 0; iSuite < 10; ++iSuite)
-					{
-						NMib::NStr::CStr Suite = NMib::NStr::CStr::fs_ToStr(iSuite);
-						DMibTestSuite(Suite)
-						{
-							NMib::NStr::CStr FileToOpen = NMib::fg_GetSys()->f_GetEnvironmentVariable("LockFileDir");
-							NMib::NFile::CFile::fs_CreateDirectory(FileToOpen);
-							auto FileDir = FileToOpen;
-							FileToOpen += NMib::NStr::CStr::CFormat("/{}.FileOpen") << iSuite;
-
-							NMib::NFile::CFile File;
-							File.f_Open(FileToOpen, NMib::NFile::EFileOpen_Write);
-							File.f_SetAttributes
-								(
-									File.f_GetAttributes()
-									| NMib::NFile::CFile::fs_GetValidAttributes()
-									| NMib::NFile::EFileAttrib_EveryoneWrite
-									| NMib::NFile::EFileAttrib_GroupWrite
-									| NMib::NFile::EFileAttrib_UserWrite
-								)
-							;
-
-#ifndef DPlatformFamily_Windows
-							NMib::NStr::CStr User = NMib::fg_GetSys()->f_GetEnvironmentVariable("MalterlibOriginalUser");
-							NMib::NStr::CStr Group = NMib::fg_GetSys()->f_GetEnvironmentVariable("MalterlibOriginalGroup");
-
-							NMib::NFile::CFile::fs_SetOwner(FileToOpen, User);
-							NMib::NFile::CFile::fs_SetGroup(FileToOpen, Group);
-							NMib::NFile::CFile::fs_SetOwner(FileDir, User);
-							NMib::NFile::CFile::fs_SetGroup(FileDir, Group);
-#endif
-
-							if (iSuite == 0)
-							{
-								while (true)
-									NMib::NSys::fg_Thread_Sleep(1.0);
-							}
-							NMib::NStr::CStr NextPath = fs_GetTestPath(NMib::NFile::CFile::fs_GetPath(fg_TestGetCurrentPath()), NMib::NStr::CStr::fs_ToStr(iSuite - 1), "Null");
-							NMib::NStr::CStr StdOut;
-							NMib::NStr::CStr StdErr;
-							uint32 ExitCode;
-							NMib::NProcess::CProcessLaunch::fs_LaunchBlock(NMib::NFile::CFile::fs_GetProgramPath(), NextPath, StdOut, StdErr, ExitCode);
-
-							if (!StdErr.f_IsEmpty())
-								DMibConErrOutRaw(StdErr);
-						};
-					}
-				};
-			}
-			else
-			{
-				DMibTestCategoryFlags("KillSandbox", ETestCategoryFlag_DisableExceptionFilter | ETestCategoryFlag_Tests)
-				{
-					NMib::NThread::CMutual Lock;
-					TCAtomic<EExitResult> Exited = EExitResult_None;
-					TCAtomic<uint32> ExitCode = 66;
-					NMib::NStr::CStr StdOut;
-
-					NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath() + "/9", "", "Null");
 
 					Params.m_bSandboxed = true;
+#ifdef DPlatformFamily_Windows
+					Params.m_SandboxRoots["X:"] = SandboxPath;
+#else
+					Params.m_SandboxRoots[NMib::NStr::CStr()] = SandboxPath;
+#endif
 
-					NMib::NStr::CStr TempDirectory = NMib::NFile::CFile::fs_GetTemporaryDirectory() + "/MalterlibProcessKill/" + NMib::NCryptography::fg_GetRandomUuidString();
-					NMib::NFile::CFile::fs_CreateDirectory(TempDirectory);
-					Params.m_Environment["LockFileDir"] = TempDirectory;
-					Params.m_Environment["MalterlibOriginalUser"] = NMib::NSys::fg_UserManagement_GetProcessRealUserName();
-					Params.m_Environment["MalterlibOriginalGroup"] = NMib::NSys::fg_UserManagement_GetProcessRealGroupName();
-
+					//Params.
 					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
 						{
 							DMibLock(Lock);
@@ -1984,195 +1349,919 @@ namespace
 						}
 					;
 
-					NMib::NStr::CStr StdErr;
-
 					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 						{
 							DMibLock(Lock);
 							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
 								StdOut += _Output;
 							else
-								StdErr += _Output;
+								DMibConErrOut("Unexpected output: {}\r\n", _Output);
 						}
 					;
 
 					{
-						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>
+						auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+					}
+
+					{
+						DMibTestPath("Block on exit");
+						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+					}
+				}
+			}
+		};
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestLimits()
+	{
+		if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+		{
+			DMibTestSuite("Limits")
+			{
+				try
+				{
+					NMib::NSys::fg_Thread_SetPriority(NMib::NSys::fg_Thread_GetCurrent(), NMib::EExecutionPriority_Lowest);
+				}
+				catch (NMib::NException::CException const &)
+				{
+				}
+
+				NMib::NTime::CStopwatch Stopwatch;
+				Stopwatch.f_Start();
+				// Block for 1 seconds
+				while (Stopwatch.f_GetTime() < 1.0)
+					;
+
+				NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
+			};
+		}
+		else
+		{
+			DMibTestSuite("Limits")
+			{
+				TCAtomic<EExitResult> Exited = EExitResult_None;
+				TCAtomic<uint32> ExitCode = 66;
+				NMib::NStr::CStr StdOut;
+				NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
+				Params.m_bThreaded = true;
+				NMib::NThread::CMutual Lock;
+				Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						DMibLock(Lock);
+						switch (_State.f_GetTypeID())
+						{
+						case NMib::NProcess::EProcessLaunchState_Exited:
+							{
+								ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								Exited = EExitResult_Exited;
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							{
+								Exited = EExitResult_NotLaunched;
+								DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_Launched: break;
+						}
+					}
+				;
+
+				umint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
+				Params.m_LaunchPriority = NMib::EExecutionPriority_Lowest;
+				Params.m_CPUUsage = NMib::fg_Max(fp64(nCores) - 2.0, fp64(1.0)) / fp64(nCores);
+				//Params.m_CPUUsage = fp64(1.0) / fp64(nCores);
+				//Params.m_CPUUsage = 0.5;
+				Params.m_ProcessGroup = "LimitsTest";
+
+				Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+					{
+						DMibLock(Lock);
+						if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+							StdOut += _Output;
+						else
+							DMibConErrOut("Unexpected output: {}\r\n", _Output);
+					}
+				;
+				{
+					umint nLaunches = NMib::fg_Min(nCores * 16, 64u);
+					NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<tf_ProxyType>::CType>> Launches;
+					for (umint iLaunch = 0; iLaunch < nLaunches; ++iLaunch)
+						Launches.f_Insert(f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit));
+				}
+
+				{
+					DMibLock(Lock);
+					DMibTestPath("Block on exit");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibTest(DMibExpr(StdOut.f_Find("Footer") >= 0));
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+				}
+			};
+		}
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestStdOut()
+	{
+		DMibTestSuite("StdOut")
+		{
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			{
+				DMibConErrOutRaw(fp_GetLongOutput());
+				NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
+			}
+			else
+			{
+				TCAtomic<EExitResult> Exited = EExitResult_None;
+				TCAtomic<uint32> ExitCode = 66;
+				NMib::NStr::CStr StdOut;
+				NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
+				Params.m_Parameters = fs_GetTestPath(fg_TestGetCurrentPath(), "", "Null");
+
+				Params.m_bThreaded = true;
+				NMib::NThread::CMutual Lock;
+				Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						DMibLock(Lock);
+						switch (_State.f_GetTypeID())
+						{
+						case NMib::NProcess::EProcessLaunchState_Launched:
+							{
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_Exited:
+							{
+								ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								Exited = EExitResult_Exited;
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							{
+								Exited = EExitResult_NotLaunched;
+								DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+							}
+							break;
+						}
+					}
+				;
+
+				Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+					{
+						DMibLock(Lock);
+						if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdErr)
+							StdOut += _Output;
+						else
+							DMibConErrOut("Unexpected output: {}\n", _Output);
+					}
+				;
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+				}
+
+				{
+					DMibLock(Lock);
+					DMibTestPath("Block on exit");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibTest(DMibExpr(StdOut == fp_GetLongOutput()));
+#if 0
+					if (StdOut != fp_GetLongOutput())
+					{
+						NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Actual.txt"), StdOut);
+						NMib::NFile::CFile::fs_WriteStringToFile(NMib::NStr::CStr("/Temp/Expected.txt"), fp_GetLongOutput());
+					}
+#endif
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(m_ExitCode.f_Get()));
+				}
+			}
+		};
+	}
+
+	NMib::NContainer::CIOByteVector CProcessLaunch_Tests::fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType _OutputType)
+	{
+		NMib::NContainer::CIOByteVector Output;
+		if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+		{
+			for (umint iByte = 0; iByte < 256; ++iByte)
+				Output.f_Insert(uint8(iByte));
+		}
+		else
+			Output.f_Insert((uint8 const *)"\0err\xff", 5);
+
+		return Output;
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestBinaryOutput()
+	{
+		DMibTestSuite("Binary Output")
+		{
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			{
+				NMib::NSys::fg_ConsoleOutputBinary(fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut));
+				NMib::NSys::fg_ConsoleErrorOutputBinary(fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr));
+				NMib::NTest::fg_TestSetReturnValue(m_ExitCode.f_Get());
+			}
+			else
+			{
+				TCAtomic<EExitResult> Exited = EExitResult_None;
+				TCAtomic<uint32> ExitCode = 66;
+				NMib::NContainer::CIOByteVector StdOut;
+				NMib::NContainer::CIOByteVector StdErr;
+				NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath(), "");
+				Params.m_Parameters = fs_GetTestPath(fg_TestGetCurrentPath(), "", "Null");
+
+				Params.m_bThreaded = true;
+				NMib::NThread::CMutual Lock;
+				Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						DMibLock(Lock);
+						switch (_State.f_GetTypeID())
+						{
+						case NMib::NProcess::EProcessLaunchState_Launched: break;
+						case NMib::NProcess::EProcessLaunchState_Exited:
+							{
+								ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								Exited = EExitResult_Exited;
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							{
+								Exited = EExitResult_NotLaunched;
+								DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+							}
+							break;
+						}
+					}
+				;
+
+				Params.m_fOnOutputBinary = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NContainer::CIOByteVector const &_Output)
+					{
+						DMibLock(Lock);
+						if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+							StdOut.f_Insert(_Output);
+						else
+							StdErr.f_Insert(_Output);
+					}
+				;
+
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+				}
+
+				DMibLock(Lock);
+				DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+				DMibExpect(StdOut, ==, fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdOut));
+				DMibExpect(StdErr, ==, fs_GetBinaryOutput(NMib::NProcess::EProcessLaunchOutputType_StdErr));
+				DMibExpect(ExitCode.f_Load(), ==, m_ExitCode.f_Get());
+			}
+		};
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestWebLaunch()
+	{
+		DMibTestSuite("WebLaunch")
+		{
+			NMib::NAtomic::TCAtomic<int32> Finished;
+			NMib::NThread::CEventAutoReset Event;
+			NMib::NProcess::CProcessLaunchParams Params = NMib::NProcess::CProcessLaunchParams::fs_LaunchURL
+				(
+					""
+					, "http://localhost"
+					, [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						switch (_State.f_GetTypeID())
+						{
+						case NMib::NProcess::EProcessLaunchState_Exited:
+							{
+								++Finished;
+								Event.f_Signal();
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							{
+								DMibTrace("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+								++Finished;
+								Event.f_Signal();
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_Launched: break;
+						}
+					}
+				)
+			;
+
+			NMib::NContainer::TCVector<NMib::NStorage::TCUniquePointer<typename TCGetProxiedType<tf_ProxyType>::CType>> Launches;
+			umint nCores = NMib::NSys::fg_Thread_GetVirtualCores();
+			for (umint iLaunch = 0; iLaunch < nCores * 2; ++iLaunch)
+				Launches.f_Insert(f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone));
+
+			Launches.f_Clear();
+			while (Finished.f_Load() != nCores * 2)
+				Event.f_Wait();
+		};
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestSimpleURLLaunch()
+	{
+		DMibTestSuite(NMib::NTest::CTestCategory("SimpleURL") << NMib::NTest::CTestGroup("Manual"))
+		{
+			NMib::NThread::CMutual Lock;
+			TCAtomic<EExitResult> Exited = EExitResult_None;
+			TCAtomic<bool> bFailed = false;
+			TCAtomic<uint32> ExitCode = 33;
+			NMib::NStr::CStr FailedMessage;
+
+			NMib::NProcess::CProcessLaunchParams Params = NMib::NProcess::CProcessLaunchParams::fs_LaunchURL
+				(
+					""
+					, "http://localhost"
+					, [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						DMibLock(Lock);
+						switch (_State.f_GetTypeID())
+						{
+						case NMib::NProcess::EProcessLaunchState_Exited:
+							{
+								ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								Exited = EExitResult_Exited;
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							{
+								bFailed = true;
+								Exited = EExitResult_NotLaunched;
+								{
+									DMibLock(Lock);
+									FailedMessage = _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>();
+								}
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_Launched: break;
+						}
+					}
+				)
+			;
+
+			{
+				DMibTestPath("Success");
+
+				Params.m_Target = "http://www.malterlib.com";
+				Exited = EExitResult_None;
+				ExitCode = 66;
+
+				{
+					auto Launch = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+				}
+
+#ifdef DPlatformFamily_Linux
+				if (tf_ProxyType == EProxyType_ElevatedProxied)
+				{
+					DMibLock(Lock);
+					DMibTest(DMibExpr(bFailed.f_Load()));
+					DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
+				}
+				else
+#endif
+				{
+					DMibLock(Lock);
+					DMibTest(!DMibExpr(bFailed.f_Load()));
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
+					DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
+				}
+			}
+
+			{
+				DMibTestPath("Failed");
+
+				Params.m_Target = "failed://www.malterlib.com";
+				Exited = EExitResult_None;
+				ExitCode = 66;
+				{
+					DMibLock(Lock);
+					FailedMessage.f_Clear();
+				}
+
+				{
+					auto Launch = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+				}
+
+#ifdef DPlatformFamily_Linux
+				if (tf_ProxyType == EProxyType_ElevatedProxied)
+				{
+					DMibLock(Lock);
+					DMibTest(DMibExpr(bFailed.f_Load()));
+					DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
+				}
+				else
+#endif
+				{
+					DMibLock(Lock);
+					DMibTest(DMibExpr(bFailed.f_Load()));
+					DMibTest(DMibExpr(FailedMessage) != DMibExpr(""));
+				}
+			}
+
+			{
+				DMibTestPath("Linger");
+
+				Params.m_Target = "http://www.malterlib.com";
+				Exited = EExitResult_None;
+				ExitCode = 66;
+				{
+					DMibLock(Lock);
+					FailedMessage.f_Clear();
+				}
+
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+				}
+
+				while (Exited.f_Load() == EExitResult_None)
+					NMib::NSys::fg_Thread_SmallestSleep();
+
+#ifdef DPlatformFamily_Linux
+				if (tf_ProxyType == EProxyType_ElevatedProxied)
+				{
+					DMibLock(Lock);
+					DMibTest(DMibExpr(bFailed.f_Load()));
+					DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
+					DMibExpect(FailedMessage.f_Trim(), ==, "Launching a document or URL elevated is not supported on Linux.");
+				}
+				else
+#endif
+				{
+					DMibLock(Lock);
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
+					DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
+				}
+			}
+
+			{
+				DMibTestPath("Dispatcher");
+
+				NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
+
+				Params.m_Target = "http://www.malterlib.com";
+				Exited = EExitResult_None;
+				ExitCode = 66;
+				{
+					DMibLock(Lock);
+					FailedMessage.f_Clear();
+				}
+				Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
+					{
+						DispatchQueue.f_Push(_fToDispatch);
+					}
+				;
+
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+				}
+				while (Exited.f_Load() == EExitResult_None)
+				{
+					NMib::NSys::fg_Thread_SmallestSleep();
+					while (auto QueueEntry = DispatchQueue.f_Pop())
+						(*QueueEntry)();
+				}
+
+#ifdef DPlatformFamily_Linux
+				if (tf_ProxyType == EProxyType_ElevatedProxied)
+				{
+					DMibLock(Lock);
+					DMibTest(DMibExpr(bFailed.f_Load()));
+					DMibTest(DMibExpr(FailedMessage) == DMibExpr("Launching a document or URL elevated is not supported on Linux."));
+				}
+				else
+#endif
+				{
+					DMibLock(Lock);
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(0));
+					DMibTest(DMibExpr(FailedMessage) == DMibExpr(""));
+				}
+			}
+		};
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestProxyFailure(bool _bThreaded, bool _bForceFork)
+	{
+		DMibTestSuite((_bThreaded ? "Proxy failure" : "Proxy failure non threaded"))
+		{
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			{
+			}
+			else
+			{
+				NMib::NThread::CMutual Lock;
+				TCAtomic<EExitResult> Exited = EExitResult_None;
+				TCAtomic<uint32> ExitCode = 66;
+				NMib::NStr::CStr StdOut;
+				NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams();
+				Params.m_bThreaded = _bThreaded;
+				Params.m_bForceFork = _bForceFork;
+				Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						DMibLock(Lock);
+						switch (_State.f_GetTypeID())
+						{
+						case NMib::NProcess::EProcessLaunchState_Exited:
+							{
+								ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								Exited = EExitResult_Exited;
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							{
+								Exited = EExitResult_NotLaunched;
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_Launched: break;
+						}
+					}
+				;
+
+				Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+					{
+						DMibLock(Lock);
+						if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+							StdOut += _Output;
+						else
+							DMibConErrOut("Unexpected output: {}\r\n", _Output);
+					}
+				;
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+					if (!_bThreaded)
+						pLauncher->f_Start();
+				}
+
+				{
+					DMibTestPath("Block on exit");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
+				}
+
+				Exited = EExitResult_None;
+				ExitCode = 66;
+				{
+					DMibLock(Lock);
+					StdOut.f_Clear();
+				}
+
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					if (!_bThreaded)
+						pLauncher->f_Start();
+				}
+
+				while (Exited.f_Load() == EExitResult_None)
+					NMib::NSys::fg_Thread_SmallestSleep();
+				{
+					DMibTestPath("Wait for exit");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
+				}
+
+				Exited = EExitResult_None;
+				ExitCode = 66;
+				{
+					DMibLock(Lock);
+					StdOut.f_Clear();
+				}
+
+				NMib::NContainer::TCThreadSafeQueue<NMib::NFunction::TCFunction<void ()>> DispatchQueue;
+
+				Params.m_fDispatcher = [&](NMib::NFunction::TCFunction<void ()> const &_fToDispatch)
+					{
+						DispatchQueue.f_Push(_fToDispatch);
+					}
+				;
+
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>(Params, NMib::NProcess::EProcessLaunchCloseFlag_LingerUntilDone);
+					if (!_bThreaded)
+						pLauncher->f_Start();
+				}
+
+				while (Exited.f_Load() == EExitResult_None)
+				{
+					NMib::NSys::fg_Thread_SmallestSleep();
+					while (auto QueueEntry = DispatchQueue.f_Pop())
+						(*QueueEntry)();
+				}
+				{
+					DMibTestPath("Wait for exit with dispatch");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_NotLaunched));
+				}
+			}
+		};
+	}
+
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_TestKillSandbox()
+	{
+		if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+		{
+			DMibTestCategory("KillSandbox")
+			{
+				for (umint iSuite = 0; iSuite < 10; ++iSuite)
+				{
+					NMib::NStr::CStr Suite = NMib::NStr::CStr::fs_ToStr(iSuite);
+					DMibTestSuite(Suite)
+					{
+						NMib::NStr::CStr FileToOpen = NMib::fg_GetSys()->f_GetEnvironmentVariable("LockFileDir");
+						NMib::NFile::CFile::fs_CreateDirectory(FileToOpen);
+						auto FileDir = FileToOpen;
+						FileToOpen += NMib::NStr::CStr::CFormat("/{}.FileOpen") << iSuite;
+
+						NMib::NFile::CFile File;
+						File.f_Open(FileToOpen, NMib::NFile::EFileOpen_Write);
+						File.f_SetAttributes
 							(
-								Params
-								, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit | NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess
+								File.f_GetAttributes()
+								| NMib::NFile::CFile::fs_GetValidAttributes()
+								| NMib::NFile::EFileAttrib_EveryoneWrite
+								| NMib::NFile::EFileAttrib_GroupWrite
+								| NMib::NFile::EFileAttrib_UserWrite
 							)
 						;
 
-						// Wait until all child processes are launched
-						NMib::NTime::CStopwatch Stopwatch;
-						Stopwatch.f_Start();
-						bool bTimedOutCreated = true;
-						while (bTimedOutCreated && Stopwatch.f_GetTime() < 100.0)
-						{
-							bTimedOutCreated = false;
-							for (int iFile = 0; iFile < 10; ++iFile)
-							{
-								NMib::NStr::CStr FileToOpen = TempDirectory + NMib::NStr::CStr(NMib::NStr::CStr::CFormat("/{}.FileOpen") << iFile);
+#ifndef DPlatformFamily_Windows
+						NMib::NStr::CStr User = NMib::fg_GetSys()->f_GetEnvironmentVariable("MalterlibOriginalUser");
+						NMib::NStr::CStr Group = NMib::fg_GetSys()->f_GetEnvironmentVariable("MalterlibOriginalGroup");
 
-								if (!NMib::NFile::CFile::fs_FileExists(FileToOpen))
+						NMib::NFile::CFile::fs_SetOwner(FileToOpen, User);
+						NMib::NFile::CFile::fs_SetGroup(FileToOpen, Group);
+						NMib::NFile::CFile::fs_SetOwner(FileDir, User);
+						NMib::NFile::CFile::fs_SetGroup(FileDir, Group);
+#endif
+
+						if (iSuite == 0)
+						{
+							while (true)
+								NMib::NSys::fg_Thread_Sleep(1.0);
+						}
+						NMib::NStr::CStr NextPath = fs_GetTestPath(NMib::NFile::CFile::fs_GetPath(fg_TestGetCurrentPath()), NMib::NStr::CStr::fs_ToStr(iSuite - 1), "Null");
+						NMib::NStr::CStr StdOut;
+						NMib::NStr::CStr StdErr;
+						uint32 ExitCode;
+						NMib::NProcess::CProcessLaunch::fs_LaunchBlock(NMib::NFile::CFile::fs_GetProgramPath(), NextPath, StdOut, StdErr, ExitCode);
+
+						if (!StdErr.f_IsEmpty())
+							DMibConErrOutRaw(StdErr);
+					};
+				}
+			};
+		}
+		else
+		{
+			DMibTestCategoryFlags("KillSandbox", ETestCategoryFlag_DisableExceptionFilter | ETestCategoryFlag_Tests)
+			{
+				NMib::NThread::CMutual Lock;
+				TCAtomic<EExitResult> Exited = EExitResult_None;
+				TCAtomic<uint32> ExitCode = 66;
+				NMib::NStr::CStr StdOut;
+
+				NMib::NProcess::CProcessLaunchParams Params = f_GetLaunchParams(fg_TestGetCurrentPath() + "/9", "", "Null");
+
+				Params.m_bSandboxed = true;
+
+				NMib::NStr::CStr TempDirectory = NMib::NFile::CFile::fs_GetTemporaryDirectory() + "/MalterlibProcessKill/" + NMib::NCryptography::fg_GetRandomUuidString();
+				NMib::NFile::CFile::fs_CreateDirectory(TempDirectory);
+				Params.m_Environment["LockFileDir"] = TempDirectory;
+				Params.m_Environment["MalterlibOriginalUser"] = NMib::NSys::fg_UserManagement_GetProcessRealUserName();
+				Params.m_Environment["MalterlibOriginalGroup"] = NMib::NSys::fg_UserManagement_GetProcessRealGroupName();
+
+				Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						DMibLock(Lock);
+						switch (_State.f_GetTypeID())
+						{
+						case NMib::NProcess::EProcessLaunchState_Exited:
+							{
+								ExitCode = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								Exited = EExitResult_Exited;
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+							{
+								Exited = EExitResult_NotLaunched;
+								DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+							}
+							break;
+						case NMib::NProcess::EProcessLaunchState_Launched: break;
+						}
+					}
+				;
+
+				NMib::NStr::CStr StdErr;
+
+				Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+					{
+						DMibLock(Lock);
+						if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+							StdOut += _Output;
+						else
+							StdErr += _Output;
+					}
+				;
+
+				{
+					auto pLauncher = f_CreateLaunch<tf_ProxyType != EProxyType_None>
+						(
+							Params
+							, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit | NMib::NProcess::EProcessLaunchCloseFlag_TerminateProcess
+						)
+					;
+
+					// Wait until all child processes are launched
+					NMib::NTime::CStopwatch Stopwatch;
+					Stopwatch.f_Start();
+					bool bTimedOutCreated = true;
+					while (bTimedOutCreated && Stopwatch.f_GetTime() < 100.0)
+					{
+						bTimedOutCreated = false;
+						for (int iFile = 0; iFile < 10; ++iFile)
+						{
+							NMib::NStr::CStr FileToOpen = TempDirectory + NMib::NStr::CStr(NMib::NStr::CStr::CFormat("/{}.FileOpen") << iFile);
+
+							if (!NMib::NFile::CFile::fs_FileExists(FileToOpen))
+							{
+								bTimedOutCreated = true;
+								break;
+							}
+						}
+					}
+
+					DMibTest(!DMibExpr(bTimedOutCreated));
+				}
+
+				// Terminate, and wait for child processes to terminate
+
+				// Wait until all child processes are launched
+				{
+					NMib::NTime::CStopwatch Stopwatch;
+					Stopwatch.f_Start();
+					bool bTimedOutTerminate = true;
+					while (bTimedOutTerminate && Stopwatch.f_GetTime() < 100.0)
+					{
+						bTimedOutTerminate = false;
+						for (int iFile = 0; iFile < 10; ++iFile)
+						{
+							NMib::NStr::CStr FileToOpen = TempDirectory + NMib::NStr::CStr(NMib::NStr::CStr::CFormat("/{}.FileOpen") << iFile);
+
+							if (NMib::NFile::CFile::fs_FileExists(FileToOpen))
+							{
+								try
 								{
-									bTimedOutCreated = true;
+									{
+										NMib::NFile::CFile File;
+										File.f_Open(FileToOpen, NMib::NFile::EFileOpen_Write);
+									}
+									NMib::NFile::CFile::fs_DeleteFile(FileToOpen);
+								}
+								catch (NMib::NFile::CExceptionFile const &)
+								{
+									bTimedOutTerminate = true;
 									break;
 								}
 							}
 						}
-
-						DMibTest(!DMibExpr(bTimedOutCreated));
 					}
-
-					// Terminate, and wait for child processes to terminate
-
-					// Wait until all child processes are launched
+					try
 					{
-						NMib::NTime::CStopwatch Stopwatch;
-						Stopwatch.f_Start();
-						bool bTimedOutTerminate = true;
-						while (bTimedOutTerminate && Stopwatch.f_GetTime() < 100.0)
-						{
-							bTimedOutTerminate = false;
-							for (int iFile = 0; iFile < 10; ++iFile)
-							{
-								NMib::NStr::CStr FileToOpen = TempDirectory + NMib::NStr::CStr(NMib::NStr::CStr::CFormat("/{}.FileOpen") << iFile);
-
-								if (NMib::NFile::CFile::fs_FileExists(FileToOpen))
-								{
-									try
-									{
-										{
-											NMib::NFile::CFile File;
-											File.f_Open(FileToOpen, NMib::NFile::EFileOpen_Write);
-										}
-										NMib::NFile::CFile::fs_DeleteFile(FileToOpen);
-									}
-									catch (NMib::NFile::CExceptionFile const &)
-									{
-										bTimedOutTerminate = true;
-										break;
-									}
-								}
-							}
-						}
-						try
-						{
-							NMib::NFile::CFile::fs_DeleteDirectory(TempDirectory);
-						}
-						catch (NMib::NFile::CExceptionFile const &)
-						{
-						}
-
-						DMibTest(!DMibExpr(bTimedOutTerminate));
+						NMib::NFile::CFile::fs_DeleteDirectory(TempDirectory);
 					}
-
+					catch (NMib::NFile::CExceptionFile const &)
 					{
-						DMibLock(Lock);
-						DMibTestPath("Block on exit");
-						DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
-						DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(255));
-#if defined(DPlatformFamily_macOS)
-						DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 9") || DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 19"));
-#elif !defined(DPlatformFamily_Windows)
-						DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 9"));
-#endif
 					}
-				};
-			}
-		}
 
-		template <EProxyType tf_ProxyType>
-		void f_DoAllTests(bool _bForceFork)
-		{
-			f_EnableClientFailure(false);
-
-			NMib::NStr::CStr Desc = "Normal";
-			if (tf_ProxyType == EProxyType_Proxied)
-				Desc = "Proxied";
-			else if (tf_ProxyType == EProxyType_ElevatedProxied)
-				Desc = "Proxied Elevated";
-
-			if (_bForceFork)
-				Desc += " Fork";
-
-			NMib::NTest::CTestCategory TestCategory(Desc);
-
-			if (tf_ProxyType == EProxyType_ElevatedProxied)
-				TestCategory << NMib::NTest::CTestGroup("Manual");
-
-			DMibTestCategory(TestCategory)
-			{
-				f_TestExecutable<tf_ProxyType>(true, _bForceFork);
-				f_TestExecutable<tf_ProxyType>(false, _bForceFork);
-#ifdef DPlatformFamily_Windows
-				f_TestDocument<tf_ProxyType>();
-#endif
-				f_TestElevation<tf_ProxyType>();
-				if (tf_ProxyType == EProxyType_None)
-					f_TestElevationStdIn();
-
-				f_TestDeElevation<tf_ProxyType>();
-				f_TestPerformance<tf_ProxyType>(true, _bForceFork);
-				f_TestPerformance<tf_ProxyType>(false, _bForceFork);
-#ifdef DPlatformFamily_Windows
-				f_TestSandbox<tf_ProxyType>();
-#endif
-				f_TestKillSandbox<tf_ProxyType>();
-				f_TestExecutableFromDll<tf_ProxyType>();
-#ifndef DPlatformFamily_Linux // Not supported on linux for now
-#	ifdef DPlatformFamily_macOS
-				if (NMib::NProcess::NPlatform::fg_Process_GetElevation() >= NMib::NProcess::EProcessElevation_IsElevated) // Process pause is unreliable unless root is used for now
-#	endif
-					f_TestLimits<tf_ProxyType>();
-#endif
-				f_TestStdOut<tf_ProxyType>();
-				f_TestBinaryOutput<tf_ProxyType>();
-				f_TestSimpleURLLaunch<tf_ProxyType>();
-
-				if (tf_ProxyType != EProxyType_None)
-				{
-					f_EnableClientFailure(true);
-					f_TestProxyFailure<tf_ProxyType>(true, _bForceFork);
-					f_TestProxyFailure<tf_ProxyType>(false, _bForceFork);
+					DMibTest(!DMibExpr(bTimedOutTerminate));
 				}
-				//f_TestWebLaunch();
+
+				{
+					DMibLock(Lock);
+					DMibTestPath("Block on exit");
+					DMibTest(DMibExpr(Exited.f_Load()) == DMibExpr(EExitResult_Exited));
+					DMibTest(DMibExpr(ExitCode.f_Load()) == DMibExpr(255));
+#if defined(DPlatformFamily_macOS)
+					DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 9") || DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 19"));
+#elif !defined(DPlatformFamily_Windows)
+					DMibTest(DMibExpr(StdErr.f_Trim()) == DMibExpr("Process terminated due to signal 9"));
+#endif
+				}
 			};
 		}
+	}
 
-		void f_DoTests()
+	template <EProxyType tf_ProxyType>
+	void CProcessLaunch_Tests::f_DoAllTests(bool _bForceFork)
+	{
+		f_EnableClientFailure(false);
+
+		NMib::NStr::CStr Desc = "Normal";
+		if (tf_ProxyType == EProxyType_Proxied)
+			Desc = "Proxied";
+		else if (tf_ProxyType == EProxyType_ElevatedProxied)
+			Desc = "Proxied Elevated";
+
+		if (_bForceFork)
+			Desc += " Fork";
+
+		NMib::NTest::CTestCategory TestCategory(Desc);
+
+		if (tf_ProxyType == EProxyType_ElevatedProxied)
+			TestCategory << NMib::NTest::CTestGroup("Manual");
+
+		DMibTestCategory(TestCategory)
 		{
-			f_DoProxyServer();
+			f_TestExecutable<tf_ProxyType>(true, _bForceFork);
+			f_TestExecutable<tf_ProxyType>(false, _bForceFork);
+#ifdef DPlatformFamily_Windows
+			f_TestDocument<tf_ProxyType>();
+#endif
+			f_TestElevation<tf_ProxyType>();
+			if (tf_ProxyType == EProxyType_None)
+				f_TestElevationStdIn();
 
-			for (auto iTest = 0; iTest < 2; ++iTest)
+			f_TestDeElevation<tf_ProxyType>();
+			f_TestPerformance<tf_ProxyType>(true, _bForceFork);
+			f_TestPerformance<tf_ProxyType>(false, _bForceFork);
+#ifdef DPlatformFamily_Windows
+			f_TestSandbox<tf_ProxyType>();
+#endif
+			f_TestKillSandbox<tf_ProxyType>();
+			f_TestExecutableFromDll<tf_ProxyType>();
+#ifndef DPlatformFamily_Linux // Not supported on linux for now
+#	ifdef DPlatformFamily_macOS
+			if (NMib::NProcess::NPlatform::fg_Process_GetElevation() >= NMib::NProcess::EProcessElevation_IsElevated) // Process pause is unreliable unless root is used for now
+#	endif
+				f_TestLimits<tf_ProxyType>();
+#endif
+			f_TestStdOut<tf_ProxyType>();
+			f_TestBinaryOutput<tf_ProxyType>();
+			f_TestSimpleURLLaunch<tf_ProxyType>();
+
+			if (tf_ProxyType != EProxyType_None)
 			{
-				NMib::NStr::CStr Path = "ExitCode0";
-				if (iTest == 1)
-				{
-					Path = "ExitCode33";
-					m_ExitCode = 33;
-				}
-				DMibTestCategory(Path)
-				{
-					m_bProxyElevation = false;
-					f_DoAllTests<EProxyType_None>(false);
-					f_DoAllTests<EProxyType_Proxied>(false);
-					m_bProxyElevation = true;
-					f_DoAllTests<EProxyType_ElevatedProxied>(false);
+				f_EnableClientFailure(true);
+				f_TestProxyFailure<tf_ProxyType>(true, _bForceFork);
+				f_TestProxyFailure<tf_ProxyType>(false, _bForceFork);
+			}
+			//f_TestWebLaunch();
+		};
+	}
+
+	void CProcessLaunch_Tests::f_DoTests()
+	{
+		f_DoProxyServer();
+
+		for (auto iTest = 0; iTest < 2; ++iTest)
+		{
+			NMib::NStr::CStr Path = "ExitCode0";
+			if (iTest == 1)
+			{
+				Path = "ExitCode33";
+				m_ExitCode = 33;
+			}
+			DMibTestCategory(Path)
+			{
+				m_bProxyElevation = false;
+				f_DoAllTests<EProxyType_None>(false);
+				f_DoAllTests<EProxyType_Proxied>(false);
+				m_bProxyElevation = true;
+				f_DoAllTests<EProxyType_ElevatedProxied>(false);
 
 #ifndef DPlatformFamily_Windows
-					m_bProxyElevation = false;
-					f_DoAllTests<EProxyType_None>(true);
-					f_DoAllTests<EProxyType_Proxied>(true);
-					m_bProxyElevation = true;
-					f_DoAllTests<EProxyType_ElevatedProxied>(true);
+				m_bProxyElevation = false;
+				f_DoAllTests<EProxyType_None>(true);
+				f_DoAllTests<EProxyType_Proxied>(true);
+				m_bProxyElevation = true;
+				f_DoAllTests<EProxyType_ElevatedProxied>(true);
 #endif
-				};
-			}
+			};
 		}
-	};
+	}
+
+	NMib::NStr::CStr CProcessLaunch_Tests::fp_GetLongOutput()
+	{
+		NMib::NStr::CStr Ret;
+
+		NMib::NMisc::CRandomShiftRNG Random;
+		for (auto iValue = 0; iValue < 1024 * 1024; ++iValue)
+		{
+			if (iValue % 1024 == 0 && iValue != 0)
+				Ret += "\n";
+			Ret += NMib::NStr::CStr::CFormat("{nfh,sj1,sf0}") << Random.f_GetValue<uint32>();
+		}
+
+		return Ret;
+	}
 
 	DMibTestRegister(CProcessLaunch_Tests, Malterlib::Process);
 }

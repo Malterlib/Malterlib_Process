@@ -202,20 +202,24 @@ namespace NMib::NProcess::NPlatform
 
 	struct CSubSystem_Process_Platform_POSIX_Launch : public CSubSystem
 	{
+		~CSubSystem_Process_Platform_POSIX_Launch();
+
+		void f_DestroyThreadSpecific() override;
+
 		NThread::CMutual m_LaunchesLock;
 		DMibListLinkDS_List(CProcessLaunchLink, m_Link) m_Launches;
-
-		~CSubSystem_Process_Platform_POSIX_Launch()
-		{
-			DMibLock(m_LaunchesLock);
-			DMibFastCheck(m_Launches.f_IsEmpty()); // Process launches are still active
-		}
-
-		void f_DestroyThreadSpecific() override
-		{
-			fg_ProcessLaunch_CancelAll();
-		}
 	};
+
+	CSubSystem_Process_Platform_POSIX_Launch::~CSubSystem_Process_Platform_POSIX_Launch()
+	{
+		DMibLock(m_LaunchesLock);
+		DMibFastCheck(m_Launches.f_IsEmpty()); // Process launches are still active
+	}
+
+	void CSubSystem_Process_Platform_POSIX_Launch::f_DestroyThreadSpecific()
+	{
+		fg_ProcessLaunch_CancelAll();
+	}
 
 	constinit TCSubSystem<CSubSystem_Process_Platform_POSIX_Launch, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_POSIX_Launch = {DAggregateInit};
 

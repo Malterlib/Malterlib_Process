@@ -79,6 +79,15 @@ namespace
 
 	struct CProcessEntry
 	{
+		~CProcessEntry();
+
+		pid_t f_GetID() const;
+
+		void f_MapProcess(pid_t _ID);
+		void f_MapProcessParent(pid_t _ID, pid_t _ParentID);
+		void f_KillTree(NMib::NStr::CStr &_Log, aint _Depth = 0);
+		bool f_PauseTree();
+
 		DMibListLinkDS_Link(CProcessEntry, m_Link);
 		DMibListLinkDS_List(CProcessEntry, m_Link) m_Children;
 
@@ -86,23 +95,17 @@ namespace
 
 		void *m_pPausedToken = nullptr;
 		bool m_bTriedPause = false;
-
-		pid_t f_GetID() const
-		{
-			return NMib::NContainer::TCMap<pid_t, CProcessEntry>::fs_GetKey(this);
-		}
-
-		void f_MapProcess(pid_t _ID);
-		void f_MapProcessParent(pid_t _ID, pid_t _ParentID);
-		void f_KillTree(NMib::NStr::CStr &_Log, aint _Depth = 0);
-		bool f_PauseTree();
-		~CProcessEntry();
 	};
 
 	CProcessEntry::~CProcessEntry()
 	{
 		if (m_pPausedToken)
 			NMib::NProcess::NPlatform::fg_Process_Resume(f_GetID(), m_pPausedToken);
+	}
+
+	pid_t CProcessEntry::f_GetID() const
+	{
+		return NMib::NContainer::TCMap<pid_t, CProcessEntry>::fs_GetKey(this);
 	}
 
 	void CProcessEntry::f_MapProcess(pid_t _ID)

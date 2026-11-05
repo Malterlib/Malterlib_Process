@@ -23,310 +23,317 @@ namespace
 
 	struct CStdIn_Tests : public CTest
 	{
-		CStdIn_Tests()
-		{
-		}
+		CStdIn_Tests();
 
-		static NMib::NStr::CStr fs_GetTestPath(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test)
-		{
-			if (_Test.f_IsEmpty())
-				return NMib::NProcess::CProcessLaunchParams::fs_GetParams({"--test", _TestPath, "--logger", "Null", "--filter-results", "[\"All\"]", "--process-recursive"});
-			else
-				return NMib::NProcess::CProcessLaunchParams::fs_GetParams({"--test", _TestPath / _Test, "--logger", "Null", "--filter-results", "[\"All\"]", "--process-recursive"});
-		}
+		static NMib::NStr::CStr fs_GetTestPath(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test);
+		static NMib::NProcess::CProcessLaunchParams fs_GetLaunchParams(NMib::NStr::CStr const &_Test = "JustExit", NMib::NStr::CStr const &_TestPath = fg_TestGetCurrentPath());
+		void f_TestStdIn();
+		void f_DoTests();
+	};
 
-		static NMib::NProcess::CProcessLaunchParams fs_GetLaunchParams(NMib::NStr::CStr const &_Test = "JustExit", NMib::NStr::CStr const &_TestPath = fg_TestGetCurrentPath())
-		{
-			NMib::NProcess::CProcessLaunchParams Params;
-			Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
-			Params.m_Parameters = fs_GetTestPath(_TestPath, _Test);
-			return Params;
-		}
+	CStdIn_Tests::CStdIn_Tests()
+	{
+	}
 
-		void f_TestStdIn()
+	NMib::NStr::CStr CStdIn_Tests::fs_GetTestPath(NMib::NStr::CStr const &_TestPath, NMib::NStr::CStr const &_Test)
+	{
+		if (_Test.f_IsEmpty())
+			return NMib::NProcess::CProcessLaunchParams::fs_GetParams({"--test", _TestPath, "--logger", "Null", "--filter-results", "[\"All\"]", "--process-recursive"});
+		else
+			return NMib::NProcess::CProcessLaunchParams::fs_GetParams({"--test", _TestPath / _Test, "--logger", "Null", "--filter-results", "[\"All\"]", "--process-recursive"});
+	}
+
+	NMib::NProcess::CProcessLaunchParams CStdIn_Tests::fs_GetLaunchParams(NMib::NStr::CStr const &_Test, NMib::NStr::CStr const &_TestPath)
+	{
+		NMib::NProcess::CProcessLaunchParams Params;
+		Params.m_Target = NMib::NFile::CFile::fs_GetProgramPath();
+		Params.m_Parameters = fs_GetTestPath(_TestPath, _Test);
+		return Params;
+	}
+
+	void CStdIn_Tests::f_TestStdIn()
+	{
+		DMibTestCategory("General")
 		{
-			DMibTestCategory("General")
+			using namespace NMib::NProcess;
+			DMibTestSuite("Lifetime")
 			{
-				using namespace NMib::NProcess;
-				DMibTestSuite("Lifetime")
-				{
-					NMib::NThread::CMutual InputLock;
-					NMib::NStr::CStr Input;
-					auto fCreateParams = [&](bool _bExclusive = false)
-						{
-							auto Params = CStdInReaderParams::fs_Create
-								(
-									[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
-									{
-										DMibLock(InputLock);
-										Input += _Input;
-									}
-								)
-							;
-							if (_bExclusive)
-								Params.m_Flags |= EStdInReaderFlag_Exclusive;
-							return NMib::fg_Move(Params);
-						}
-					;
-
-					CStdInReaderParams ExclusiveParams = fCreateParams();
-					ExclusiveParams.m_Flags |= EStdInReaderFlag_Exclusive;
-
+				NMib::NThread::CMutual InputLock;
+				NMib::NStr::CStr Input;
+				auto fCreateParams = [&](bool _bExclusive = false)
 					{
-						CStdInReader Reader0(fCreateParams());
-						CStdInReader Reader1(fCreateParams());
-					}
-					auto fCreateNormal = [&]
-						{
-							CStdInReader Reader1(fCreateParams());
-						}
-					;
-					auto fCreateExclusive = [&]
-						{
-							CStdInReader Reader1(fCreateParams(true));
-						}
-					;
-					{
-						DMibTestPath("Shared");
-						CStdInReader Reader0(fCreateParams());
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
-						DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fCreateNormal()));
-					}
-					{
-						DMibTestPath("Exclusive");
-						CStdInReader Reader0(fCreateParams(true));
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateNormal()));
-					}
-
-					DMibTestCategory("Actor")
-					{
-						using namespace NMib;
-						using namespace NMib::NConcurrency;
-
-						for (bool bBinary : {false, true})
-						{
-							DMibTestPath(bBinary ? "Binary" : "Text");
-							EExecutionPriority Priorities[EPriority_Max] = {EExecutionPriority_Normal, EExecutionPriority_Normal, EExecutionPriority_Normal};
-							CConcurrencyManager Manager(Priorities);
-							auto Actor = Manager.f_ConstructActor(fg_Construct<CStdInActor>());
-							DMibExpect(Actor->f_GetPriority(), ==, EPriority_NormalHighCPU);
-
-							CActorSubscription Subscription;
-							if (bBinary)
-							{
-								auto fOnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / []
-									(EStdInReaderOutputType _Type, NContainer::CIOByteVector _Input, NStr::CStr _Error) -> TCFuture<void>
-									{
-										co_return {};
-									}
-								;
-								Subscription = Actor(&CStdInActor::f_RegisterForInputBinary, fg_Move(fOnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
-							}
-							else
-							{
-								auto fOnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType _Type, NStr::CStrIO _Input) -> TCFuture<void>
-									{
-										co_return {};
-									}
-								;
-								Subscription = Actor(&CStdInActor::f_RegisterForInput, fg_Move(fOnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
-							}
-
-							if (Manager.f_GetQueueIoLoop(EPriority_NormalHighCPU, 0))
-							{
-								TCPromise<bool> OwnLoopActive;
-								Manager.f_DispatchToQueue
-									(
-										EPriority_NormalHighCPU
-										, 0
-										, [OwnLoopActive, pManager = &Manager](CConcurrencyThreadLocal &_ThreadLocal)
-										{
-											OwnLoopActive.f_SetResult(pManager->f_GetThreadIoLoop() == pManager->f_GetQueueIoLoop(EPriority_NormalHighCPU, 0));
-										}
-									)
-								;
-								DMibExpectTrue(OwnLoopActive.f_Future().f_CallSync());
-							}
-
-							Subscription->f_Destroy().f_CallSync();
-							fg_Move(Actor).f_Destroy().f_CallSync();
-							Manager.f_BlockOnDestroy();
-						}
-					};
-				};
-				DMibTestSuite("ReadInput")
-				{
-					NMib::NThread::CMutual InputLock;
-					NMib::NStr::CStr Input;
-					auto fCreateParams = [&](bool _bExclusive = false)
-						{
-							auto Params = CStdInReaderParams::fs_Create
-								(
-									[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
-									{
-										DMibLock(InputLock);
-										Input += _Input;
-									}
-								)
-							;
-							if (_bExclusive)
-								Params.m_Flags |= EStdInReaderFlag_Exclusive;
-							return NMib::fg_Move(Params);
-						}
-					;
-
-					{
-						CStdInReader Reader0(fCreateParams());
-						CStdInReader Reader1(fCreateParams());
-					}
-					auto fCreateNormal = [&]
-						{
-							CStdInReader Reader1(fCreateParams());
-						}
-					;
-					auto fCreateExclusive = [&]
-						{
-							CStdInReader Reader1(fCreateParams(true));
-						}
-					;
-					{
-						DMibTestPath("Shared");
-						CStdInReader Reader0(fCreateParams());
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
-						DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fCreateNormal()));
-					}
-					{
-						DMibTestPath("Exclusive");
-						CStdInReader Reader0(fCreateParams(true));
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
-						DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateNormal()));
-					}
-				};
-
-				if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
-				{
-					DMibTestCategory("Process redirection")
-					{
-						DMibTestSuite("Level2")
-						{
-							NMib::NThread::CEvent Event;
-							NMib::NThread::CMutual InputLock;
-							NMib::NStr::CStr Input0;
-							CStdInReaderParams Params0 = CStdInReaderParams::fs_Create
-								(
-									[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
-									{
-										DMibLock(InputLock);
-										Input0 += _Input;
-
-										if (Input0.f_Find("\r") >= 0 || Input0.f_Find("\n") >= 0)
-										{
-											Input0 = Input0.f_Trim();
-											Event.f_SetSignaled();
-										}
-									}
-								)
-							;
-
-							CStdInReader Reader0(NMib::fg_Move(Params0));
-
-							if (Event.f_WaitTimeout(10.0))
-								DMibConOut("Timed out waiting for std input. Current input: {}", Input0);
-							else
-								DMibConOutRaw(Input0);
-						};
-					};
-				}
-				else
-				{
-					DMibTestSuite("Process redirection")
-					{
-						//--test "Malterlib/StdIn/*/Process redirection/Level2" --logger Null --filter-results ["All"] --process-recursive
-						//--test Malterlib/StdIn* --filter-results ["All"]
-						EExitResult Exited = EExitResult_None;
-						uint32 ExitCode = 66;
-						NMib::NThread::CMutual Lock;
-						NMib::NStr::CStr StdOut;
-						NMib::NProcess::CProcessLaunchParams Params = fs_GetLaunchParams("Level2");
-						NMib::NProcess::CProcessLaunch *pLauncher = nullptr;
-
-						NMib::NStr::CStr RandomString = NMib::NCryptography::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
-
-						NMib::NStorage::TCUniquePointer<NMib::NThread::CThreadObject> pThreadObject;
-
-						Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-							{
-								switch (_State.f_GetTypeID())
+						auto Params = CStdInReaderParams::fs_Create
+							(
+								[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
 								{
-								case NMib::NProcess::EProcessLaunchState_Exited:
-									{
-										NMib::fg_Volatile(Exited) = EExitResult_Exited;
-										NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
-									}
-									break;
-								case NMib::NProcess::EProcessLaunchState_LaunchFailed:
-									{
-										NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
-										DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
-									}
-									break;
-								case NMib::NProcess::EProcessLaunchState_Launched:
-									{
-										pThreadObject = NMib::NThread::CThreadObject::fs_StartThread
-											(
-												[&](NMib::NThread::CThreadObject *_pThread) -> aint
-												{
-													NMib::NSys::fg_Thread_Sleep(0.5);
-													{
-														DMibLock(Lock);
-														pLauncher->f_SendStdIn(RandomString);
-														pLauncher->f_SendStdIn("\n");
-													}
-
-													return 0;
-												}
-												, "TestThread"
-											)
-										;
-									}
-									break;
+									DMibLock(InputLock);
+									Input += _Input;
 								}
-							}
+							)
 						;
+						if (_bExclusive)
+							Params.m_Flags |= EStdInReaderFlag_Exclusive;
+						return NMib::fg_Move(Params);
+					}
+				;
 
-						Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-							{
-								if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
-									StdOut += _Output;
-								else
-									DMibConErrOut("Unexpected output: {}\r\n", _Output);
-							}
-						;
+				CStdInReaderParams ExclusiveParams = fCreateParams();
+				ExclusiveParams.m_Flags |= EStdInReaderFlag_Exclusive;
 
+				{
+					CStdInReader Reader0(fCreateParams());
+					CStdInReader Reader1(fCreateParams());
+				}
+				auto fCreateNormal = [&]
+					{
+						CStdInReader Reader1(fCreateParams());
+					}
+				;
+				auto fCreateExclusive = [&]
+					{
+						CStdInReader Reader1(fCreateParams(true));
+					}
+				;
+				{
+					DMibTestPath("Shared");
+					CStdInReader Reader0(fCreateParams());
+					DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
+					DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fCreateNormal()));
+				}
+				{
+					DMibTestPath("Exclusive");
+					CStdInReader Reader0(fCreateParams(true));
+					DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
+					DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateNormal()));
+				}
+
+				DMibTestCategory("Actor")
+				{
+					using namespace NMib;
+					using namespace NMib::NConcurrency;
+
+					for (bool bBinary : {false, true})
+					{
+						DMibTestPath(bBinary ? "Binary" : "Text");
+						EExecutionPriority Priorities[EPriority_Max] = {EExecutionPriority_Normal, EExecutionPriority_Normal, EExecutionPriority_Normal};
+						CConcurrencyManager Manager(Priorities);
+						auto Actor = Manager.f_ConstructActor(fg_Construct<CStdInActor>());
+						DMibExpect(Actor->f_GetPriority(), ==, EPriority_NormalHighCPU);
+
+						CActorSubscription Subscription;
+						if (bBinary)
 						{
-							Lock.f_Lock();
-							NMib::NProcess::CProcessLaunch Launcher(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
-							pLauncher = &Launcher;
-							Lock.f_Unlock();
+							auto fOnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / []
+								(EStdInReaderOutputType _Type, NContainer::CIOByteVector _Input, NStr::CStr _Error) -> TCFuture<void>
+								{
+									co_return {};
+								}
+							;
+							Subscription = Actor(&CStdInActor::f_RegisterForInputBinary, fg_Move(fOnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
+						}
+						else
+						{
+							auto fOnInput = g_ActorFunctor(Manager.f_GetDirectCallActor()) / [](EStdInReaderOutputType _Type, NStr::CStrIO _Input) -> TCFuture<void>
+								{
+									co_return {};
+								}
+							;
+							Subscription = Actor(&CStdInActor::f_RegisterForInput, fg_Move(fOnInput), EStdInReaderFlag_None, umint(1024)).f_CallSync();
 						}
 
+						if (Manager.f_GetQueueIoLoop(EPriority_NormalHighCPU, 0))
 						{
-							DMibTestPath("Block on exit");
-							DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
-							DMibTest(DMibExpr(StdOut) == DMibExpr(RandomString));
-							DMibTest(DMibExpr(ExitCode) == DMibExpr(0u));
+							TCPromise<bool> OwnLoopActive;
+							Manager.f_DispatchToQueue
+								(
+									EPriority_NormalHighCPU
+									, 0
+									, [OwnLoopActive, pManager = &Manager](CConcurrencyThreadLocal &_ThreadLocal)
+									{
+										OwnLoopActive.f_SetResult(pManager->f_GetThreadIoLoop() == pManager->f_GetQueueIoLoop(EPriority_NormalHighCPU, 0));
+									}
+								)
+							;
+							DMibExpectTrue(OwnLoopActive.f_Future().f_CallSync());
 						}
-					};
+
+						Subscription->f_Destroy().f_CallSync();
+						fg_Move(Actor).f_Destroy().f_CallSync();
+						Manager.f_BlockOnDestroy();
+					}
+				};
+			};
+			DMibTestSuite("ReadInput")
+			{
+				NMib::NThread::CMutual InputLock;
+				NMib::NStr::CStr Input;
+				auto fCreateParams = [&](bool _bExclusive = false)
+					{
+						auto Params = CStdInReaderParams::fs_Create
+							(
+								[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
+								{
+									DMibLock(InputLock);
+									Input += _Input;
+								}
+							)
+						;
+						if (_bExclusive)
+							Params.m_Flags |= EStdInReaderFlag_Exclusive;
+						return NMib::fg_Move(Params);
+					}
+				;
+
+				{
+					CStdInReader Reader0(fCreateParams());
+					CStdInReader Reader1(fCreateParams());
+				}
+				auto fCreateNormal = [&]
+					{
+						CStdInReader Reader1(fCreateParams());
+					}
+				;
+				auto fCreateExclusive = [&]
+					{
+						CStdInReader Reader1(fCreateParams(true));
+					}
+				;
+				{
+					DMibTestPath("Shared");
+					CStdInReader Reader0(fCreateParams());
+					DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
+					DMibTest(DMibExpr(TCThrowsException<>()) == DMibLExpr(fCreateNormal()));
+				}
+				{
+					DMibTestPath("Exclusive");
+					CStdInReader Reader0(fCreateParams(true));
+					DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateExclusive()));
+					DMibTest(DMibExpr(TCThrowsException<NMib::NException::CException>()) == DMibLExpr(fCreateNormal()));
 				}
 			};
-		}
 
-		void f_DoTests()
-		{
-			f_TestStdIn();
-		}
-	};
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			{
+				DMibTestCategory("Process redirection")
+				{
+					DMibTestSuite("Level2")
+					{
+						NMib::NThread::CEvent Event;
+						NMib::NThread::CMutual InputLock;
+						NMib::NStr::CStr Input0;
+						CStdInReaderParams Params0 = CStdInReaderParams::fs_Create
+							(
+								[&](EStdInReaderOutputType _Type, NMib::NStr::CStr const &_Input)
+								{
+									DMibLock(InputLock);
+									Input0 += _Input;
+
+									if (Input0.f_Find("\r") >= 0 || Input0.f_Find("\n") >= 0)
+									{
+										Input0 = Input0.f_Trim();
+										Event.f_SetSignaled();
+									}
+								}
+							)
+						;
+
+						CStdInReader Reader0(NMib::fg_Move(Params0));
+
+						if (Event.f_WaitTimeout(10.0))
+							DMibConOut("Timed out waiting for std input. Current input: {}", Input0);
+						else
+							DMibConOutRaw(Input0);
+					};
+				};
+			}
+			else
+			{
+				DMibTestSuite("Process redirection")
+				{
+					//--test "Malterlib/StdIn/*/Process redirection/Level2" --logger Null --filter-results ["All"] --process-recursive
+					//--test Malterlib/StdIn* --filter-results ["All"]
+					EExitResult Exited = EExitResult_None;
+					uint32 ExitCode = 66;
+					NMib::NThread::CMutual Lock;
+					NMib::NStr::CStr StdOut;
+					NMib::NProcess::CProcessLaunchParams Params = fs_GetLaunchParams("Level2");
+					NMib::NProcess::CProcessLaunch *pLauncher = nullptr;
+
+					NMib::NStr::CStr RandomString = NMib::NCryptography::fg_GetRandomUuidString() + NMib::NStr::CWStr(str_utf16("日本語"));
+
+					NMib::NStorage::TCUniquePointer<NMib::NThread::CThreadObject> pThreadObject;
+
+					Params.m_fOnStateChange = [&](NMib::NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+						{
+							switch (_State.f_GetTypeID())
+							{
+							case NMib::NProcess::EProcessLaunchState_Exited:
+								{
+									NMib::fg_Volatile(Exited) = EExitResult_Exited;
+									NMib::fg_Volatile(ExitCode) = _State.f_Get<NMib::NProcess::EProcessLaunchState_Exited>();
+								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_LaunchFailed:
+								{
+									NMib::fg_Volatile(Exited) = EExitResult_NotLaunched;
+									DMibConErrOut("Error: {}\r\n", _State.f_Get<NMib::NProcess::EProcessLaunchState_LaunchFailed>());
+								}
+								break;
+							case NMib::NProcess::EProcessLaunchState_Launched:
+								{
+									pThreadObject = NMib::NThread::CThreadObject::fs_StartThread
+										(
+											[&](NMib::NThread::CThreadObject *_pThread) -> aint
+											{
+												NMib::NSys::fg_Thread_Sleep(0.5);
+												{
+													DMibLock(Lock);
+													pLauncher->f_SendStdIn(RandomString);
+													pLauncher->f_SendStdIn("\n");
+												}
+
+												return 0;
+											}
+											, "TestThread"
+										)
+									;
+								}
+								break;
+							}
+						}
+					;
+
+					Params.m_fOnOutput = [&](NMib::NProcess::EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+						{
+							if (_OutputType == NMib::NProcess::EProcessLaunchOutputType_StdOut)
+								StdOut += _Output;
+							else
+								DMibConErrOut("Unexpected output: {}\r\n", _Output);
+						}
+					;
+
+					{
+						Lock.f_Lock();
+						NMib::NProcess::CProcessLaunch Launcher(Params, NMib::NProcess::EProcessLaunchCloseFlag_BlockOnExit);
+						pLauncher = &Launcher;
+						Lock.f_Unlock();
+					}
+
+					{
+						DMibTestPath("Block on exit");
+						DMibTest(DMibExpr(Exited) == DMibExpr(EExitResult_Exited));
+						DMibTest(DMibExpr(StdOut) == DMibExpr(RandomString));
+						DMibTest(DMibExpr(ExitCode) == DMibExpr(0u));
+					}
+				};
+			}
+		};
+	}
+
+	void CStdIn_Tests::f_DoTests()
+	{
+		f_TestStdIn();
+	}
 
 	DMibTestRegister(CStdIn_Tests, Malterlib::Process);
 }

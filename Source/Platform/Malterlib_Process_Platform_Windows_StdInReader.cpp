@@ -15,20 +15,22 @@ namespace NMib::NProcess::NPlatform
 {
 	struct CWindowsStdInReader
 	{
-		CWindowsStdInReader(NMib::NProcess::CStdInReaderParams &&_Params)
-			: m_pParams(fg_Construct(fg_Move(_Params)))
-		{
-		}
-
-		CWindowsStdInReader()
-		{
-		}
-
+		CWindowsStdInReader(NMib::NProcess::CStdInReaderParams &&_Params);
+		CWindowsStdInReader();
 		~CWindowsStdInReader();
 
 		NStorage::TCSharedPointer<NMib::NProcess::CStdInReaderParams> m_pParams;
 		DMibListLinkDS_Link(CWindowsStdInReader, m_Link);
 	};
+
+	CWindowsStdInReader::CWindowsStdInReader(NMib::NProcess::CStdInReaderParams &&_Params)
+		: m_pParams(fg_Construct(fg_Move(_Params)))
+	{
+	}
+
+	CWindowsStdInReader::CWindowsStdInReader()
+	{
+	}
 
 	// Subscriptions that outlive the reader are unlinked and no longer receive callbacks.
 	struct CWindowsScreenChangeSubscriber
@@ -43,123 +45,15 @@ namespace NMib::NProcess::NPlatform
 	// Console records are drained on the owning I/O loop. Pipe input uses a cancellable blocking read on a dedicated thread.
 	struct CWindowsStdInReaderImplementation : public NMib::NThread::CThread
 	{
-		CWindowsStdInReaderImplementation()
-			: mp_pStdInFile(GetStdHandle(STD_INPUT_HANDLE))
-		{
-		}
+		CWindowsStdInReaderImplementation();
+		~CWindowsStdInReaderImplementation();
 
-		~CWindowsStdInReaderImplementation()
-		{
-			DMibFastCheck(!mp_pRegistration);
-			DMibFastCheck(m_ScreenChangeSubscribers.f_IsEmpty());
-
-			if (m_bIsPipe)
-			{
-				// Cancellation between reads is lost; retry until the read thread observes shutdown.
-				f_Stop(false);
-				while (f_GetState() >= NThread::EThreadState_Running)
-				{
-					NLocal::g_OptionalFunctions.m_fCancelSynchronousIo(f_GetThread());
-					NLocal::g_OptionalFunctions.m_fCancelIoEx(mp_pStdInFile, nullptr);
-					NSys::fg_Thread_SmallestSleep();
-				}
-				f_Stop(true);
-			}
-
-			if (m_bConsoleModeSaved)
-				SetConsoleMode(mp_pStdInFile, m_OldConsoleMode);
-		}
-
-		// Reapplies the console mode from the union of all registered readers' flags; must be
-		// called with the subsystem lock held whenever the reader set changes
-		void f_UpdateConsoleMode()
-		{
-			if (!m_bConsoleModeSaved)
-				return;
-
-			mp_Translator.m_bVirtualTerminalInput = false;
-			for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
-			{
-				if (iReader->m_pParams->m_Flags & EStdInReaderFlag_VirtualTerminalInput)
-					mp_Translator.m_bVirtualTerminalInput = true;
-			}
-
-			// Raw records bypass line editing and echo. Preserve processed input so Ctrl+C retains the caller's control-event policy.
-			DWORD NewConsoleMode = (m_OldConsoleMode & ~DWORD(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT)) | DWORD(ENABLE_WINDOW_INPUT);
-			if (mp_Translator.m_bVirtualTerminalInput)
-				NewConsoleMode |= ENABLE_MOUSE_INPUT;
-
-			SetConsoleMode(mp_pStdInFile, NewConsoleMode);
-		}
-
-		bool f_NeedsIoLoop() const
-		{
-			return mp_pStdInFile && GetFileType(mp_pStdInFile) == FILE_TYPE_CHAR;
-		}
-
-		void f_Init(NSys::ICIoLoop *_pLoop)
-		{
-			if (!mp_pStdInFile)
-				return;
-
-			auto HandleType = GetFileType(mp_pStdInFile);
-			if (HandleType == FILE_TYPE_CHAR)
-			{
-				m_bIsChar = true;
-
-				mp_pLoop = _pLoop;
-				if (!mp_pLoop)
-					DMibError("No io loop is available to read the console on");
-
-				return;
-			}
-
-			if (HandleType == FILE_TYPE_PIPE)
-			{
-				m_bIsPipe = true;
-
-				return;
-			}
-
-			DMibError("Stdin handle is not of a supported type (char or pipe)");
-		}
-
-		// Callable from any thread after earlier removals finish. Pipe readers use their own thread and need no registration.
-		void f_Register()
-		{
-			if (m_bIsPipe)
-			{
-				f_Start();
-				return;
-			}
-
-			if (!m_bIsChar)
-				return;
-
-			DMibFastCheck(!mp_pRegistration);
-
-			m_bConsoleModeSaved = GetConsoleMode(mp_pStdInFile, &m_OldConsoleMode) != 0;
-			f_UpdateConsoleMode();
-
-			NSys::CIoLoopRegisterOptions Options;
-			Options.m_bWaitableHandle = true;
-
-			mp_pRegistration = mp_pLoop->f_Register((NSys::CIoLoopHandle)(umint)mp_pStdInFile, this, NSys::EIoLoopEvent::mc_Read, &fsp_OnConsoleSignaled, false, Options);
-		}
-
-		// Transfers the registration to its closer; null when not registered.
-		NSys::CIoLoopRegistration *f_TakeRegistration()
-		{
-			auto *pRegistration = mp_pRegistration;
-			mp_pRegistration = nullptr;
-
-			return pRegistration;
-		}
-
-		NSys::ICIoLoop *f_GetLoop() const
-		{
-			return mp_pLoop;
-		}
+		void f_UpdateConsoleMode();
+		bool f_NeedsIoLoop() const;
+		void f_Init(NSys::ICIoLoop *_pLoop);
+		void f_Register();
+		NSys::CIoLoopRegistration *f_TakeRegistration();
+		NSys::ICIoLoop *f_GetLoop() const;
 
 		DMibListLinkDS_List(CWindowsStdInReader, m_Link) m_Readers;
 		DMibListLinkDS_List(CWindowsScreenChangeSubscriber, m_Link) m_ScreenChangeSubscribers;
@@ -169,133 +63,15 @@ namespace NMib::NProcess::NPlatform
 		bool m_bIsChar = false;
 
 	private:
-		NMib::NStr::CStr f_GetThreadName() override
-		{
-			return "Stdin reader";
-		}
+		NMib::NStr::CStr f_GetThreadName() override;
+		aint f_Main() override;
 
-		aint f_Main() override
-		{
-			while (f_GetState() != NMib::NThread::EThreadState_EventWantQuit)
-			{
-				// Wait for explicit shutdown after EOF or error.
-				if (!fp_ReadPipe())
-					m_EventWantQuit.f_Wait();
-			}
-
-			return 0;
-		}
-
-		static void fsp_OnConsoleSignaled(void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
-		{
-			static_cast<CWindowsStdInReaderImplementation *>(_pToken)->fp_OnConsoleSignaled(_Events, _Error);
-		}
-
+		static void fsp_OnConsoleSignaled(void *_pToken, NSys::EIoLoopEvent _Events, int _Error);
 		void fp_OnConsoleSignaled(NSys::EIoLoopEvent _Events, int _Error);
 
-		// ReadConsoleW can block on textless events, so drain raw records instead.
-		// Coalesce text and report the final screen size once per batch.
-		void fp_ReadConsole()
-		{
-			CWStr Text;
-			bool bScreenChanged = false;
-
-			while (true)
-			{
-				DWORD nAvailable = 0;
-				if (!GetNumberOfConsoleInputEvents(mp_pStdInFile, &nAvailable))
-				{
-					mp_bFinished = true;
-					fp_SendToReaders(EStdInReaderOutputType_GeneralError, "GetNumberOfConsoleInputEvents failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
-					break;
-				}
-
-				if (!nAvailable)
-					break;
-
-				mp_Records.f_SetLen(nAvailable);
-
-				DWORD nRead = 0;
-				if (!ReadConsoleInputW(mp_pStdInFile, mp_Records.f_GetArray(), nAvailable, &nRead))
-				{
-					mp_bFinished = true;
-					fp_SendToReaders(EStdInReaderOutputType_GeneralError, "ReadConsoleInputW failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
-					break;
-				}
-
-				for (DWORD iRecord = 0; iRecord < nRead; ++iRecord)
-				{
-					auto const &Record = mp_Records[iRecord];
-					switch (Record.EventType)
-					{
-					case KEY_EVENT: mp_Translator.f_TranslateKey(Record.Event.KeyEvent, Text); break;
-
-					case MOUSE_EVENT: mp_Translator.f_TranslateMouse(Record.Event.MouseEvent, Text); break;
-
-					case WINDOW_BUFFER_SIZE_EVENT: bScreenChanged = true; break;
-
-					default: break;
-					}
-				}
-			}
-
-			if (!Text.f_IsEmpty())
-			{
-				CStrIO Utf8(Text);
-				NContainer::CIOByteVector Bytes;
-				Bytes.f_Insert((uint8 const *)Utf8.f_GetStr(), Utf8.f_GetLen());
-				fp_SendToReaders(EStdInReaderOutputType_StdIn, Bytes);
-			}
-
-			if (bScreenChanged)
-				fp_NotifyScreenChange();
-		}
-
+		void fp_ReadConsole();
 		void fp_NotifyScreenChange();
-
-		// Blocking reads on the dedicated reader thread.
-		// Returns false after EOF, an error, or shutdown cancellation.
-		bool fp_ReadPipe()
-		{
-			bool bRet = true;
-
-			if (mp_StdInReadBuffer.f_IsEmpty())
-				mp_StdInReadBuffer.f_SetLen(gc_StdInReadChunkBytes);
-
-			while (true)
-			{
-				DWORD nBytesRead = 0;
-				if (!ReadFile(mp_pStdInFile, mp_StdInReadBuffer.f_GetArray(), gc_StdInReadChunkBytes, &nBytesRead, nullptr))
-				{
-					DWORD ErrorCode = GetLastError();
-
-					if (ErrorCode == ERROR_OPERATION_ABORTED)
-						return false; // The reader is closing; nobody is left to tell
-
-					if (ErrorCode == ERROR_BROKEN_PIPE || ErrorCode == ERROR_NO_DATA || ErrorCode == ERROR_HANDLE_EOF)
-						fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
-					else
-						fp_SendToReaders(EStdInReaderOutputType_GeneralError, "ReadFile failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(ErrorCode));
-					bRet = false;
-				}
-				else
-				{
-					if (nBytesRead)
-						fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
-					else
-					{
-						// nBytesRead == 0 also means EOF
-						fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
-						bRet = false;
-					}
-				}
-
-				if (nBytesRead != gc_StdInReadChunkBytes)
-					break;
-			}
-
-			return bRet;
-		}
+		bool fp_ReadPipe();
 
 		void fp_SendToReaders(EStdInReaderOutputType _Type, NStr::CStrIO const &_String);
 		void fp_SendToReaders(NMib::NProcess::EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Buffer);
@@ -311,39 +87,254 @@ namespace NMib::NProcess::NPlatform
 		bool mp_bFinished = false; // A console error was reported; do not request further input.
 	};
 
-	struct CSubSystem_Process_Platform_Windows_StdInReader : public CSubSystem
+	CWindowsStdInReaderImplementation::CWindowsStdInReaderImplementation()
+		: mp_pStdInFile(GetStdHandle(STD_INPUT_HANDLE))
 	{
-		// Runs after removal acknowledgement; registers a pending reader only when no old registrations remain.
-		void f_OnClosed()
+	}
+
+	CWindowsStdInReaderImplementation::~CWindowsStdInReaderImplementation()
+	{
+		DMibFastCheck(!mp_pRegistration);
+		DMibFastCheck(m_ScreenChangeSubscribers.f_IsEmpty());
+
+		if (m_bIsPipe)
 		{
-			if (m_bWasDestroyed.f_Load())
-				return;
-
-			DMibLock(m_StdInReaderImpLock);
-			--m_nClosing;
-			if (m_nClosing || !m_bRegistrationPending)
-				return;
-
-			m_bRegistrationPending = false;
-			m_pStdInReaderImp->f_Register();
-		}
-
-		void f_DestroyThreadSpecific() override
-		{
-			DMibLock(m_StdInReaderImpLock);
-			DMibFastCheck(m_pStdInReaderImp.f_IsEmpty());
-			m_pStdInReaderImp.f_Clear();
-		}
-
-		~CSubSystem_Process_Platform_Windows_StdInReader()
-		{
+			// Cancellation between reads is lost; retry until the read thread observes shutdown.
+			f_Stop(false);
+			while (f_GetState() >= NThread::EThreadState_Running)
 			{
-				DMibLock(m_StdInReaderImpLock);
-				DMibFastCheck(m_pStdInReaderImp.f_IsEmpty());
+				NLocal::g_OptionalFunctions.m_fCancelSynchronousIo(f_GetThread());
+				NLocal::g_OptionalFunctions.m_fCancelIoEx(mp_pStdInFile, nullptr);
+				NSys::fg_Thread_SmallestSleep();
+			}
+			f_Stop(true);
+		}
+
+		if (m_bConsoleModeSaved)
+			SetConsoleMode(mp_pStdInFile, m_OldConsoleMode);
+	}
+
+	// Reapplies the console mode from the union of all registered readers' flags; must be
+	// called with the subsystem lock held whenever the reader set changes
+	void CWindowsStdInReaderImplementation::f_UpdateConsoleMode()
+	{
+		if (!m_bConsoleModeSaved)
+			return;
+
+		mp_Translator.m_bVirtualTerminalInput = false;
+		for (auto iReader = m_Readers.f_GetIterator(); iReader; ++iReader)
+		{
+			if (iReader->m_pParams->m_Flags & EStdInReaderFlag_VirtualTerminalInput)
+				mp_Translator.m_bVirtualTerminalInput = true;
+		}
+
+		// Raw records bypass line editing and echo. Preserve processed input so Ctrl+C retains the caller's control-event policy.
+		DWORD NewConsoleMode = (m_OldConsoleMode & ~DWORD(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT)) | DWORD(ENABLE_WINDOW_INPUT);
+		if (mp_Translator.m_bVirtualTerminalInput)
+			NewConsoleMode |= ENABLE_MOUSE_INPUT;
+
+		SetConsoleMode(mp_pStdInFile, NewConsoleMode);
+	}
+
+	bool CWindowsStdInReaderImplementation::f_NeedsIoLoop() const
+	{
+		return mp_pStdInFile && GetFileType(mp_pStdInFile) == FILE_TYPE_CHAR;
+	}
+
+	void CWindowsStdInReaderImplementation::f_Init(NSys::ICIoLoop *_pLoop)
+	{
+		if (!mp_pStdInFile)
+			return;
+
+		auto HandleType = GetFileType(mp_pStdInFile);
+		if (HandleType == FILE_TYPE_CHAR)
+		{
+			m_bIsChar = true;
+
+			mp_pLoop = _pLoop;
+			if (!mp_pLoop)
+				DMibError("No io loop is available to read the console on");
+
+			return;
+		}
+
+		if (HandleType == FILE_TYPE_PIPE)
+		{
+			m_bIsPipe = true;
+
+			return;
+		}
+
+		DMibError("Stdin handle is not of a supported type (char or pipe)");
+	}
+
+	// Callable from any thread after earlier removals finish. Pipe readers use their own thread and need no registration.
+	void CWindowsStdInReaderImplementation::f_Register()
+	{
+		if (m_bIsPipe)
+		{
+			f_Start();
+			return;
+		}
+
+		if (!m_bIsChar)
+			return;
+
+		DMibFastCheck(!mp_pRegistration);
+
+		m_bConsoleModeSaved = GetConsoleMode(mp_pStdInFile, &m_OldConsoleMode) != 0;
+		f_UpdateConsoleMode();
+
+		NSys::CIoLoopRegisterOptions Options;
+		Options.m_bWaitableHandle = true;
+
+		mp_pRegistration = mp_pLoop->f_Register((NSys::CIoLoopHandle)(umint)mp_pStdInFile, this, NSys::EIoLoopEvent::mc_Read, &fsp_OnConsoleSignaled, false, Options);
+	}
+
+	// Transfers the registration to its closer; null when not registered.
+	NSys::CIoLoopRegistration *CWindowsStdInReaderImplementation::f_TakeRegistration()
+	{
+		auto *pRegistration = mp_pRegistration;
+		mp_pRegistration = nullptr;
+
+		return pRegistration;
+	}
+
+	NSys::ICIoLoop *CWindowsStdInReaderImplementation::f_GetLoop() const
+	{
+		return mp_pLoop;
+	}
+
+	NMib::NStr::CStr CWindowsStdInReaderImplementation::f_GetThreadName()
+	{
+		return "Stdin reader";
+	}
+
+	aint CWindowsStdInReaderImplementation::f_Main()
+	{
+		while (f_GetState() != NMib::NThread::EThreadState_EventWantQuit)
+		{
+			// Wait for explicit shutdown after EOF or error.
+			if (!fp_ReadPipe())
+				m_EventWantQuit.f_Wait();
+		}
+
+		return 0;
+	}
+
+	void CWindowsStdInReaderImplementation::fsp_OnConsoleSignaled(void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
+	{
+		static_cast<CWindowsStdInReaderImplementation *>(_pToken)->fp_OnConsoleSignaled(_Events, _Error);
+	}
+
+	// ReadConsoleW can block on textless events, so drain raw records instead.
+	// Coalesce text and report the final screen size once per batch.
+	void CWindowsStdInReaderImplementation::fp_ReadConsole()
+	{
+		CWStr Text;
+		bool bScreenChanged = false;
+
+		while (true)
+		{
+			DWORD nAvailable = 0;
+			if (!GetNumberOfConsoleInputEvents(mp_pStdInFile, &nAvailable))
+			{
+				mp_bFinished = true;
+				fp_SendToReaders(EStdInReaderOutputType_GeneralError, "GetNumberOfConsoleInputEvents failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
+				break;
 			}
 
-			m_bWasDestroyed.f_Store(true);
+			if (!nAvailable)
+				break;
+
+			mp_Records.f_SetLen(nAvailable);
+
+			DWORD nRead = 0;
+			if (!ReadConsoleInputW(mp_pStdInFile, mp_Records.f_GetArray(), nAvailable, &nRead))
+			{
+				mp_bFinished = true;
+				fp_SendToReaders(EStdInReaderOutputType_GeneralError, "ReadConsoleInputW failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(GetLastError()));
+				break;
+			}
+
+			for (DWORD iRecord = 0; iRecord < nRead; ++iRecord)
+			{
+				auto const &Record = mp_Records[iRecord];
+				switch (Record.EventType)
+				{
+				case KEY_EVENT: mp_Translator.f_TranslateKey(Record.Event.KeyEvent, Text); break;
+
+				case MOUSE_EVENT: mp_Translator.f_TranslateMouse(Record.Event.MouseEvent, Text); break;
+
+				case WINDOW_BUFFER_SIZE_EVENT: bScreenChanged = true; break;
+
+				default: break;
+				}
+			}
 		}
+
+		if (!Text.f_IsEmpty())
+		{
+			CStrIO Utf8(Text);
+			NContainer::CIOByteVector Bytes;
+			Bytes.f_Insert((uint8 const *)Utf8.f_GetStr(), Utf8.f_GetLen());
+			fp_SendToReaders(EStdInReaderOutputType_StdIn, Bytes);
+		}
+
+		if (bScreenChanged)
+			fp_NotifyScreenChange();
+	}
+
+	// Blocking reads on the dedicated reader thread.
+	// Returns false after EOF, an error, or shutdown cancellation.
+	bool CWindowsStdInReaderImplementation::fp_ReadPipe()
+	{
+		bool bRet = true;
+
+		if (mp_StdInReadBuffer.f_IsEmpty())
+			mp_StdInReadBuffer.f_SetLen(gc_StdInReadChunkBytes);
+
+		while (true)
+		{
+			DWORD nBytesRead = 0;
+			if (!ReadFile(mp_pStdInFile, mp_StdInReadBuffer.f_GetArray(), gc_StdInReadChunkBytes, &nBytesRead, nullptr))
+			{
+				DWORD ErrorCode = GetLastError();
+
+				if (ErrorCode == ERROR_OPERATION_ABORTED)
+					return false; // The reader is closing; nobody is left to tell
+
+				if (ErrorCode == ERROR_BROKEN_PIPE || ErrorCode == ERROR_NO_DATA || ErrorCode == ERROR_HANDLE_EOF)
+					fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
+				else
+					fp_SendToReaders(EStdInReaderOutputType_GeneralError, "ReadFile failed: {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr(ErrorCode));
+				bRet = false;
+			}
+			else
+			{
+				if (nBytesRead)
+					fp_SendToReaders(EStdInReaderOutputType_StdIn, NContainer::CIOByteVector(mp_StdInReadBuffer.f_GetArray(), nBytesRead));
+				else
+				{
+					// nBytesRead == 0 also means EOF
+					fp_SendToReaders(EStdInReaderOutputType_EndOfFile, "End of file");
+					bRet = false;
+				}
+			}
+
+			if (nBytesRead != gc_StdInReadChunkBytes)
+				break;
+		}
+
+		return bRet;
+	}
+
+	struct CSubSystem_Process_Platform_Windows_StdInReader : public CSubSystem
+	{
+		~CSubSystem_Process_Platform_Windows_StdInReader();
+
+		void f_OnClosed();
+		void f_DestroyThreadSpecific() override;
 
 		NThread::CMutual m_StdInReaderImpLock;
 		NMib::NStorage::TCUniquePointer<CWindowsStdInReaderImplementation> m_pStdInReaderImp;
@@ -353,6 +344,38 @@ namespace NMib::NProcess::NPlatform
 		NAtomic::TCAtomic<bool> m_bWasDestroyed; // Lets late deregistration callbacks skip registration after subsystem destruction.
 		bool m_bRegistrationPending = false;
 	};
+
+	CSubSystem_Process_Platform_Windows_StdInReader::~CSubSystem_Process_Platform_Windows_StdInReader()
+	{
+		{
+			DMibLock(m_StdInReaderImpLock);
+			DMibFastCheck(m_pStdInReaderImp.f_IsEmpty());
+		}
+
+		m_bWasDestroyed.f_Store(true);
+	}
+
+	// Runs after removal acknowledgement; registers a pending reader only when no old registrations remain.
+	void CSubSystem_Process_Platform_Windows_StdInReader::f_OnClosed()
+	{
+		if (m_bWasDestroyed.f_Load())
+			return;
+
+		DMibLock(m_StdInReaderImpLock);
+		--m_nClosing;
+		if (m_nClosing || !m_bRegistrationPending)
+			return;
+
+		m_bRegistrationPending = false;
+		m_pStdInReaderImp->f_Register();
+	}
+
+	void CSubSystem_Process_Platform_Windows_StdInReader::f_DestroyThreadSpecific()
+	{
+		DMibLock(m_StdInReaderImpLock);
+		DMibFastCheck(m_pStdInReaderImp.f_IsEmpty());
+		m_pStdInReaderImp.f_Clear();
+	}
 
 	constinit TCSubSystem<CSubSystem_Process_Platform_Windows_StdInReader, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform_Windows_StdInReader = {DAggregateInit};
 

@@ -31,11 +31,6 @@ namespace NMib::NProcess
 		CStdInReaderParams &operator = (CStdInReaderParams const &_From) = delete;
 		CStdInReaderParams &operator = (CStdInReaderParams &&_From);
 
-		EStdInReaderFlag m_Flags;
-		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> m_fOnReceiveInput;
-		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)> m_fOnReceiveBinaryInput;
-		NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_fFunctor)> m_fDispatcher;
-
 		static auto fs_Create
 			(
 				NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> &&_fOnReceiveInput
@@ -52,6 +47,11 @@ namespace NMib::NProcess
 			)
 			-> CStdInReaderParams
 		;
+
+		EStdInReaderFlag m_Flags;
+		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NStr::CStrIO const &_Input)> m_fOnReceiveInput;
+		NFunction::TCFunctionMovable<void (EStdInReaderOutputType _Type, NContainer::CIOByteVector const &_Input, NStr::CStr const &_Error)> m_fOnReceiveBinaryInput;
+		NFunction::TCFunctionMovable<void (NFunction::TCFunctionMovable<void ()> &&_fFunctor)> m_fDispatcher;
 	};
 
 	struct CStdInReaderPromptParams
@@ -73,8 +73,9 @@ namespace NMib::NProcess
 		CStdInReader(CStdInReader const &_Other) = delete;
 		CStdInReader &operator = (CStdInReader const &_Other) = delete;
 
-		void *mp_pStdInReader;
 		void fp_CheckOpen() const;
+
+		void *mp_pStdInReader;
 	};
 
 	COnScopeExitShared fg_StdInReader_RegisterScreenChange(NFunction::TCFunction<void (NSys::CConsoleProperties const &_ConsoleProperties)> &&_fOnScreenChange);
@@ -83,19 +84,18 @@ namespace NMib::NProcess
 	{
 		using CPromptParams = CStdInReaderPromptParams;
 
+		CBlockingStdInReader();
+		~CBlockingStdInReader();
+		NStr::CStr f_ReadLine();
+		NStr::CStr f_TryReadLine();
+		bool f_ReadPrompt(CPromptParams const &_Params, NStr::CStr &_Result);
+
 	private:
 		NThread::CMutual mp_Lock;
 		NStr::CStr mp_Buffer;
 		NStr::CStr mp_Errors;
 		NThread::CEventAutoReset mp_Event;
 		NStorage::TCUniquePointer<CStdInReader> mp_pStdInReader;
-
-	public:
-		CBlockingStdInReader();
-		~CBlockingStdInReader();
-		NStr::CStr f_ReadLine();
-		NStr::CStr f_TryReadLine();
-		bool f_ReadPrompt(CPromptParams const &_Params, NStr::CStr &_Result);
 	};
 }
 
