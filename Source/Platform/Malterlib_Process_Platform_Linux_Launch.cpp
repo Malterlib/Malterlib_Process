@@ -180,6 +180,18 @@ auto NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot
 		{
 		}
 
+		void f_Output(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
+		{
+			if (m_fOnOutputBinary && (_OutputType == EProcessLaunchOutputType_StdOut || _OutputType == EProcessLaunchOutputType_StdErr))
+			{
+				NContainer::CIOByteVector Output;
+				Output.f_Insert((uint8 const *)_Output.f_GetStr(), _Output.f_GetLen());
+				m_fOnOutputBinary(_OutputType, Output);
+			}
+			else if (m_fOnOutput)
+				m_fOnOutput(_OutputType, _Output);
+		}
+
 		NMib::NProcess::NPlatform::CPOSIXLaunchContext *m_pLaunchContext;
 		NContainer::TCVector<CLaunchOutput> m_LaunchOutputs;
 		NStr::CStr m_QueuedStdOut;
@@ -195,18 +207,6 @@ auto NMib::NProcess::NPlatform::fg_Linux_LaunchExecutableWithRoot
 		NFunction::TCFunctionMovable<void (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)> m_fOnOutputBinary;
 
 		NMib::NThread::CMutual m_Lock;
-
-		void f_Output(EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-		{
-			if (m_fOnOutputBinary && (_OutputType == EProcessLaunchOutputType_StdOut || _OutputType == EProcessLaunchOutputType_StdErr))
-			{
-				NContainer::CIOByteVector Output;
-				Output.f_Insert((uint8 const *)_Output.f_GetStr(), _Output.f_GetLen());
-				m_fOnOutputBinary(_OutputType, Output);
-			}
-			else if (m_fOnOutput)
-				m_fOnOutput(_OutputType, _Output);
-		}
 
 		void *m_pLaunchedProcess;
 	};

@@ -14,15 +14,13 @@ namespace NMib::NProcess
 {
 	struct CStdInActor : public NConcurrency::CActor
 	{
-		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
+		using FOnInput = NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (EStdInReaderOutputType _Type, NStr::CStrIO _Input)>;
+		using FOnBinaryInput = NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (EStdInReaderOutputType _Type, NContainer::CIOByteVector _Input, NStr::CStr _Error)>;
 
 		CStdInActor();
 		~CStdInActor();
 
-		using FOnInput = NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (EStdInReaderOutputType _Type, NStr::CStrIO _Input)>;
 		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_RegisterForInput(FOnInput _fOnInput, EStdInReaderFlag _Flags, umint _MaxSize);
-
-		using FOnBinaryInput = NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (EStdInReaderOutputType _Type, NContainer::CIOByteVector _Input, NStr::CStr _Error)>;
 		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_RegisterForInputBinary(FOnBinaryInput _fOnInput, EStdInReaderFlag _Flags, umint _MaxSize);
 
 		NConcurrency::TCFuture<NContainer::CIOByteVector> f_ReadBinary();
@@ -31,10 +29,12 @@ namespace NMib::NProcess
 
 		void f_AbortReads();
 
-	private:
-		NConcurrency::TCFuture<void> fp_Destroy() override;
+		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
 
+	private:
 		struct CInternal;
+
+		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};

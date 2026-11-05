@@ -11,18 +11,20 @@ namespace NMib::NProcess::NPlatform
 {
 	struct CSubSystem_Process_Platform_POSIX_LaunchLimiter : public CSubSystem
 	{
+		CSharedLimiter f_GetCpuLimiter(NStr::CStr const &_ProcessGroup, fp32 _CPUUsage, pid_t _ProcessID);
+
 		NThread::CMutual m_LaunchLimitersLock;
 		NContainer::TCMap<NStr::CStr, CProcessLaunchLimiter> m_LaunchLimiters;
-
-		CSharedLimiter f_GetCpuLimiter(NStr::CStr const &_ProcessGroup, fp32 _CPUUsage, pid_t _ProcessID)
-		{
-			DMibLock(m_LaunchLimitersLock);
-			auto Mapped = m_LaunchLimiters(_ProcessGroup, fg_Clamp(_CPUUsage, 0.001, 0.999));
-			auto &Ret = Mapped.f_GetResult();
-
-			return fg_Construct(&Ret, _ProcessID);
-		}
 	};
+
+	CSharedLimiter CSubSystem_Process_Platform_POSIX_LaunchLimiter::f_GetCpuLimiter(NStr::CStr const &_ProcessGroup, fp32 _CPUUsage, pid_t _ProcessID)
+	{
+		DMibLock(m_LaunchLimitersLock);
+		auto Mapped = m_LaunchLimiters(_ProcessGroup, fg_Clamp(_CPUUsage, 0.001, 0.999));
+		auto &Ret = Mapped.f_GetResult();
+
+		return fg_Construct(&Ret, _ProcessID);
+	}
 
 	constinit TCSubSystem<CSubSystem_Process_Platform_POSIX_LaunchLimiter, ESubSystemDestruction_BeforeMemoryManager> g_SubSystem_Process_Platform = {DAggregateInit};
 

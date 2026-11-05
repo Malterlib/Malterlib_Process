@@ -21,121 +21,128 @@ namespace
 
 	struct CTrackedLaunch : CVirtualProcessLaunch_Default
 	{
-		CTrackedLaunch(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _Flags, CLaunchLifetime *_pLifetime)
-			: CVirtualProcessLaunch_Default(_Params, _Flags)
-			, m_pLifetime(_pLifetime)
-		{
-		}
+		CTrackedLaunch(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _Flags, CLaunchLifetime *_pLifetime);
+		~CTrackedLaunch() override;
 
-		~CTrackedLaunch() override
-		{
-			++m_pLifetime->m_nDestroyed;
-		}
-
-		void f_Close(EProcessLaunchCloseFlag _Flags) override
-		{
-			++m_pLifetime->m_nClosed;
-			m_pLifetime->m_bJoined = (_Flags & EProcessLaunchCloseFlag_BlockOnExit) != 0;
-
-			CVirtualProcessLaunch_Default::f_Close(_Flags);
-		}
+		void f_Close(EProcessLaunchCloseFlag _Flags) override;
 
 		CLaunchLifetime *m_pLifetime;
 	};
 
+	CTrackedLaunch::CTrackedLaunch(CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _Flags, CLaunchLifetime *_pLifetime)
+		: CVirtualProcessLaunch_Default(_Params, _Flags)
+		, m_pLifetime(_pLifetime)
+	{
+	}
+
+	CTrackedLaunch::~CTrackedLaunch()
+	{
+		++m_pLifetime->m_nDestroyed;
+	}
+
+	void CTrackedLaunch::f_Close(EProcessLaunchCloseFlag _Flags)
+	{
+		++m_pLifetime->m_nClosed;
+		m_pLifetime->m_bJoined = (_Flags & EProcessLaunchCloseFlag_BlockOnExit) != 0;
+
+		CVirtualProcessLaunch_Default::f_Close(_Flags);
+	}
+
 	struct CReapLaunches_Tests : NTest::CTest
 	{
-		void f_DoTests()
+		void f_DoTests();
+	};
+
+	void CReapLaunches_Tests::f_DoTests()
+	{
+		DMibTestSuite("Lifecycle")
 		{
-			DMibTestSuite("Lifecycle")
+			for (bool bFail : {false, true})
 			{
-				for (bool bFail : {false, true})
+				DMibTestPath(bFail ? "LaunchFailed" : "Exited");
+
+				CLaunchLifetime Lifetime;
+				NContainer::TCThreadSafeQueue<NFunction::TCFunction<void ()>> Dispatch;
+				NThread::CEventAutoReset Changed;
+				CProcessLaunchHandler Handler;
+				auto Cleanup = g_OnScopeExit / [&]
+					{
+						Handler.f_TerminateAll(true);
+					}
+				;
+
+				bool bCompleted = false;
+				bool bLaunchFailed = false;
+				CProcessLaunchParams Params;
+				Params.m_Target = bFail ? NFile::CFile::fs_GetProgramDirectory() / "missing-reap-test-executable" : NFile::CFile::fs_GetProgramPath();
+				Params.m_Parameters = "--std-out-exit 0";
+				Params.m_fDispatcher = [&](NFunction::TCFunction<void ()> const &_fFunction)
+					{
+						Dispatch.f_Push(_fFunction);
+						Changed.f_Signal();
+					}
+				;
+
+				Params.m_fOnStateChange = [&](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						if (_State.f_GetTypeID() == EProcessLaunchState_Exited || _State.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
+						{
+							bLaunchFailed = _State.f_GetTypeID() == EProcessLaunchState_LaunchFailed;
+							bCompleted = true;
+						}
+					}
+				;
+
+				Handler.f_AddLaunch
+					(
+						Params
+						, false
+						, [&](CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _Flags) -> NStorage::TCUniquePointer<CVirtualProcessLaunch>
+						{
+							return fg_Construct<CTrackedLaunch>(_Params, _Flags, &Lifetime);
+						}
+					)
+				;
+
 				{
-					DMibTestPath(bFail ? "LaunchFailed" : "Exited");
-
-					CLaunchLifetime Lifetime;
-					NContainer::TCThreadSafeQueue<NFunction::TCFunction<void ()>> Dispatch;
-					NThread::CEventAutoReset Changed;
-					CProcessLaunchHandler Handler;
-					auto Cleanup = g_OnScopeExit / [&]
-						{
-							Handler.f_TerminateAll(true);
-						}
-					;
-
-					bool bCompleted = false;
-					bool bLaunchFailed = false;
-					CProcessLaunchParams Params;
-					Params.m_Target = bFail ? NFile::CFile::fs_GetProgramDirectory() / "missing-reap-test-executable" : NFile::CFile::fs_GetProgramPath();
-					Params.m_Parameters = "--std-out-exit 0";
-					Params.m_fDispatcher = [&](NFunction::TCFunction<void ()> const &_fFunction)
-						{
-							Dispatch.f_Push(_fFunction);
-							Changed.f_Signal();
-						}
-					;
-
-					Params.m_fOnStateChange = [&](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
-						{
-							if (_State.f_GetTypeID() == EProcessLaunchState_Exited || _State.f_GetTypeID() == EProcessLaunchState_LaunchFailed)
-							{
-								bLaunchFailed = _State.f_GetTypeID() == EProcessLaunchState_LaunchFailed;
-								bCompleted = true;
-							}
-						}
-					;
-
-					Handler.f_AddLaunch
-						(
-							Params
-							, false
-							, [&](CProcessLaunchParams const &_Params, EProcessLaunchCloseFlag _Flags) -> NStorage::TCUniquePointer<CVirtualProcessLaunch>
-							{
-								return fg_Construct<CTrackedLaunch>(_Params, _Flags, &Lifetime);
-							}
-						)
-					;
-
-					{
-						DMibTestPath("PendingDispatch");
-
-						Handler.f_ReapCompleted();
-
-						DMibExpect(Lifetime.m_nDestroyed, ==, umint(0));
-					}
-
-					NTime::CStopwatch WaitTime(true);
-					while (!bCompleted && WaitTime.f_GetTime() < 30.0 * NTest::gc_TimeoutMultiplier)
-					{
-						while (auto Entry = Dispatch.f_Pop())
-							(*Entry)();
-
-						if (!bCompleted)
-							Changed.f_WaitTimeout(0.1);
-					}
-
-					DMibAssertTrue(bCompleted);
-					DMibExpect(bLaunchFailed, ==, bFail);
-					DMibExpect(Lifetime.m_nDestroyed, ==, umint(0));
+					DMibTestPath("PendingDispatch");
 
 					Handler.f_ReapCompleted();
 
-					DMibExpect(Lifetime.m_nClosed, ==, umint(1));
-					DMibExpectTrue(Lifetime.m_bJoined);
-					DMibExpect(Lifetime.m_nDestroyed, ==, umint(1));
-					DMibExpectTrue(Handler.f_GetFirstNotDone() == nullptr);
-
-					{
-						DMibTestPath("RepeatedReap");
-
-						Handler.f_ReapCompleted();
-
-						DMibExpect(Lifetime.m_nDestroyed, ==, umint(1));
-					}
+					DMibExpect(Lifetime.m_nDestroyed, ==, umint(0));
 				}
-			};
-		}
-	};
+
+				NTime::CStopwatch WaitTime(true);
+				while (!bCompleted && WaitTime.f_GetTime() < 30.0 * NTest::gc_TimeoutMultiplier)
+				{
+					while (auto Entry = Dispatch.f_Pop())
+						(*Entry)();
+
+					if (!bCompleted)
+						Changed.f_WaitTimeout(0.1);
+				}
+
+				DMibAssertTrue(bCompleted);
+				DMibExpect(bLaunchFailed, ==, bFail);
+				DMibExpect(Lifetime.m_nDestroyed, ==, umint(0));
+
+				Handler.f_ReapCompleted();
+
+				DMibExpect(Lifetime.m_nClosed, ==, umint(1));
+				DMibExpectTrue(Lifetime.m_bJoined);
+				DMibExpect(Lifetime.m_nDestroyed, ==, umint(1));
+				DMibExpectTrue(Handler.f_GetFirstNotDone() == nullptr);
+
+				{
+					DMibTestPath("RepeatedReap");
+
+					Handler.f_ReapCompleted();
+
+					DMibExpect(Lifetime.m_nDestroyed, ==, umint(1));
+				}
+			}
+		};
+	}
 }
 
 DMibTestRegister(CReapLaunches_Tests, Malterlib::Process);

@@ -11,31 +11,10 @@ namespace NMib::NProcess::NPlatform
 {
 	struct CProcessLaunchLimiter
 	{
-		NStorage::CIntrusiveRefCount m_RefCount;
-
-		NThread::CMutual m_ProcessIDsLock;
-		NContainer::TCSet<pid_t> m_ProcessIDs;
-		fp32 m_CPULimit;
-		bool m_bDidPause = false;
-
-		NTime::CStopwatch m_Stopwatch;
-		zfp64 m_LastUpdate;
-
-		NStorage::TCUniquePointer<NThread::CThreadObject> m_pUpdateThread;
-
 		struct CProcessEntry
 		{
-			DMibListLinkDS_Link(CProcessEntry, m_Link);
-			DMibListLinkDS_List(CProcessEntry, m_Link) m_Children;
-
-			NContainer::TCMap<pid_t, CProcessEntry> m_AllProcesses;
-
-			zuint64 m_StartTime;
-			zmint m_StartPause;
-
-			void *m_pPausedToken = nullptr;
-			bool m_bTouched = false;
-			bool m_bTriedTask = false;
+			CProcessEntry();
+			~CProcessEntry();
 
 			pid_t f_GetID() const;
 
@@ -48,11 +27,19 @@ namespace NMib::NProcess::NPlatform
 			bool f_UnPauseTree(NContainer::TCVector<CProcessEntry *> const &_Children);
 			void f_Touch();
 			void f_RemoveTouched();
-			CProcessEntry();
-			~CProcessEntry();
-		};
 
-		CProcessEntry m_RootEntry;
+			DMibListLinkDS_Link(CProcessEntry, m_Link);
+			DMibListLinkDS_List(CProcessEntry, m_Link) m_Children;
+
+			NContainer::TCMap<pid_t, CProcessEntry> m_AllProcesses;
+
+			zuint64 m_StartTime;
+			zmint m_StartPause;
+
+			void *m_pPausedToken = nullptr;
+			bool m_bTouched = false;
+			bool m_bTriedTask = false;
+		};
 
 		CProcessLaunchLimiter(fp32 _CPULimit);
 		~CProcessLaunchLimiter();
@@ -61,14 +48,29 @@ namespace NMib::NProcess::NPlatform
 
 		void f_AddPid(pid_t _Pid);
 		bool f_RemovePid(pid_t _Pid);
+
+		NStorage::CIntrusiveRefCount m_RefCount;
+
+		NThread::CMutual m_ProcessIDsLock;
+		NContainer::TCSet<pid_t> m_ProcessIDs;
+		fp32 m_CPULimit;
+		bool m_bDidPause = false;
+
+		NTime::CStopwatch m_Stopwatch;
+		zfp64 m_LastUpdate;
+
+		NStorage::TCUniquePointer<NThread::CThreadObject> m_pUpdateThread;
+
+		CProcessEntry m_RootEntry;
 	};
 
 	struct CCPULimiterRef
 	{
-		CProcessLaunchLimiter *m_pLimiter;
-		pid_t m_ProcessID;
 		CCPULimiterRef(CProcessLaunchLimiter *_pLimiter, pid_t _ProcessID);
 		~CCPULimiterRef();
+
+		CProcessLaunchLimiter *m_pLimiter;
+		pid_t m_ProcessID;
 	};
 
 	using CSharedLimiter = NStorage::TCSharedPointer<CCPULimiterRef>;

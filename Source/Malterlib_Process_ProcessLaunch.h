@@ -65,9 +65,6 @@ namespace NMib::NProcess
 
 	struct CProcessLimit
 	{
-		uint64 m_MaxValue = (~uint64(0)) - 1;
-		uint64 m_Value = (~uint64(0)) - 1;
-
 		void f_SetMaxUnlimited();
 		bool f_IsMaxUnlimited() const;
 		void f_SetMaxUnchaned();
@@ -81,6 +78,9 @@ namespace NMib::NProcess
 		void f_Feed(tf_CStream &_Stream) const;
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream);
+
+		uint64 m_MaxValue = (~uint64(0)) - 1;
+		uint64 m_Value = (~uint64(0)) - 1;
 	};
 
 	using CProcessLaunchStateChangeVariant = NStorage::TCStreamableVariant
@@ -94,6 +94,11 @@ namespace NMib::NProcess
 
 	struct CProcessLaunchParams
 	{
+		enum EProtocolVersion : uint32
+		{
+			EProtocolVersion_Current = 0x108
+		};
+
 		CProcessLaunchParams();
 		CProcessLaunchParams(NStr::CStr const &_WorkingDirectory);
 		CProcessLaunchParams(CProcessLaunchParams const &_From);
@@ -101,56 +106,6 @@ namespace NMib::NProcess
 
 		CProcessLaunchParams &operator = (CProcessLaunchParams const &_From);
 		CProcessLaunchParams &operator = (CProcessLaunchParams &&_From);
-
-		NMib::NStr::CStr m_Operation;    // The operation to do when opering a document
-		NMib::NStr::CStr m_Target;       // Can be executable or document depending on m_bLaunchDocument
-		NMib::NStr::CStr m_Parameters;
-		NMib::NStr::CStr m_WorkingDirectory;
-		NMib::NStr::CStr m_ProcessGroup; // Only if the group is not already created
-		NMib::NStr::CStr m_IconPath;     // Path to icon file used by prompt on macOS elevation
-		NMib::NStr::CStr m_Prompt;       // Prompt text to use on macOS elevation
-
-		NContainer::TCMap<NMib::NStr::CStr, NMib::NStr::CStr> m_SandboxRoots; // On unix use empty key for setting chroot, on windows use one remapping per drive
-
-		CSystemEnvironment m_Environment;
-
-		NContainer::TCMap<EProcessLimit, CProcessLimit> m_Limits;
-
-		EProcessLaunchType m_LaunchType = EProcessLaunchType_Executable;
-
-		EExecutionPriority m_LaunchPriority = EExecutionPriority_Default;
-
-		uint32 m_bMergeEnvironment:1 = true;
-		uint32 m_bEnableStdRedirection:1 = true;
-		uint32 m_bThreaded:1 = true;
-		uint32 m_bSeparateStdErr:1 = true;
-		uint32 m_bSandboxed:1 = false;
-		uint32 m_bCopyRootToSandbox:1 = true;
-		uint32 m_bShowLaunched:1 = true;
-		uint32 m_bAllowLaunchedInForeground:1 = true;
-		uint32 m_bAllowExecutableLocate:1 = false;
-		uint32 m_bDisplayBusyCursor:1 = false;
-		uint32 m_bStdOutPID:1 = false;
-		uint32 m_bMakeEffectiveUserReal:1 = false;
-		uint32 m_bMakeEffectiveGroupReal:1 = false;
-		uint32 m_bCreateNewProcessGroup:1 = false;
-		uint32 m_bForceFork:1 = false;
-		// Together with m_RunAsUser on macOS this will launch through "launchctl asuser" to provide the correct bootstrap namespace for things like XPC
-		uint32 m_bLaunchInUserSession:1 = true;
-
-		fp32 m_CPUUsage = 0.0f; // Percentage of available processing power to use.
-
-		EProcessLaunchElevation m_Elevation = EProcessLaunchElevation_None;
-		NStr::CStr m_RunAsUser;               // Only supported on unix and when running as root
-		NStr::CStrSecure m_RunAsUserPassword; // Only used for launches on Windows
-		NStr::CStr m_RunAsGroup;              // Only supported on unix and when running as root
-
-		NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
-
-		NFunction::TCFunction<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_fOnOutput;
-		// Stdout and stderr as read, in place of m_fOnOutput, which still gets the other output. Proxies carry output as text
-		NFunction::TCFunction<void (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)> m_fOnOutputBinary;
-		NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> m_fDispatcher;
 
 		static auto fs_LaunchDocument
 			(
@@ -204,15 +159,60 @@ namespace NMib::NProcess
 		static NContainer::TCVector<NStr::CStr> fs_ParseCommandLineUnix(NStr::CStr const &_CommandLine, NStr::CStr &o_Executable);
 		static NContainer::TCVector<NStr::CStr> fs_ParseCommandLineWindows(NStr::CStr const &_CommandLine, NStr::CStr &o_Executable);
 
-		enum EProtocolVersion : uint32
-		{
-			EProtocolVersion_Current = 0x108
-		};
-
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const;
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream);
+
+		NMib::NStr::CStr m_Operation;    // The operation to do when opering a document
+		NMib::NStr::CStr m_Target;       // Can be executable or document depending on m_bLaunchDocument
+		NMib::NStr::CStr m_Parameters;
+		NMib::NStr::CStr m_WorkingDirectory;
+		NMib::NStr::CStr m_ProcessGroup; // Only if the group is not already created
+		NMib::NStr::CStr m_IconPath;     // Path to icon file used by prompt on macOS elevation
+		NMib::NStr::CStr m_Prompt;       // Prompt text to use on macOS elevation
+
+		NContainer::TCMap<NMib::NStr::CStr, NMib::NStr::CStr> m_SandboxRoots; // On unix use empty key for setting chroot, on windows use one remapping per drive
+
+		CSystemEnvironment m_Environment;
+
+		NContainer::TCMap<EProcessLimit, CProcessLimit> m_Limits;
+
+		EProcessLaunchType m_LaunchType = EProcessLaunchType_Executable;
+
+		EExecutionPriority m_LaunchPriority = EExecutionPriority_Default;
+
+		uint32 m_bMergeEnvironment:1 = true;
+		uint32 m_bEnableStdRedirection:1 = true;
+		uint32 m_bThreaded:1 = true;
+		uint32 m_bSeparateStdErr:1 = true;
+		uint32 m_bSandboxed:1 = false;
+		uint32 m_bCopyRootToSandbox:1 = true;
+		uint32 m_bShowLaunched:1 = true;
+		uint32 m_bAllowLaunchedInForeground:1 = true;
+		uint32 m_bAllowExecutableLocate:1 = false;
+		uint32 m_bDisplayBusyCursor:1 = false;
+		uint32 m_bStdOutPID:1 = false;
+		uint32 m_bMakeEffectiveUserReal:1 = false;
+		uint32 m_bMakeEffectiveGroupReal:1 = false;
+		uint32 m_bCreateNewProcessGroup:1 = false;
+		uint32 m_bForceFork:1 = false;
+		// Together with m_RunAsUser on macOS this will launch through "launchctl asuser" to provide the correct bootstrap namespace for things like XPC
+		uint32 m_bLaunchInUserSession:1 = true;
+
+		fp32 m_CPUUsage = 0.0f; // Percentage of available processing power to use.
+
+		EProcessLaunchElevation m_Elevation = EProcessLaunchElevation_None;
+		NStr::CStr m_RunAsUser;               // Only supported on unix and when running as root
+		NStr::CStrSecure m_RunAsUserPassword; // Only used for launches on Windows
+		NStr::CStr m_RunAsGroup;              // Only supported on unix and when running as root
+
+		NFunction::TCFunction<void (CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)> m_fOnStateChange;
+
+		NFunction::TCFunction<void (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)> m_fOnOutput;
+		// Stdout and stderr as read, in place of m_fOnOutput, which still gets the other output. Proxies carry output as text
+		NFunction::TCFunction<void (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector const &_Output)> m_fOnOutputBinary;
+		NFunction::TCFunction<void (NFunction::TCFunction<void ()> const &_fFunctor)> m_fDispatcher;
 	};
 
 	struct CProcessLaunch
@@ -310,9 +310,10 @@ namespace NMib::NProcess
 		CProcessLaunch(CProcessLaunch const &_Other) = delete;
 		CProcessLaunch &operator = (CProcessLaunch const &_Other) = delete;
 
+		void fp_CheckOpen() const;
+
 		void *mp_pProcessLaunch;
 		EProcessLaunchCloseFlag mp_DestructFlags;
-		void fp_CheckOpen() const;
 	};
 }
 

@@ -59,13 +59,13 @@ namespace NMib::NProcess
 
 		struct CSimpleLaunchResult
 		{
-			uint32 m_ExitCode = TCLimitsInt<uint32>::mc_Max;
-			NContainer::TCVector<COutput> m_Output;
-
 			NStr::CStr f_GetStdOut() const;
 			NStr::CStr f_GetStdErr() const;
 			NStr::CStr f_GetErrorOut() const;
 			NStr::CStr f_GetCombinedOut() const;
+
+			uint32 m_ExitCode = TCLimitsInt<uint32>::mc_Max;
+			NContainer::TCVector<COutput> m_Output;
 		};
 
 		CProcessLaunchActor();

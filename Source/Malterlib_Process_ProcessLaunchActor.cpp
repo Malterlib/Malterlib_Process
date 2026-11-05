@@ -22,11 +22,6 @@ namespace NMib::NProcess
 	static NThread::CMutual gs_StdOutLogLock;
 	struct CProcessLaunchActor::CInternal : public NConcurrency::CActorInternal
 	{
-		NStorage::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
-		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CProcessLaunchStateChangeVariant _State, fp64 _TimeSinceStart)> m_fOnStateChange;
-		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr _Output)> m_fOnOutput;
-		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector _Output)> m_fOnOutputBinary;
-
 		struct CPendingStop
 		{
 			NFunction::TCFunctionMovable<void (uint32 _ExitCode)> m_fOnStop;
@@ -36,6 +31,12 @@ namespace NMib::NProcess
 		};
 
 		void f_Stop(EStop _Stop);
+		NConcurrency::TCFuture<void> f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> _fSend);
+
+		NStorage::TCSharedPointer<CProcessLaunch> m_pProcessLaunch;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CProcessLaunchStateChangeVariant _State, fp64 _TimeSinceStart)> m_fOnStateChange;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NMib::NStr::CStr _Output)> m_fOnOutput;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EProcessLaunchOutputType _OutputType, NContainer::CIOByteVector _Output)> m_fOnOutputBinary;
 
 		NContainer::TCLinkedList<CPendingStop> m_PendingProcessStops;
 
@@ -47,8 +48,6 @@ namespace NMib::NProcess
 		bool m_bProcessRunning = false;
 		bool m_bProcessExited = false;
 		bool m_bConstructed = false;
-
-		NConcurrency::TCFuture<void> f_RunBlocking(NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<CProcessLaunch> const &_pProcessLaunch)> _fSend);
 	};
 
 	CProcessLaunchActor::CProcessLaunchActor()
@@ -344,6 +343,11 @@ namespace NMib::NProcess
 
 		struct CState
 		{
+			~CState()
+			{
+				f_FlushOutput();
+			}
+
 #if (DMibSysLogSeverities) != 0
 			static NMib::NLog::CSysLogCatScope fs_LogScope(NStr::CStr const &_LogName)
 			{
@@ -355,11 +359,6 @@ namespace NMib::NProcess
 				return NMib::NLog::CSysLogCatScope{NMib::fg_GetSys()->f_GetLogger(), m_LogName};
 			}
 #endif
-
-			~CState()
-			{
-				f_FlushOutput();
-			}
 
 			void f_FlushOutput()
 			{

@@ -16,26 +16,24 @@ namespace NMib::NProcess
 	{
 		struct CInternal;
 
-	private:
-		NStorage::TCUniquePointer<CInternal> mp_pInternal;
-
-	public:
-		FVirtualProcessLaunchFactory f_GetFactory();
-
 		CProxiedLaunchClient(NMib::NProcess::CProcessLaunchParams const &_ServerLaunchParams, NFunction::TCFunction<void (NStr::CStr const &_Error)> const &_fOnError);
 		~CProxiedLaunchClient();
+
+		FVirtualProcessLaunchFactory f_GetFactory();
+
+	private:
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 
 	struct CProxiedLaunchServer
 	{
 		struct CInternal;
 
-	private:
-		NStorage::TCUniquePointer<CInternal> mp_pInternal;
-
-	public:
 		CProxiedLaunchServer();
 		~CProxiedLaunchServer();
+
+	private:
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 }
 

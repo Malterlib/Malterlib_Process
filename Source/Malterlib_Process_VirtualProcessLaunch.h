@@ -66,13 +66,13 @@ namespace NMib::NProcess
 	{
 		struct CLaunchInfo
 		{
-			friend struct CProcessLaunchHandler;
-
 			CLaunchInfo(CProcessLaunchParams const &_Params, FVirtualProcessLaunchFactory const &_fFactory);
 
 			CVirtualProcessLaunch *f_GetProcessLaunch() const;
 
 		private:
+			friend struct CProcessLaunchHandler;
+
 			enum class ECompletion : smint
 			{
 				mc_Running
@@ -80,15 +80,6 @@ namespace NMib::NProcess
 				, mc_CallbackFinished
 			};
 
-			CProcessLaunchParams mp_LaunchParams;
-			NStorage::TCUniquePointer<CVirtualProcessLaunch> mp_pProcessLaunch;
-			NAtomic::TCAtomic<ECompletion> mp_Completion;
-
-			FVirtualProcessLaunchFactory mp_fFactory;
-
-			bool fp_Lingering() const;
-
-			NThread::CMutual mp_DelayedOutputLock;
 			struct CDelayedOutput
 			{
 				NContainer::CIOByteVector m_BinaryOutput;
@@ -97,27 +88,19 @@ namespace NMib::NProcess
 				bool m_bBinary = false;
 			};
 
-			NContainer::TCLinkedList<CDelayedOutput> mp_DelayedOutput;
+			bool fp_Lingering() const;
 			void fp_Clear();
+
+			CProcessLaunchParams mp_LaunchParams;
+			NStorage::TCUniquePointer<CVirtualProcessLaunch> mp_pProcessLaunch;
+			NAtomic::TCAtomic<ECompletion> mp_Completion;
+
+			FVirtualProcessLaunchFactory mp_fFactory;
+
+			NThread::CMutual mp_DelayedOutputLock;
+			NContainer::TCLinkedList<CDelayedOutput> mp_DelayedOutput;
 		};
 
-	private:
-		NThread::CEventAutoReset mp_LaunchChanged;
-
-		NContainer::TCLinkedList<CLaunchInfo> mp_Launches;
-
-		struct CDestroyed
-		{
-			NStorage::CIntrusiveRefCount m_RefCount;
-
-			NThread::CMutual m_DestroyLock;
-			NAtomic::TCAtomic<smint> m_Destroyed;
-			CDestroyed();
-		};
-
-		NStorage::TCSharedPointer<CDestroyed> mp_pDestroyedNotification;
-
-	public:
 		CProcessLaunchHandler();
 		~CProcessLaunchHandler();
 
@@ -135,6 +118,23 @@ namespace NMib::NProcess
 		bool f_BlockOnExit(fp32 _Timeout = 0.0f, umint _nMaxRunning = 0, NContainer::TCVector<CProcessStatistics> *o_pMemoryStats = nullptr);
 		bool f_WaitForChange(fp32 _Timeout = 0.0f);
 		CLaunchInfo *f_GetFirstNotDone();
+
+	private:
+		struct CDestroyed
+		{
+			CDestroyed();
+
+			NStorage::CIntrusiveRefCount m_RefCount;
+
+			NThread::CMutual m_DestroyLock;
+			NAtomic::TCAtomic<smint> m_Destroyed;
+		};
+
+		NThread::CEventAutoReset mp_LaunchChanged;
+
+		NContainer::TCLinkedList<CLaunchInfo> mp_Launches;
+
+		NStorage::TCSharedPointer<CDestroyed> mp_pDestroyedNotification;
 	};
 }
 
