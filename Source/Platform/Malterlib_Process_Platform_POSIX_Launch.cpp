@@ -890,7 +890,7 @@ namespace NMib::NProcess::NPlatform
 
 #define DCallPosixSpawnApi(d_Function, d_Params, ...) fCallPosixSpawnApi(&d_Function, DMibStringize(d_Function), d_Params, __VA_ARGS__)
 
-					posix_spawn_file_actions_t SpawnFileActions; // NOLINT(malterlib-conceptual-prefix): a pointer on macOS but a struct on Linux
+					posix_spawn_file_actions_t SpawnFileActions;
 					DCallPosixSpawnApi(posix_spawn_file_actions_init, "", &SpawnFileActions);
 
 					auto Cleanup = g_OnScopeExit / [&]
@@ -917,7 +917,7 @@ namespace NMib::NProcess::NPlatform
 #endif
 					}
 
-					posix_spawnattr_t SpawnAttributes; // NOLINT(malterlib-conceptual-prefix): a pointer on macOS but a struct on Linux
+					posix_spawnattr_t SpawnAttributes;
 					DCallPosixSpawnApi(posix_spawnattr_init, "", &SpawnAttributes);
 
 					if (!bNeedsTwoPhaseSpawn && bCanSpawnGID && RunAsGroup != uid_t(-1))

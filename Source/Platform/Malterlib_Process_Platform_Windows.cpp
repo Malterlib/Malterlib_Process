@@ -237,12 +237,10 @@ auto NMib::NProcess::NPlatform::fg_Process_Enum(NProcess::EProcessInfoFlag _ToGe
 
 				if (_ToGet & EProcessInfoFlag_StartTime)
 				{
-					// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 					FILETIME CreateTime;
 					FILETIME ExitTime;
 					FILETIME KernelTime;
 					FILETIME UserTime;
-					// NOLINTEND(malterlib-conceptual-prefix)
 					if (GetProcessTimes(pThisProcess, &CreateTime, &ExitTime, &KernelTime, &UserTime))
 						NewProcess.m_StartTime = uint64(CreateTime.dwHighDateTime) << 32 | uint64(CreateTime.dwLowDateTime);
 				}
@@ -507,12 +505,10 @@ void NMib::NProcess::NPlatform::fg_Process_GetMemoryOverallStatistics(void *_pPr
 
 void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
-	// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 	FILETIME CreateTime1;
 	FILETIME ExitTime1;
 	FILETIME KernelTime1;
 	FILETIME UserTime1;
-	// NOLINTEND(malterlib-conceptual-prefix)
 
 	if (GetProcessTimes(_pProcess, &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
 	{
@@ -533,12 +529,10 @@ void NMib::NProcess::NPlatform::fg_Process_GetExecutionCurrentStatistics(void *_
 
 void NMib::NProcess::NPlatform::fg_Process_GetExecutionOverallStatistics(void *_pProcess, CProcessStatistics &_Stats)
 {
-	// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 	FILETIME CreateTime1;
 	FILETIME ExitTime1;
 	FILETIME KernelTime1;
 	FILETIME UserTime1;
-	// NOLINTEND(malterlib-conceptual-prefix)
 
 	if (GetProcessTimes(_pProcess, &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
 	{
