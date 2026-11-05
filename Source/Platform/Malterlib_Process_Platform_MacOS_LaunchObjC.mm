@@ -27,7 +27,7 @@ namespace NMib::NProcess::NPlatform
 
 		LSApplicationParameters Params;
 
-		FSRef ApplicationRef; // NOLINT(malterlib-conceptual-prefix): FSRef is a struct, which the check takes for a function type by its name
+		FSRef ApplicationRef;
 		Boolean bIsDirectory;
 		OSStatus Result = FSPathMakeRef((UInt8 const *)UTF8Target.f_GetStr(), &ApplicationRef, &bIsDirectory);
 		if (Result < 0)
@@ -200,7 +200,7 @@ namespace NMib::NProcess::NPlatform
 		{
 			NSString *pPath = NMib::NPlatform::fg_MacOS_GetString(Program);
 
-			FSRef AppRef; // NOLINT(malterlib-conceptual-prefix): FSRef is a struct, which the check takes for a function type by its name
+			FSRef AppRef;
 			if (FSPathMakeRef((UInt8 const *)[pPath fileSystemRepresentation], &AppRef, NULL) != noErr)
 				return false;
 

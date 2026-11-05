@@ -285,24 +285,20 @@ namespace NMib::NProcess::NPlatform
 							HANDLE pParentProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, ProcessEntry.th32ParentProcessID);
 							HANDLE pThisProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, ProcessEntry.th32ProcessID);
 
-							// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 							FILETIME CreateTime1;
 							FILETIME ExitTime1;
 							FILETIME KernelTime1;
 							FILETIME UserTime1;
-							// NOLINTEND(malterlib-conceptual-prefix)
 
 							NTime::CTime CreationTime;
 
 							if (GetProcessTimes(pThisProcess, &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
 								CreationTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(CreateTime1);
 
-							// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 							FILETIME CreateTime;
 							FILETIME ExitTime;
 							FILETIME KernelTime;
 							FILETIME UserTime;
-							// NOLINTEND(malterlib-conceptual-prefix)
 							if (GetProcessTimes(pParentProcess, &CreateTime, &ExitTime, &KernelTime, &UserTime))
 							{
 								if ((uint64 &)CreateTime1 >= (uint64 &)CreateTime)
@@ -357,12 +353,10 @@ namespace NMib::NProcess::NPlatform
 		protected:
 			struct COverallExecution
 			{
-				// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 				FILETIME m_CreateTime = {0};
 				FILETIME m_ExitTime = {0};
 				FILETIME m_KernelTime = {0};
 				FILETIME m_UserTime = {0};
-				// NOLINTEND(malterlib-conceptual-prefix)
 			};
 
 			NThread::CMutual mp_PipeLock;
@@ -3315,12 +3309,10 @@ NMib::NProcess::CProcessStatistics NMib::NProcess::NPlatform::fg_ProcessLaunch_G
 	CProcessStatistics Return;
 	if (pLaunch->f_GetChildProcess())
 	{
-		// NOLINTBEGIN(malterlib-conceptual-prefix): FILETIME is a struct, which the check takes for a function type by its name
 		FILETIME CreateTime1;
 		FILETIME ExitTime1;
 		FILETIME KernelTime1;
 		FILETIME UserTime1;
-		// NOLINTEND(malterlib-conceptual-prefix)
 		if (GetProcessTimes(pLaunch->f_GetChildProcess(), &CreateTime1, &ExitTime1, &KernelTime1, &UserTime1))
 		{
 			NTime::CTime CreateTime = NFile::NPlatform::fg_Win32_FileTimeToMalterlibTime(CreateTime1);
