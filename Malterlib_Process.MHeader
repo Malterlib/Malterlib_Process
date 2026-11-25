@@ -157,6 +157,38 @@ Property
 	MalterlibTestAutoAdd_Malterlib_Helper_Process: bool = false
 }
 
+%Target "Com_Test_Malterlib_Helper_Process_ExceptionPorts"
+{
+	!!PlatformFamily "macOS"
+
+	Property
+	{
+		MalterlibDisableMalterlib true
+		MalterlibEnableBreakpad false
+		MalterlibHelperTest true
+		MalterlibPostCopyProject "Tests"
+		MalterlibTargetNameType "BaseName"
+		ProductName "Malterlib Process Exception Ports Test Helper"
+	}
+	Target
+	{
+		BaseName "Test_Malterlib_Helper_Process_ExceptionPorts"
+		Type "ConsoleExecutable"
+		Group "Helpers"
+		LDFlags =+ "-nostdlib++"
+		// The static C++ sanitizer runtime throws std::bad_alloc and so needs the C++ ABI library this helper does not link
+		LDFlags =+ "-fno-sanitize-link-c++-runtime"
+	}
+	Compile
+	{
+		!!CompileDialect "C"
+		PrefixHeader undefined
+		DefaultHeaders "NoStdIncludeCxx"
+		DefaultLibraries "NoStdLibCxx"
+	}
+	%File "Test/Test_Malterlib_Process_ExceptionPortsHelper.c"
+}
+
 %Group "{Test}/{Malterlib_Process}"
 {
 	Property
@@ -203,6 +235,12 @@ Property
 	}
 	%Dependency "Dll_Test_Malterlib_Helper_Process"
 	{
+		Dependency.Link false
+		Dependency.Stage "Runtime"
+	}
+	%Dependency "Com_Test_Malterlib_Helper_Process_ExceptionPorts"
+	{
+		!!PlatformFamily "macOS"
 		Dependency.Link false
 		Dependency.Stage "Runtime"
 	}

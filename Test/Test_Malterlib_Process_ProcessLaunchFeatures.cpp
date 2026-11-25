@@ -14,6 +14,12 @@
 #	include <sys/resource.h>
 #endif
 
+#ifdef DPlatformFamily_macOS
+#	include <mach/mach.h>
+
+bool fg_MalterlibMallocOverride_Enabled();
+#endif
+
 namespace
 {
 	using namespace NMib;
@@ -48,6 +54,10 @@ namespace
 
 #ifndef DPlatformFamily_Windows
 		void f_TestLimits(bool _bForceFork);
+#endif
+
+#ifdef DPlatformFamily_macOS
+		void f_TestInheritedExceptionPorts();
 #endif
 
 		void f_DoTests();
@@ -540,6 +550,63 @@ namespace
 	}
 #endif
 
+#ifdef DPlatformFamily_macOS
+	// The helper runs this test with a port of its own as the EXC_BAD_ACCESS port, which the exception handler of the
+	// Malterlib memory manager replaces, so the launched helper reports what the handler gives children. The handler only
+	// exists with the malloc override; without it the helper's port is passed on unchanged.
+	void CProcessLaunchFeatures_Tests::f_TestInheritedExceptionPorts()
+	{
+		DMibTestSuite("Inherited Exception Ports")
+		{
+			CStr HelperPath = CFile::fs_GetProgramDirectory() / "Test_Malterlib_Helper_Process_ExceptionPorts";
+
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			{
+				DMibConOut("{}\n", CProcessLaunch::fs_LaunchTool(HelperPath, {"--report"}).f_Trim());
+				return;
+			}
+
+			CStr TestPath = fg_TestGetCurrentPath();
+			auto fReportedPort = [&](exception_behavior_t _Behavior) -> CStr
+				{
+					TCVector<CStr> Params =
+						{
+							"--spawn"
+							, "{}"_f << uint32(_Behavior)
+							, CFile::fs_GetProgramPath()
+							, "--test"
+							, TestPath
+							, "--process-recursive"
+							, "--logger"
+							, "Null"
+						}
+					;
+					Params.f_Insert(fs_GetTestGroups());
+
+					return CProcessLaunch::fs_LaunchTool(HelperPath, Params).f_Trim();
+				}
+			;
+
+			auto fInheritedPort = [](exception_behavior_t _Behavior) -> CStr
+				{
+					return "Port {} {}"_f << uint32(_Behavior) << MACHINE_THREAD_STATE;
+				}
+			;
+
+			{
+				DMibTestPath("Identity Behavior");
+				exception_behavior_t Behavior = EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES;
+				DMibExpect(fReportedPort(Behavior), ==, fg_MalterlibMallocOverride_Enabled() ? CStr("Null") : fInheritedPort(Behavior));
+			}
+			{
+				DMibTestPath("State Behavior");
+				exception_behavior_t Behavior = EXCEPTION_STATE | MACH_EXCEPTION_CODES;
+				DMibExpect(fReportedPort(Behavior), ==, fInheritedPort(Behavior));
+			}
+		};
+	}
+#endif
+
 	void CProcessLaunchFeatures_Tests::f_DoTests()
 	{
 		DMibTestCategory("No Fork")
@@ -552,6 +619,9 @@ namespace
 #ifndef DPlatformFamily_Windows
 			f_TestLimits(false);
 			f_TestCloseTreeHoldingOutput(false);
+#endif
+#ifdef DPlatformFamily_macOS
+			f_TestInheritedExceptionPorts();
 #endif
 		};
 
