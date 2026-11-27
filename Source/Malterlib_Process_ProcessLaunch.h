@@ -96,7 +96,7 @@ namespace NMib::NProcess
 	{
 		enum EProtocolVersion : uint32
 		{
-			EProtocolVersion_Current = 0x108
+			EProtocolVersion_Current = 0x109
 		};
 
 		CProcessLaunchParams();
@@ -199,6 +199,7 @@ namespace NMib::NProcess
 		uint32 m_bForceFork:1 = false;
 		// Together with m_RunAsUser on macOS this will launch through "launchctl asuser" to provide the correct bootstrap namespace for things like XPC
 		uint32 m_bLaunchInUserSession:1 = true;
+		uint32 m_bConsoleWithoutWindow:1 = false; // Windows: a console program that gets a console of its own gets one without a window
 
 		fp32 m_CPUUsage = 0.0f; // Percentage of available processing power to use.
 

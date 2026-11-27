@@ -10,7 +10,9 @@
 #include <Mib/Process/ProcessLaunchActor>
 #include <Mib/Concurrency/AsyncDestroy>
 
-#ifndef DPlatformFamily_Windows
+#ifdef DPlatformFamily_Windows
+#	include <Windows.h>
+#else
 #	include <sys/resource.h>
 #endif
 
@@ -41,6 +43,10 @@ namespace
 
 #ifndef DPlatformFamily_Windows
 		void f_TestCloseTreeHoldingOutput(bool _bForceFork);
+#endif
+
+#ifdef DPlatformFamily_Windows
+		void f_TestConsoleWithoutWindow();
 #endif
 
 		void f_TestRunAs();
@@ -336,6 +342,80 @@ namespace
 	}
 #endif
 
+#ifdef DPlatformFamily_Windows
+	void CProcessLaunchFeatures_Tests::f_TestConsoleWithoutWindow()
+	{
+		DMibTestSuite("Console Without Window") -> NConcurrency::TCFuture<void>
+		{
+			if (fg_TestReportFlags() & ETestReportFlag_ProcessRecursive)
+			{
+				if (fg_GetSys()->f_GetEnvironmentVariable("MibTestConsoleRole") == "Wait")
+				{
+					DMibConOut("Waiting\n");
+					NSys::fg_Thread_Sleep(60.0f);
+				}
+				else
+					DMibConOut("{} {}\n", GetConsoleCP() != 0 ? "Console" : "NoConsole", GetConsoleWindow() ? "Window" : "NoWindow");
+
+				co_return {};
+			}
+
+			TCVector<CStr> RecursiveLaunchParams = {"--test", fg_TestGetCurrentPath(), "--process-recursive", "--logger", "Null"};
+			RecursiveLaunchParams.f_Insert(fs_GetTestGroups());
+
+			{
+				DMibTestPath("Console");
+				CProcessLaunchParams LaunchParams;
+				LaunchParams.m_bConsoleWithoutWindow = true;
+
+				CStr Console = CProcessLaunch::fs_LaunchTool(CFile::fs_GetProgramPath(), RecursiveLaunchParams, LaunchParams).f_Trim();
+				DMibExpect(Console, ==, "Console NoWindow");
+			}
+
+			{
+				// The console is the child's own, so the stop cannot reach it with a console control event from the console of the test
+				DMibTestPath("Stop");
+
+				NConcurrency::TCActor<CProcessLaunchActor> LaunchActor = fg_Construct();
+				auto DestroyLaunchActor = co_await NConcurrency::fg_AsyncDestroy(LaunchActor);
+
+				CProcessLaunchActor::CLaunch Launch(CProcessLaunchParams::fs_LaunchExecutable(CFile::fs_GetProgramPath(), RecursiveLaunchParams, CFile::fs_GetCurrentDirectory(), nullptr));
+				Launch.m_Params.m_bCreateNewProcessGroup = true;
+				Launch.m_Params.m_bConsoleWithoutWindow = true;
+				Launch.m_Params.m_Environment["MibTestConsoleRole"] = "Wait";
+				Launch.m_DestructFlags |= EProcessLaunchCloseFlag_TerminateProcessTree;
+
+				NConcurrency::TCPromiseFuturePair<void> WaitingPromise;
+				Launch.m_Params.m_fOnOutput = [WaitingPromise = fg_Move(WaitingPromise.m_Promise)](EProcessLaunchOutputType _OutputType, CStr const &_Output)
+					{
+						if (_OutputType == EProcessLaunchOutputType_StdOut && _Output.f_Find("Waiting") >= 0 && !WaitingPromise.f_IsSet())
+							WaitingPromise.f_SetResult();
+					}
+				;
+
+				NConcurrency::TCPromiseFuturePair<uint32> ExitedPromise;
+				Launch.m_Params.m_fOnStateChange = [ExitedPromise = fg_Move(ExitedPromise.m_Promise)](CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+					{
+						if (_State.f_GetTypeID() == EProcessLaunchState_Exited)
+							ExitedPromise.f_SetResult(_State.f_Get<EProcessLaunchState_Exited>());
+					}
+				;
+
+				auto LaunchSubscription = co_await LaunchActor(&CProcessLaunchActor::f_Launch, fg_Move(Launch), NConcurrency::fg_CurrentActor());
+
+				co_await fg_Move(WaitingPromise.m_Future).f_Timeout(30.0, "Timed out waiting for the child to start waiting");
+
+				CStopwatch Stopwatch(true);
+				co_await LaunchActor(&CProcessLaunchActor::f_StopProcessGroup).f_Timeout(30.0, "Timed out stopping the child");
+				co_await fg_Move(ExitedPromise.m_Future).f_Timeout(30.0, "Timed out waiting for the child to exit");
+				DMibExpect(Stopwatch.f_GetTime(), <, 30.0);
+			}
+
+			co_return {};
+		};
+	}
+#endif
+
 	void CProcessLaunchFeatures_Tests::f_TestRunAs()
 	{
 		DMibTestSuite(CTestCategory("Run As") << CTestGroup("SuperUser"))
@@ -549,7 +629,9 @@ namespace
 			f_TestActorStopAfterExit();
 			f_TestActorDestroyAfterExit();
 			f_TestPriority(false);
-#ifndef DPlatformFamily_Windows
+#ifdef DPlatformFamily_Windows
+			f_TestConsoleWithoutWindow();
+#else
 			f_TestLimits(false);
 			f_TestCloseTreeHoldingOutput(false);
 #endif

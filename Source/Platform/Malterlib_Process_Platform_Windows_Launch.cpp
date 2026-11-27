@@ -741,7 +741,11 @@ namespace NMib::NProcess::NPlatform
 			if (!mp_LastLaunchOptions.m_bCreateNewProcessGroup && mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty())
 				DMibError("Cannot stop a process without m_bCreateNewProcessGroup set on Windows");
 
-			if (fg_GetSys()->f_IsDll() || (mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty() && GetConsoleWindow()))
+			// A console without a window is the child's own, and a console control event only reaches processes attached to the console of the
+			// caller
+			bool bSharesConsole = mp_LastLaunchOptions.m_RunAsUser.f_IsEmpty() && !mp_LastLaunchOptions.m_bConsoleWithoutWindow && GetConsoleWindow();
+
+			if (fg_GetSys()->f_IsDll() || bSharesConsole)
 			{
 				if (!GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, mp_ProcessID))
 					DMibError("Failed to send GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT): {}"_f << NMib::NPlatform::fg_Win32_GetLastErrorStr());
@@ -759,6 +763,7 @@ namespace NMib::NProcess::NPlatform
 			LaunchParams.m_RunAsUser = mp_LastLaunchOptions.m_RunAsUser;
 			LaunchParams.m_RunAsUserPassword = mp_LastLaunchOptions.m_RunAsUserPassword;
 			LaunchParams.m_bShowLaunched = false;
+			LaunchParams.m_bConsoleWithoutWindow = true;
 
 			if (!CProcessLaunch::fs_LaunchBlock(NFile::CFile::fs_GetProgramPath(), "", StdErr, StdOut, ExitCode, LaunchParams))
 				DMibError("Failed to launch self to signal stop for process: {}{}"_f << StdOut << StdErr);
@@ -1719,6 +1724,12 @@ namespace NMib::NProcess::NPlatform
 				{
 					StartupInfo.lpDesktop = fg_AutoConstCast(L"winsta0\\default");
 					CreateProcessFlags |= CREATE_NEW_CONSOLE;
+				}
+				else if (mp_LastLaunchOptions.m_bConsoleWithoutWindow)
+				{
+					// Without it a console program launched by a process without a console, such as a daemon, opens a console window that takes
+					// the focus. SW_HIDE would hide it too, but also the first window of a program with a user interface
+					CreateProcessFlags |= CREATE_NO_WINDOW;
 				}
 
 				if (mp_LastLaunchOptions.m_bDisplayBusyCursor)

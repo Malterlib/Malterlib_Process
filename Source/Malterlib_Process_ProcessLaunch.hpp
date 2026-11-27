@@ -70,6 +70,8 @@ namespace NMib::NProcess
 		_Stream << Temp;
 		Temp = m_bLaunchInUserSession;
 		_Stream << Temp;
+		Temp = m_bConsoleWithoutWindow;
+		_Stream << Temp;
 
 		_Stream << m_CPUUsage;
 		_Stream << m_Elevation;
@@ -149,6 +151,12 @@ namespace NMib::NProcess
 		{
 			_Stream >> Temp;
 			m_bLaunchInUserSession = Temp;
+		}
+
+		if (Version >= 0x109)
+		{
+			_Stream >> Temp;
+			m_bConsoleWithoutWindow = Temp;
 		}
 
 		_Stream >> m_CPUUsage;
