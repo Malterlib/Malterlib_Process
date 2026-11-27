@@ -7,4 +7,5 @@
 
 namespace NMib::NProcess::NPlatform
 {
+	NStr::CStr fg_ExpandEnvironmentVars(NStr::CStr const &_Path);
 }

@@ -243,29 +243,34 @@ namespace NMib::NProcess::NPlatform
 				Ret = fg_RemoveEscapeWinPath(Ret);
 			return Ret;
 		}
+	}
 
-		NStr::CStr fg_ExpandEnvironmentVars(NStr::CStr const &_Path)
+	// Replaces each component of _Path that names an environment variable, as %Name%, with its value. The other components are kept as they
+	// are spelled, spaces included
+	NStr::CStr fg_ExpandEnvironmentVars(NStr::CStr const &_Path)
+	{
+		NStr::CStr Path = _Path.f_ReplaceChar('\\', '/');
+		NStr::CStr RetPath;
+		while (!Path.f_IsEmpty())
 		{
-			NStr::CStr Path = _Path.f_ReplaceChar('\\', '/');
-			NStr::CStr RetPath;
-			while (!Path.f_IsEmpty())
+			NStr::CStr SubPath = fg_GetStrSepNoTrim(Path, "/");
+			if (SubPath.f_IsEmpty())
+				RetPath += "/";
+			else
 			{
-				NStr::CStr SubPath = fg_GetStrSep(Path, "/");
-				if (SubPath.f_IsEmpty())
-					RetPath += "/";
+				if (SubPath[0] == '%')
+					SubPath = fg_GetSys()->f_GetEnvironmentVariable(SubPath.f_Replace("%", ""));
+				if (!RetPath.f_IsEmpty() && RetPath[RetPath.f_GetLen() - 1] == '/')
+					RetPath += SubPath;
 				else
-				{
-					if (SubPath[0] == '%')
-						SubPath = fg_GetSys()->f_GetEnvironmentVariable(SubPath.f_Replace("%", ""));
-					if (!RetPath.f_IsEmpty() && RetPath[RetPath.f_GetLen() - 1] == '/')
-						RetPath += SubPath;
-					else
-						fg_AddStrSep(RetPath, SubPath, "/");
-				}
+					fg_AddStrSep(RetPath, SubPath, "/");
 			}
-			return RetPath;
 		}
+		return RetPath;
+	}
 
+	namespace
+	{
 		void fg_TerminateProcessTree(HANDLE _pProcess, NStr::CStr &_Log)
 		{
 			_Log += "\r\n\r\nProcess timed out and was killed along with any child processes:" DMibNewLine;

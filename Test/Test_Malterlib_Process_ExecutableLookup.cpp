@@ -5,6 +5,9 @@
 #include <Mib/File/File>
 #include <Mib/Process/ProcessLaunch>
 #include "../Source/Malterlib_Process_Platform.h"
+#ifdef DPlatformFamily_Windows
+#	include "../Source/Platform/Malterlib_Process_Platform_Windows_Launch.h"
+#endif
 
 namespace
 {
@@ -26,6 +29,18 @@ namespace
 	void CExecutableLookup_Tests::f_DoTests()
 	{
 #ifdef DPlatformFamily_Windows
+		// The program of a file association keeps the components of its path as they are spelled, spaces included
+		DMibTestSuite("ExpandEnvironmentVars")
+		{
+			using NMib::NProcess::NPlatform::fg_ExpandEnvironmentVars;
+
+			CStr SystemRoot = NMib::fg_GetSys()->f_GetEnvironmentVariable("SystemRoot");
+			DMibExpect(fg_ExpandEnvironmentVars("C:/ Leading/Trailing /File.exe"), ==, "C:/ Leading/Trailing /File.exe");
+			DMibExpect(fg_ExpandEnvironmentVars("C:\\Dir\\ \\File.exe"), ==, "C:/Dir/ /File.exe");
+			DMibExpect(fg_ExpandEnvironmentVars("%SystemRoot%/ Spaced/File.exe"), ==, SystemRoot + "/ Spaced/File.exe");
+			DMibExpect(fg_ExpandEnvironmentVars("C:/ %SystemRoot%/File.exe"), ==, "C:/ %SystemRoot%/File.exe");
+		};
+
 		DMibTestSuite("LongWindowsPath")
 		{
 			fp_TestLookup(true);
